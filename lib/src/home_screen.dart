@@ -28,6 +28,9 @@ class _HomeScreenState extends State<HomeScreen> {
   int _energy = _maxEnergy;
   int _affectionLevel = 1;
   int _affectionProgress = 0;
+  final int _strength = 1;
+  final int _intelligence = 1;
+  final int _endurance = 1;
 
   bool get _isExhausted => _energy <= 0;
 
@@ -132,72 +135,44 @@ class _HomeScreenState extends State<HomeScreen> {
 
   void _selectDestination(int index) {
     setState(() => _selectedDestination = index);
-    if (index == 1) {
-      _showReaction(const [
-        CharacterReaction(
-          emotion: NanheEmotion.calm,
-          nanheSpeech: '南河～',
-          meaning: '回忆功能之后才会开放。',
-        ),
-      ], consumesEnergy: false);
-    } else if (index == 2) {
-      _showSettings();
-    }
-  }
-
-  Future<void> _showSettings() {
-    return showModalBottomSheet<void>(
-      context: context,
-      showDragHandle: true,
-      backgroundColor: frost,
-      builder: (context) => const _SettingsSheet(),
-    );
   }
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      body: SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(16, 8, 16, 10),
-          child: Column(
-            children: [
-              _Header(
-                totalDaysTogether: _totalDaysTogether,
-                onSettings: _showSettings,
-              ),
-              const SizedBox(height: 8),
-              _CalendarCard(
-                season: _season,
-                year: _year,
-                month: _month,
-                day: _day,
-              ),
-              const SizedBox(height: 12),
-              Expanded(
-                child: _CharacterStage(
-                  reaction: _reaction,
-                  isReacting: _isReacting,
-                  moodLabel: _moodLabel,
-                  isExhausted: _isExhausted,
-                  affectionLevel: _affectionLevel,
-                  affectionProgress: _affectionProgress,
-                  energy: _energy,
-                  onTap: () => _showReaction(tapReactions),
-                ),
-              ),
-              const SizedBox(height: 12),
-              _ActionPanel(
-                isExhausted: _isExhausted,
-                onCall: () => _showReaction(callReactions),
-                onTalk: _openDialogue,
-                onObserve: _observe,
-                onSleep: _sleepUntilTomorrow,
-              ),
-            ],
-          ),
-        ),
+    final page = switch (_selectedDestination) {
+      1 => _StatusPage(
+        affectionLevel: _affectionLevel,
+        affectionProgress: _affectionProgress,
+        energy: _energy,
+        moodLabel: _moodLabel,
+        strength: _strength,
+        intelligence: _intelligence,
+        endurance: _endurance,
       ),
+      2 => const _SettingsPage(),
+      _ => _CompanionPage(
+        totalDaysTogether: _totalDaysTogether,
+        season: _season,
+        year: _year,
+        month: _month,
+        day: _day,
+        reaction: _reaction,
+        isReacting: _isReacting,
+        moodLabel: _moodLabel,
+        isExhausted: _isExhausted,
+        affectionLevel: _affectionLevel,
+        affectionProgress: _affectionProgress,
+        energy: _energy,
+        onCharacterTap: () => _showReaction(tapReactions),
+        onCall: () => _showReaction(callReactions),
+        onTalk: _openDialogue,
+        onObserve: _observe,
+        onSleep: _sleepUntilTomorrow,
+      ),
+    };
+
+    return Scaffold(
+      body: SafeArea(child: page),
       bottomNavigationBar: NavigationBar(
         selectedIndex: _selectedDestination,
         onDestinationSelected: _selectDestination,
@@ -208,9 +183,9 @@ class _HomeScreenState extends State<HomeScreen> {
             label: '陪伴',
           ),
           NavigationDestination(
-            icon: Icon(Icons.auto_stories_outlined),
-            selectedIcon: Icon(Icons.auto_stories_rounded),
-            label: '回忆',
+            icon: Icon(Icons.monitor_heart_outlined),
+            selectedIcon: Icon(Icons.monitor_heart_rounded),
+            label: '状态',
           ),
           NavigationDestination(icon: Icon(Icons.tune_rounded), label: '设置'),
         ],
@@ -219,11 +194,84 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 }
 
-class _Header extends StatelessWidget {
-  const _Header({required this.totalDaysTogether, required this.onSettings});
+class _CompanionPage extends StatelessWidget {
+  const _CompanionPage({
+    required this.totalDaysTogether,
+    required this.season,
+    required this.year,
+    required this.month,
+    required this.day,
+    required this.reaction,
+    required this.isReacting,
+    required this.moodLabel,
+    required this.isExhausted,
+    required this.affectionLevel,
+    required this.affectionProgress,
+    required this.energy,
+    required this.onCharacterTap,
+    required this.onCall,
+    required this.onTalk,
+    required this.onObserve,
+    required this.onSleep,
+  });
 
   final int totalDaysTogether;
-  final VoidCallback onSettings;
+  final String season;
+  final int year;
+  final int month;
+  final int day;
+  final CharacterReaction? reaction;
+  final bool isReacting;
+  final String moodLabel;
+  final bool isExhausted;
+  final int affectionLevel;
+  final int affectionProgress;
+  final int energy;
+  final VoidCallback onCharacterTap;
+  final VoidCallback onCall;
+  final VoidCallback onTalk;
+  final VoidCallback onObserve;
+  final VoidCallback onSleep;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 8, 16, 10),
+      child: Column(
+        children: [
+          _Header(totalDaysTogether: totalDaysTogether),
+          const SizedBox(height: 8),
+          _CalendarCard(season: season, year: year, month: month, day: day),
+          const SizedBox(height: 12),
+          Expanded(
+            child: _CharacterStage(
+              reaction: reaction,
+              isReacting: isReacting,
+              moodLabel: moodLabel,
+              affectionLevel: affectionLevel,
+              affectionProgress: affectionProgress,
+              energy: energy,
+              onTap: onCharacterTap,
+            ),
+          ),
+          const SizedBox(height: 12),
+          _ActionPanel(
+            isExhausted: isExhausted,
+            onCall: onCall,
+            onTalk: onTalk,
+            onObserve: onObserve,
+            onSleep: onSleep,
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _Header extends StatelessWidget {
+  const _Header({required this.totalDaysTogether});
+
+  final int totalDaysTogether;
 
   @override
   Widget build(BuildContext context) {
@@ -243,12 +291,6 @@ class _Header extends StatelessWidget {
                 ),
               ],
             ),
-          ),
-          IconButton.filledTonal(
-            key: const Key('settings-button'),
-            tooltip: '设置',
-            onPressed: onSettings,
-            icon: const Icon(Icons.settings_outlined),
           ),
         ],
       ),
@@ -299,7 +341,6 @@ class _CharacterStage extends StatelessWidget {
     required this.reaction,
     required this.isReacting,
     required this.moodLabel,
-    required this.isExhausted,
     required this.affectionLevel,
     required this.affectionProgress,
     required this.energy,
@@ -309,7 +350,6 @@ class _CharacterStage extends StatelessWidget {
   final CharacterReaction? reaction;
   final bool isReacting;
   final String moodLabel;
-  final bool isExhausted;
   final int affectionLevel;
   final int affectionProgress;
   final int energy;
@@ -560,6 +600,150 @@ class _ReactionBubble extends StatelessWidget {
   }
 }
 
+class _StatusPage extends StatelessWidget {
+  const _StatusPage({
+    required this.affectionLevel,
+    required this.affectionProgress,
+    required this.energy,
+    required this.moodLabel,
+    required this.strength,
+    required this.intelligence,
+    required this.endurance,
+  });
+
+  final int affectionLevel;
+  final int affectionProgress;
+  final int energy;
+  final String moodLabel;
+  final int strength;
+  final int intelligence;
+  final int endurance;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 16, 16, 10),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Text('状态', style: Theme.of(context).textTheme.headlineSmall),
+          const SizedBox(height: 12),
+          Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: frost,
+              borderRadius: BorderRadius.circular(24),
+              border: Border.all(color: const Color(0xFFD7E8FA)),
+            ),
+            child: Row(
+              children: [
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(24),
+                  child: Container(
+                    width: 74,
+                    height: 74,
+                    color: blueMist,
+                    child: Image.asset(
+                      'assets/images/mini_nanhe.png',
+                      fit: BoxFit.cover,
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 14),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        '迷你南河',
+                        style: Theme.of(context).textTheme.titleMedium,
+                      ),
+                      const SizedBox(height: 6),
+                      Text('迷你期', style: Theme.of(context).textTheme.bodySmall),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 14),
+          _StatusValueCard(
+            title: '基础数值',
+            children: [
+              _StatusValueRow(
+                label: '当前好感度',
+                value: 'Lv.$affectionLevel  $affectionProgress/100',
+              ),
+              _StatusValueRow(label: '当前体力', value: '$energy/$_maxEnergy'),
+              _StatusValueRow(label: '心情', value: moodLabel),
+              _StatusValueRow(label: '力量', value: '$strength'),
+              _StatusValueRow(label: '智力', value: '$intelligence'),
+              _StatusValueRow(label: '耐力', value: '$endurance'),
+            ],
+          ),
+          const SizedBox(height: 10),
+          Text(
+            '以后增加数值的功能可以放在这里。',
+            style: Theme.of(context).textTheme.bodySmall,
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _StatusValueCard extends StatelessWidget {
+  const _StatusValueCard({required this.title, required this.children});
+
+  final String title;
+  final List<Widget> children;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.fromLTRB(16, 14, 16, 8),
+      decoration: BoxDecoration(
+        color: frost,
+        borderRadius: BorderRadius.circular(24),
+        border: Border.all(color: const Color(0xFFD7E8FA)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Text(title, style: Theme.of(context).textTheme.titleMedium),
+          const SizedBox(height: 8),
+          ...children,
+        ],
+      ),
+    );
+  }
+}
+
+class _StatusValueRow extends StatelessWidget {
+  const _StatusValueRow({required this.label, required this.value});
+
+  final String label;
+  final String value;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 8),
+      child: Row(
+        children: [
+          Expanded(
+            child: Text(label, style: Theme.of(context).textTheme.bodyMedium),
+          ),
+          Text(
+            value,
+            style: const TextStyle(color: ink, fontWeight: FontWeight.w800),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
 class _ActionPanel extends StatelessWidget {
   const _ActionPanel({
     required this.isExhausted,
@@ -716,36 +900,32 @@ class _DialogueChoice extends StatelessWidget {
   }
 }
 
-class _SettingsSheet extends StatelessWidget {
-  const _SettingsSheet();
+class _SettingsPage extends StatelessWidget {
+  const _SettingsPage();
 
   @override
   Widget build(BuildContext context) {
-    return SafeArea(
-      top: false,
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(20, 4, 20, 24),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text('设置', style: Theme.of(context).textTheme.titleLarge),
-            const SizedBox(height: 16),
-            const ListTile(
-              contentPadding: EdgeInsets.zero,
-              leading: Icon(Icons.volume_up_outlined),
-              title: Text('音效'),
-              subtitle: Text('雏形阶段尚未加入声音'),
-              trailing: Switch(value: true, onChanged: null),
-            ),
-            const ListTile(
-              contentPadding: EdgeInsets.zero,
-              leading: Icon(Icons.save_outlined),
-              title: Text('本机存档'),
-              subtitle: Text('将在 EPIC 7 实作'),
-            ),
-          ],
-        ),
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 16, 16, 10),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text('设置', style: Theme.of(context).textTheme.headlineSmall),
+          const SizedBox(height: 16),
+          const ListTile(
+            contentPadding: EdgeInsets.zero,
+            leading: Icon(Icons.volume_up_outlined),
+            title: Text('音效'),
+            subtitle: Text('雏形阶段尚未加入声音'),
+            trailing: Switch(value: true, onChanged: null),
+          ),
+          const ListTile(
+            contentPadding: EdgeInsets.zero,
+            leading: Icon(Icons.save_outlined),
+            title: Text('本机存档'),
+            subtitle: Text('将在 EPIC 7 实作'),
+          ),
+        ],
       ),
     );
   }

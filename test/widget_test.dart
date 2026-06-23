@@ -3,11 +3,15 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:mini_nanhe/main.dart';
 
 void main() {
-  testWidgets('character status and primary interactions are available', (
+  testWidgets('companion page shows primary interactions and synced values', (
     tester,
   ) async {
     await tester.pumpWidget(const MiniNanheApp());
 
+    expect(find.text('陪伴'), findsOneWidget);
+    expect(find.text('状态'), findsOneWidget);
+    expect(find.text('设置'), findsOneWidget);
+    expect(find.text('回忆'), findsNothing);
     expect(find.text('迷你南河'), findsOneWidget);
     expect(find.text('呼唤'), findsOneWidget);
     expect(find.text('聊天'), findsOneWidget);
@@ -18,16 +22,25 @@ void main() {
     expect(find.text('0/100'), findsOneWidget);
     expect(find.text('50/50'), findsOneWidget);
     expect(find.text('☺ 平静'), findsOneWidget);
-    expect(find.text('♥ 亲近'), findsNothing);
-    expect(find.text('轻点角色，看看他现在想说什么'), findsNothing);
 
     await tester.tap(find.byKey(const Key('call-button')));
     await tester.pump(const Duration(milliseconds: 200));
 
     expect(find.text('49/50'), findsOneWidget);
     expect(find.text('3/100'), findsOneWidget);
-    expect(find.textContaining('南河'), findsWidgets);
-    expect(find.textContaining('（'), findsWidgets);
+
+    await tester.tap(find.text('状态'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('基础数值'), findsOneWidget);
+    expect(find.text('当前好感度'), findsOneWidget);
+    expect(find.text('Lv.1  3/100'), findsOneWidget);
+    expect(find.text('当前体力'), findsOneWidget);
+    expect(find.text('49/50'), findsOneWidget);
+    expect(find.text('心情'), findsOneWidget);
+    expect(find.text('力量'), findsOneWidget);
+    expect(find.text('智力'), findsOneWidget);
+    expect(find.text('耐力'), findsOneWidget);
   });
 
   testWidgets('chat opens dialogue choices', (tester) async {
