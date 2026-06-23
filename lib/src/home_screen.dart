@@ -34,6 +34,11 @@ class _HomeScreenState extends State<HomeScreen> {
 
   bool get _isExhausted => _energy <= 0;
 
+  NanheEmotion get _currentEmotion {
+    if (_isExhausted) return NanheEmotion.sleepy;
+    return _reaction?.emotion ?? NanheEmotion.calm;
+  }
+
   String get _season {
     if (_month >= 3 && _month <= 5) return '春';
     if (_month >= 6 && _month <= 8) return '夏';
@@ -42,14 +47,27 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   String get _moodLabel {
-    final emotion = _reaction?.emotion ?? NanheEmotion.calm;
-    return switch (emotion) {
+    return switch (_currentEmotion) {
       NanheEmotion.happy => '☺ 开心',
       NanheEmotion.affectionate => '♥ 亲近',
       NanheEmotion.curious => '? 好奇',
       NanheEmotion.sad => '… 低落',
       NanheEmotion.sleepy => '☾ 困了',
       NanheEmotion.calm => '☺ 平静',
+    };
+  }
+
+  String get _characterAsset {
+    return switch (_currentEmotion) {
+      NanheEmotion.happy => 'assets/images/nanhe_emotions/mini_nanhe_happy.png',
+      NanheEmotion.affectionate =>
+        'assets/images/nanhe_emotions/mini_nanhe_affectionate.png',
+      NanheEmotion.curious =>
+        'assets/images/nanhe_emotions/mini_nanhe_curious.png',
+      NanheEmotion.sleepy =>
+        'assets/images/nanhe_emotions/mini_nanhe_sleepy.png',
+      NanheEmotion.sad => 'assets/images/nanhe_emotions/mini_nanhe_sleepy.png',
+      NanheEmotion.calm => 'assets/images/nanhe_emotions/mini_nanhe_calm.png',
     };
   }
 
@@ -145,6 +163,7 @@ class _HomeScreenState extends State<HomeScreen> {
         affectionProgress: _affectionProgress,
         energy: _energy,
         moodLabel: _moodLabel,
+        characterAsset: _characterAsset,
         strength: _strength,
         intelligence: _intelligence,
         endurance: _endurance,
@@ -159,6 +178,7 @@ class _HomeScreenState extends State<HomeScreen> {
         reaction: _reaction,
         isReacting: _isReacting,
         moodLabel: _moodLabel,
+        characterAsset: _characterAsset,
         isExhausted: _isExhausted,
         affectionLevel: _affectionLevel,
         affectionProgress: _affectionProgress,
@@ -204,6 +224,7 @@ class _CompanionPage extends StatelessWidget {
     required this.reaction,
     required this.isReacting,
     required this.moodLabel,
+    required this.characterAsset,
     required this.isExhausted,
     required this.affectionLevel,
     required this.affectionProgress,
@@ -223,6 +244,7 @@ class _CompanionPage extends StatelessWidget {
   final CharacterReaction? reaction;
   final bool isReacting;
   final String moodLabel;
+  final String characterAsset;
   final bool isExhausted;
   final int affectionLevel;
   final int affectionProgress;
@@ -248,6 +270,7 @@ class _CompanionPage extends StatelessWidget {
               reaction: reaction,
               isReacting: isReacting,
               moodLabel: moodLabel,
+              characterAsset: characterAsset,
               affectionLevel: affectionLevel,
               affectionProgress: affectionProgress,
               energy: energy,
@@ -341,6 +364,7 @@ class _CharacterStage extends StatelessWidget {
     required this.reaction,
     required this.isReacting,
     required this.moodLabel,
+    required this.characterAsset,
     required this.affectionLevel,
     required this.affectionProgress,
     required this.energy,
@@ -350,6 +374,7 @@ class _CharacterStage extends StatelessWidget {
   final CharacterReaction? reaction;
   final bool isReacting;
   final String moodLabel;
+  final String characterAsset;
   final int affectionLevel;
   final int affectionProgress;
   final int energy;
@@ -413,7 +438,7 @@ class _CharacterStage extends StatelessWidget {
                               maxHeight: maxCharacterHeight,
                             ),
                             child: Image.asset(
-                              'assets/images/mini_nanhe_transparent.png',
+                              characterAsset,
                               fit: BoxFit.contain,
                             ),
                           ),
@@ -625,6 +650,7 @@ class _StatusPage extends StatelessWidget {
     required this.affectionProgress,
     required this.energy,
     required this.moodLabel,
+    required this.characterAsset,
     required this.strength,
     required this.intelligence,
     required this.endurance,
@@ -634,6 +660,7 @@ class _StatusPage extends StatelessWidget {
   final int affectionProgress;
   final int energy;
   final String moodLabel;
+  final String characterAsset;
   final int strength;
   final int intelligence;
   final int endurance;
@@ -662,10 +689,7 @@ class _StatusPage extends StatelessWidget {
                     width: 74,
                     height: 74,
                     color: blueMist,
-                    child: Image.asset(
-                      'assets/images/mini_nanhe_transparent.png',
-                      fit: BoxFit.cover,
-                    ),
+                    child: Image.asset(characterAsset, fit: BoxFit.cover),
                   ),
                 ),
                 const SizedBox(width: 14),
