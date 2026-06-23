@@ -7,6 +7,7 @@ import 'theme.dart';
 
 const _maxEnergy = 50;
 const _affectionGainPerInteraction = 3;
+const _affectionLossPerHit = 6;
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -35,8 +36,14 @@ class _HomeScreenState extends State<HomeScreen> {
   bool get _isExhausted => _energy <= 0;
 
   NanheEmotion get _currentEmotion {
-    if (_isExhausted) return NanheEmotion.sleepy;
-    return _reaction?.emotion ?? NanheEmotion.calm;
+    final emotion = _reaction?.emotion;
+    if (_isExhausted &&
+        emotion != NanheEmotion.sad &&
+        emotion != NanheEmotion.angry &&
+        emotion != NanheEmotion.frustrated) {
+      return NanheEmotion.sleepy;
+    }
+    return emotion ?? NanheEmotion.calm;
   }
 
   String get _season {
@@ -51,7 +58,9 @@ class _HomeScreenState extends State<HomeScreen> {
       NanheEmotion.happy => '☺ 开心',
       NanheEmotion.affectionate => '♥ 亲近',
       NanheEmotion.curious => '? 好奇',
-      NanheEmotion.sad => '… 低落',
+      NanheEmotion.sad => '☂ 伤心',
+      NanheEmotion.angry => '! 愤怒',
+      NanheEmotion.frustrated => '… 沮丧',
       NanheEmotion.sleepy => '☾ 困了',
       NanheEmotion.calm => '☺ 平静',
     };
@@ -66,7 +75,10 @@ class _HomeScreenState extends State<HomeScreen> {
         'assets/images/nanhe_emotions/mini_nanhe_curious.png',
       NanheEmotion.sleepy =>
         'assets/images/nanhe_emotions/mini_nanhe_sleepy.png',
-      NanheEmotion.sad => 'assets/images/nanhe_emotions/mini_nanhe_sleepy.png',
+      NanheEmotion.sad => 'assets/images/nanhe_emotions/mini_nanhe_sad.png',
+      NanheEmotion.angry => 'assets/images/nanhe_emotions/mini_nanhe_angry.png',
+      NanheEmotion.frustrated =>
+        'assets/images/nanhe_emotions/mini_nanhe_frustrated.png',
       NanheEmotion.calm => 'assets/images/nanhe_emotions/mini_nanhe_calm.png',
     };
   }
@@ -104,6 +116,36 @@ class _HomeScreenState extends State<HomeScreen> {
       _affectionLevel += 1;
       _affectionProgress -= 100;
     }
+  }
+
+  void _loseAffection(int amount) {
+    _affectionProgress -= amount;
+    while (_affectionProgress < 0 && _affectionLevel > 1) {
+      _affectionLevel -= 1;
+      _affectionProgress += 100;
+    }
+    if (_affectionLevel <= 1 && _affectionProgress < 0) {
+      _affectionLevel = 1;
+      _affectionProgress = 0;
+    }
+  }
+
+  void _showHitReaction() {
+    if (_isExhausted) {
+      setState(() => _reaction = exhaustedReaction);
+      return;
+    }
+
+    setState(() {
+      _energy -= 1;
+      _loseAffection(_affectionLossPerHit);
+      _reaction = hitReactions[_random.nextInt(hitReactions.length)];
+      _isReacting = true;
+    });
+
+    Future<void>.delayed(const Duration(milliseconds: 170), () {
+      if (mounted) setState(() => _isReacting = false);
+    });
   }
 
   void _advanceOneDay() {
@@ -183,10 +225,13 @@ class _HomeScreenState extends State<HomeScreen> {
         affectionLevel: _affectionLevel,
         affectionProgress: _affectionProgress,
         energy: _energy,
-        onCharacterTap: () => _showReaction(tapReactions),
-        onCall: () => _showReaction(callReactions),
-        onTalk: _openDialogue,
+        onCharacterTap: () => _showReaction(petReactions),
+        onChat: _openDialogue,
+        onPet: () => _showReaction(petReactions),
         onObserve: _observe,
+        onWalk: () => _showReaction(walkReactions),
+        onFeed: () => _showReaction(feedReactions),
+        onHit: _showHitReaction,
         onSleep: _sleepUntilTomorrow,
       ),
     };
@@ -230,9 +275,12 @@ class _CompanionPage extends StatelessWidget {
     required this.affectionProgress,
     required this.energy,
     required this.onCharacterTap,
-    required this.onCall,
-    required this.onTalk,
+    required this.onChat,
+    required this.onPet,
     required this.onObserve,
+    required this.onWalk,
+    required this.onFeed,
+    required this.onHit,
     required this.onSleep,
   });
 
@@ -250,9 +298,12 @@ class _CompanionPage extends StatelessWidget {
   final int affectionProgress;
   final int energy;
   final VoidCallback onCharacterTap;
-  final VoidCallback onCall;
-  final VoidCallback onTalk;
+  final VoidCallback onChat;
+  final VoidCallback onPet;
   final VoidCallback onObserve;
+  final VoidCallback onWalk;
+  final VoidCallback onFeed;
+  final VoidCallback onHit;
   final VoidCallback onSleep;
 
   @override
@@ -280,9 +331,12 @@ class _CompanionPage extends StatelessWidget {
           const SizedBox(height: 12),
           _ActionPanel(
             isExhausted: isExhausted,
-            onCall: onCall,
-            onTalk: onTalk,
+            onChat: onChat,
+            onPet: onPet,
             onObserve: onObserve,
+            onWalk: onWalk,
+            onFeed: onFeed,
+            onHit: onHit,
             onSleep: onSleep,
           ),
         ],
@@ -790,67 +844,94 @@ class _StatusValueRow extends StatelessWidget {
 class _ActionPanel extends StatelessWidget {
   const _ActionPanel({
     required this.isExhausted,
-    required this.onCall,
-    required this.onTalk,
+    required this.onChat,
+    required this.onPet,
     required this.onObserve,
+    required this.onWalk,
+    required this.onFeed,
+    required this.onHit,
     required this.onSleep,
   });
 
   final bool isExhausted;
-  final VoidCallback onCall;
-  final VoidCallback onTalk;
+  final VoidCallback onChat;
+  final VoidCallback onPet;
   final VoidCallback onObserve;
+  final VoidCallback onWalk;
+  final VoidCallback onFeed;
+  final VoidCallback onHit;
   final VoidCallback onSleep;
 
   @override
   Widget build(BuildContext context) {
+    if (isExhausted) {
+      return _ActionButton(
+        key: const Key('sleep-button'),
+        label: '睡觉',
+        emphasized: true,
+        onPressed: onSleep,
+      );
+    }
+
     return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Padding(
-          padding: EdgeInsets.only(left: 2, bottom: 8),
-          child: Text('想和他做什么？', style: TextStyle(fontWeight: FontWeight.w700)),
+        Row(
+          children: [
+            Expanded(
+              child: _ActionButton(
+                key: const Key('chat-button'),
+                label: '聊天',
+                emphasized: true,
+                onPressed: onChat,
+              ),
+            ),
+            const SizedBox(width: 8),
+            Expanded(
+              child: _ActionButton(
+                key: const Key('pet-button'),
+                label: '抚摸',
+                onPressed: onPet,
+              ),
+            ),
+            const SizedBox(width: 8),
+            Expanded(
+              child: _ActionButton(
+                key: const Key('observe-button'),
+                label: '观察',
+                onPressed: onObserve,
+              ),
+            ),
+          ],
         ),
-        if (isExhausted)
-          _ActionButton(
-            key: const Key('sleep-button'),
-            icon: Icons.bedtime_outlined,
-            label: '睡觉',
-            emphasized: true,
-            onPressed: onSleep,
-          )
-        else
-          Row(
-            children: [
-              Expanded(
-                child: _ActionButton(
-                  key: const Key('call-button'),
-                  icon: Icons.campaign_outlined,
-                  label: '呼唤',
-                  onPressed: onCall,
-                ),
+        const SizedBox(height: 8),
+        Row(
+          children: [
+            Expanded(
+              child: _ActionButton(
+                key: const Key('walk-button'),
+                label: '散步',
+                onPressed: onWalk,
               ),
-              const SizedBox(width: 8),
-              Expanded(
-                child: _ActionButton(
-                  key: const Key('talk-button'),
-                  icon: Icons.chat_bubble_outline_rounded,
-                  label: '聊天',
-                  emphasized: true,
-                  onPressed: onTalk,
-                ),
+            ),
+            const SizedBox(width: 8),
+            Expanded(
+              child: _ActionButton(
+                key: const Key('feed-button'),
+                label: '喂食',
+                onPressed: onFeed,
               ),
-              const SizedBox(width: 8),
-              Expanded(
-                child: _ActionButton(
-                  key: const Key('observe-button'),
-                  icon: Icons.visibility_outlined,
-                  label: '观察',
-                  onPressed: onObserve,
-                ),
+            ),
+            const SizedBox(width: 8),
+            Expanded(
+              child: _ActionButton(
+                key: const Key('hit-button'),
+                label: '殴打',
+                destructive: true,
+                onPressed: onHit,
               ),
-            ],
-          ),
+            ),
+          ],
+        ),
       ],
     );
   }
@@ -859,23 +940,31 @@ class _ActionPanel extends StatelessWidget {
 class _ActionButton extends StatelessWidget {
   const _ActionButton({
     super.key,
-    required this.icon,
     required this.label,
     required this.onPressed,
     this.emphasized = false,
+    this.destructive = false,
   });
 
-  final IconData icon;
   final String label;
   final VoidCallback onPressed;
   final bool emphasized;
+  final bool destructive;
 
   @override
   Widget build(BuildContext context) {
-    final child = Column(
-      mainAxisAlignment: MainAxisAlignment.center,
-      children: [Icon(icon, size: 20), const SizedBox(height: 3), Text(label)],
-    );
+    final child = Text(label);
+
+    if (destructive) {
+      return FilledButton.tonal(
+        onPressed: onPressed,
+        style: FilledButton.styleFrom(
+          foregroundColor: const Color(0xFF9B1C1C),
+          backgroundColor: const Color(0xFFFFE1E1),
+        ),
+        child: child,
+      );
+    }
 
     if (emphasized) {
       return FilledButton(onPressed: onPressed, child: child);

@@ -2,6 +2,15 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mini_nanhe/main.dart';
 
+Finder _negativeMoodFinder() {
+  return find.byWidgetPredicate((widget) {
+    return widget is Text &&
+        (widget.data == '! 愤怒' ||
+            widget.data == '… 沮丧' ||
+            widget.data == '☂ 伤心');
+  });
+}
+
 void main() {
   testWidgets('companion page shows primary interactions and synced values', (
     tester,
@@ -13,9 +22,13 @@ void main() {
     expect(find.text('设置'), findsOneWidget);
     expect(find.text('回忆'), findsNothing);
     expect(find.text('迷你南河'), findsOneWidget);
-    expect(find.text('呼唤'), findsOneWidget);
+    expect(find.text('想和他做什么？'), findsNothing);
     expect(find.text('聊天'), findsOneWidget);
+    expect(find.text('抚摸'), findsOneWidget);
     expect(find.text('观察'), findsOneWidget);
+    expect(find.text('散步'), findsOneWidget);
+    expect(find.text('喂食'), findsOneWidget);
+    expect(find.text('殴打'), findsOneWidget);
     expect(find.text('迷你期 · 第 1 天'), findsOneWidget);
     expect(find.text('冬｜第 1 年・1 月 1 日'), findsOneWidget);
     expect(find.text('好感 Lv.1'), findsOneWidget);
@@ -23,7 +36,7 @@ void main() {
     expect(find.text('50/50'), findsOneWidget);
     expect(find.text('☺ 平静'), findsOneWidget);
 
-    await tester.tap(find.byKey(const Key('call-button')));
+    await tester.tap(find.byKey(const Key('pet-button')));
     await tester.pump(const Duration(milliseconds: 200));
 
     expect(find.text('49/50'), findsOneWidget);
@@ -45,7 +58,7 @@ void main() {
 
   testWidgets('chat opens dialogue choices', (tester) async {
     await tester.pumpWidget(const MiniNanheApp());
-    await tester.tap(find.byKey(const Key('talk-button')));
+    await tester.tap(find.byKey(const Key('chat-button')));
     await tester.pumpAndSettle();
 
     expect(find.text('和南河聊聊'), findsOneWidget);
@@ -60,13 +73,47 @@ void main() {
     expect(find.text('3/100'), findsOneWidget);
   });
 
+  testWidgets('hit test interaction lowers affection and sets negative mood', (
+    tester,
+  ) async {
+    await tester.pumpWidget(const MiniNanheApp());
+
+    await tester.tap(find.byKey(const Key('hit-button')));
+    await tester.pump(const Duration(milliseconds: 200));
+
+    expect(find.text('49/50'), findsOneWidget);
+    expect(find.text('0/100'), findsOneWidget);
+    expect(_negativeMoodFinder(), findsOneWidget);
+    expect(find.textContaining('南河'), findsWidgets);
+  });
+
+  testWidgets('hit can downgrade affection level but never below initial', (
+    tester,
+  ) async {
+    await tester.pumpWidget(const MiniNanheApp());
+
+    for (var i = 0; i < 34; i += 1) {
+      await tester.tap(find.byKey(const Key('pet-button')));
+      await tester.pump(const Duration(milliseconds: 200));
+    }
+
+    expect(find.text('好感 Lv.2'), findsOneWidget);
+    expect(find.text('2/100'), findsOneWidget);
+
+    await tester.tap(find.byKey(const Key('hit-button')));
+    await tester.pump(const Duration(milliseconds: 200));
+
+    expect(find.text('好感 Lv.1'), findsOneWidget);
+    expect(find.text('96/100'), findsOneWidget);
+  });
+
   testWidgets('sleep appears when energy is exhausted and advances the day', (
     tester,
   ) async {
     await tester.pumpWidget(const MiniNanheApp());
 
     for (var i = 0; i < 50; i += 1) {
-      await tester.tap(find.byKey(const Key('call-button')));
+      await tester.tap(find.byKey(const Key('pet-button')));
       await tester.pump(const Duration(milliseconds: 200));
     }
 
