@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-import 'src/home_screen.dart';
+import 'src/loading_screen.dart';
 import 'src/theme.dart';
 
 void main() {
@@ -16,7 +16,7 @@ class MiniNanheApp extends StatelessWidget {
       title: '迷你南河',
       debugShowCheckedModeBanner: false,
       theme: buildMiniNanheTheme(),
-      home: const HomeScreen(),
+      home: const LoadingScreen(),
     );
   }
 }

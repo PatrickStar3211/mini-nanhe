@@ -2,6 +2,17 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mini_nanhe/main.dart';
 
+Future<void> _pumpLoadedApp(WidgetTester tester) async {
+  await tester.pumpWidget(const MiniNanheApp());
+  await tester.runAsync(() async {
+    await Future<void>.delayed(const Duration(milliseconds: 100));
+  });
+  await tester.pumpAndSettle();
+  await tester.tap(find.byKey(const Key('enter-game-button')));
+  await tester.pumpAndSettle();
+  await tester.pump();
+}
+
 Finder _negativeMoodFinder() {
   return find.byWidgetPredicate((widget) {
     return widget is Text &&
@@ -12,10 +23,32 @@ Finder _negativeMoodFinder() {
 }
 
 void main() {
-  testWidgets('companion page shows primary interactions and synced values', (
+  testWidgets('app starts with a loading screen before entering the game', (
     tester,
   ) async {
     await tester.pumpWidget(const MiniNanheApp());
+
+    expect(find.text('正在加载……'), findsOneWidget);
+    expect(find.text('迷你南河'), findsOneWidget);
+
+    await tester.runAsync(() async {
+      await Future<void>.delayed(const Duration(milliseconds: 100));
+    });
+    await tester.pumpAndSettle();
+    await tester.pump();
+    expect(find.text('正在加载……'), findsNothing);
+    expect(find.text('带他回家'), findsOneWidget);
+    expect(find.text('陪伴'), findsNothing);
+
+    await tester.tap(find.byKey(const Key('enter-game-button')));
+    await tester.pumpAndSettle();
+    expect(find.text('陪伴'), findsOneWidget);
+  });
+
+  testWidgets('companion page shows primary interactions and synced values', (
+    tester,
+  ) async {
+    await _pumpLoadedApp(tester);
 
     expect(find.text('陪伴'), findsOneWidget);
     expect(find.text('状态'), findsOneWidget);
@@ -57,7 +90,7 @@ void main() {
   });
 
   testWidgets('chat opens dialogue choices', (tester) async {
-    await tester.pumpWidget(const MiniNanheApp());
+    await _pumpLoadedApp(tester);
     await tester.tap(find.byKey(const Key('chat-button')));
     await tester.pumpAndSettle();
 
@@ -76,7 +109,7 @@ void main() {
   testWidgets('hit test interaction lowers affection and sets negative mood', (
     tester,
   ) async {
-    await tester.pumpWidget(const MiniNanheApp());
+    await _pumpLoadedApp(tester);
 
     await tester.tap(find.byKey(const Key('hit-button')));
     await tester.pump(const Duration(milliseconds: 200));
@@ -90,7 +123,7 @@ void main() {
   testWidgets('hit can downgrade affection level but never below initial', (
     tester,
   ) async {
-    await tester.pumpWidget(const MiniNanheApp());
+    await _pumpLoadedApp(tester);
 
     for (var i = 0; i < 34; i += 1) {
       await tester.tap(find.byKey(const Key('pet-button')));
@@ -110,7 +143,7 @@ void main() {
   testWidgets('sleep appears when energy is exhausted and advances the day', (
     tester,
   ) async {
-    await tester.pumpWidget(const MiniNanheApp());
+    await _pumpLoadedApp(tester);
 
     for (var i = 0; i < 50; i += 1) {
       await tester.tap(find.byKey(const Key('pet-button')));

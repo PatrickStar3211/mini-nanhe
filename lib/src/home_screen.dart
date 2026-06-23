@@ -3,6 +3,7 @@ import 'dart:math';
 import 'package:flutter/material.dart';
 
 import 'character_reaction.dart';
+import 'game_assets.dart';
 import 'theme.dart';
 
 const _maxEnergy = 50;
@@ -68,18 +69,14 @@ class _HomeScreenState extends State<HomeScreen> {
 
   String get _characterAsset {
     return switch (_currentEmotion) {
-      NanheEmotion.happy => 'assets/images/nanhe_emotions/mini_nanhe_happy.png',
-      NanheEmotion.affectionate =>
-        'assets/images/nanhe_emotions/mini_nanhe_affectionate.png',
-      NanheEmotion.curious =>
-        'assets/images/nanhe_emotions/mini_nanhe_curious.png',
-      NanheEmotion.sleepy =>
-        'assets/images/nanhe_emotions/mini_nanhe_sleepy.png',
-      NanheEmotion.sad => 'assets/images/nanhe_emotions/mini_nanhe_sad.png',
-      NanheEmotion.angry => 'assets/images/nanhe_emotions/mini_nanhe_angry.png',
-      NanheEmotion.frustrated =>
-        'assets/images/nanhe_emotions/mini_nanhe_frustrated.png',
-      NanheEmotion.calm => 'assets/images/nanhe_emotions/mini_nanhe_calm.png',
+      NanheEmotion.happy => miniNanheHappyAsset,
+      NanheEmotion.affectionate => miniNanheAffectionateAsset,
+      NanheEmotion.curious => miniNanheCuriousAsset,
+      NanheEmotion.sleepy => miniNanheSleepyAsset,
+      NanheEmotion.sad => miniNanheSadAsset,
+      NanheEmotion.angry => miniNanheAngryAsset,
+      NanheEmotion.frustrated => miniNanheFrustratedAsset,
+      NanheEmotion.calm => miniNanheCalmAsset,
     };
   }
 
@@ -449,7 +446,7 @@ class _CharacterStage extends StatelessWidget {
       decoration: BoxDecoration(
         color: frost,
         image: const DecorationImage(
-          image: AssetImage('assets/images/default_garden_doghouse.png'),
+          image: AssetImage(defaultGardenDoghouseAsset),
           fit: BoxFit.cover,
         ),
         borderRadius: BorderRadius.circular(28),
