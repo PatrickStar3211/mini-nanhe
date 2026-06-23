@@ -369,11 +369,15 @@ class _CharacterStage extends StatelessWidget {
       width: double.infinity,
       decoration: BoxDecoration(
         color: frost,
+        image: const DecorationImage(
+          image: AssetImage('assets/images/default_garden_doghouse.png'),
+          fit: BoxFit.cover,
+        ),
         borderRadius: BorderRadius.circular(28),
-        border: Border.all(color: const Color(0xFFD7E8FA)),
+        border: Border.all(color: const Color(0xFFE6D5B8)),
         boxShadow: const [
           BoxShadow(
-            color: Color(0x0F3155C6),
+            color: Color(0x1A9B7B4B),
             blurRadius: 24,
             offset: Offset(0, 10),
           ),
@@ -397,7 +401,7 @@ class _CharacterStage extends StatelessWidget {
                     duration: const Duration(milliseconds: 160),
                     curve: Curves.easeOutBack,
                     child: Image.asset(
-                      'assets/images/mini_nanhe.png',
+                      'assets/images/mini_nanhe_transparent.png',
                       fit: BoxFit.contain,
                       width: double.infinity,
                     ),
@@ -644,7 +648,7 @@ class _StatusPage extends StatelessWidget {
                     height: 74,
                     color: blueMist,
                     child: Image.asset(
-                      'assets/images/mini_nanhe.png',
+                      'assets/images/mini_nanhe_transparent.png',
                       fit: BoxFit.cover,
                     ),
                   ),

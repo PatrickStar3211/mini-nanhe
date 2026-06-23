@@ -59,6 +59,8 @@ flutter:
 
   assets:
     - assets/images/mini_nanhe.png
+    - assets/images/mini_nanhe_transparent.png
+    - assets/images/default_garden_doghouse.png
 
   # To add assets to your application, add an assets section, like this:
   # assets:
