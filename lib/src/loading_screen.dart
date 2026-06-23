@@ -78,90 +78,204 @@ class _LoadingScreenState extends State<LoadingScreen> {
             ),
           ),
           SafeArea(
-            child: Padding(
-              padding: const EdgeInsets.fromLTRB(24, 34, 24, 30),
-              child: Column(
-                children: [
-                  const Text(
-                    '迷你南河',
-                    textAlign: TextAlign.center,
-                    style: TextStyle(
-                      color: Color(0xFFF4F7FB),
-                      fontSize: 38,
-                      fontWeight: FontWeight.w900,
-                      letterSpacing: 5,
-                      shadows: [
-                        Shadow(
-                          color: Color(0xCC07101A),
-                          blurRadius: 12,
-                          offset: Offset(0, 3),
-                        ),
-                      ],
+            child: LayoutBuilder(
+              builder: (context, constraints) {
+                return Stack(
+                  children: [
+                    Positioned(
+                      top: constraints.maxHeight * 0.1,
+                      left: 20,
+                      right: 20,
+                      child: const _GameTitle(),
                     ),
-                  ),
-                  const Spacer(),
-                  AnimatedSwitcher(
-                    duration: const Duration(milliseconds: 450),
-                    child: _ready
-                        ? SizedBox(
-                            key: const ValueKey('enter-button'),
-                            width: 220,
-                            child: FilledButton(
-                              key: const Key('enter-game-button'),
-                              onPressed: _enterGame,
-                              style: FilledButton.styleFrom(
-                                backgroundColor: const Color(0xFFE9B66F),
-                                foregroundColor: const Color(0xFF352414),
-                                minimumSize: const Size.fromHeight(54),
-                                elevation: 5,
-                                shadowColor: const Color(0xAA000000),
-                                shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(14),
-                                  side: const BorderSide(
-                                    color: Color(0xFFFFE1AC),
-                                    width: 1.5,
+                    Positioned(
+                      top: constraints.maxHeight * 0.83,
+                      left: 24,
+                      right: 24,
+                      child: AnimatedSwitcher(
+                        duration: const Duration(milliseconds: 450),
+                        child: _ready
+                            ? Center(
+                                key: const ValueKey('enter-button'),
+                                child: TextButton(
+                                  key: const Key('enter-game-button'),
+                                  onPressed: _enterGame,
+                                  style: TextButton.styleFrom(
+                                    foregroundColor: Colors.white,
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 28,
+                                      vertical: 12,
+                                    ),
+                                    overlayColor: Colors.white24,
+                                  ),
+                                  child: const Text(
+                                    '带他回家',
+                                    style: TextStyle(
+                                      fontSize: 18,
+                                      fontWeight: FontWeight.w700,
+                                      letterSpacing: 3,
+                                      shadows: [
+                                        Shadow(
+                                          color: Colors.black,
+                                          blurRadius: 8,
+                                          offset: Offset(0, 2),
+                                        ),
+                                      ],
+                                    ),
                                   ),
                                 ),
+                              )
+                            : const Column(
+                                key: ValueKey('loading-indicator'),
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  SizedBox(
+                                    width: 28,
+                                    height: 28,
+                                    child: CircularProgressIndicator(
+                                      strokeWidth: 2.5,
+                                      color: Color(0xFFF3F7FB),
+                                    ),
+                                  ),
+                                  SizedBox(height: 12),
+                                  Text(
+                                    '正在加载……',
+                                    style: TextStyle(
+                                      color: Color(0xFFDCE5EE),
+                                      fontSize: 14,
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                                  ),
+                                ],
                               ),
-                              child: const Text(
-                                '带他回家',
-                                style: TextStyle(
-                                  fontSize: 17,
-                                  fontWeight: FontWeight.w800,
-                                  letterSpacing: 1,
-                                ),
-                              ),
-                            ),
-                          )
-                        : const Column(
-                            key: ValueKey('loading-indicator'),
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              SizedBox(
-                                width: 28,
-                                height: 28,
-                                child: CircularProgressIndicator(
-                                  strokeWidth: 2.5,
-                                  color: Color(0xFFF3D7A6),
-                                ),
-                              ),
-                              SizedBox(height: 12),
-                              Text(
-                                '正在加载……',
-                                style: TextStyle(
-                                  color: Color(0xFFDCE5EE),
-                                  fontSize: 14,
-                                  fontWeight: FontWeight.w600,
-                                ),
-                              ),
-                            ],
-                          ),
-                  ),
-                ],
-              ),
+                      ),
+                    ),
+                  ],
+                );
+              },
             ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+class _GameTitle extends StatelessWidget {
+  const _GameTitle();
+
+  static const _title = '迷你南河';
+  static const _outlineStyle = TextStyle(
+    fontSize: 46,
+    fontWeight: FontWeight.w900,
+    letterSpacing: 7,
+    color: Color(0xFF15283A),
+    height: 1,
+  );
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            _ornamentLine(),
+            const Padding(
+              padding: EdgeInsets.symmetric(horizontal: 10),
+              child: Icon(
+                Icons.auto_awesome,
+                size: 14,
+                color: Color(0xFFDCEBFA),
+              ),
+            ),
+            _ornamentLine(),
+          ],
+        ),
+        const SizedBox(height: 9),
+        Transform(
+          transform: Matrix4.skewX(-0.06),
+          alignment: Alignment.center,
+          child: Stack(
+            alignment: Alignment.center,
+            children: [
+              for (final offset in const [
+                Offset(-2, 0),
+                Offset(2, 0),
+                Offset(0, -2),
+                Offset(0, 2),
+                Offset(-1.5, -1.5),
+                Offset(1.5, -1.5),
+                Offset(-1.5, 1.5),
+                Offset(1.5, 1.5),
+              ])
+                Transform.translate(
+                  offset: offset,
+                  child: const Text(_title, style: _outlineStyle),
+                ),
+              ShaderMask(
+                shaderCallback: (bounds) => const LinearGradient(
+                  begin: Alignment.topCenter,
+                  end: Alignment.bottomCenter,
+                  colors: [
+                    Color(0xFFFFFFFF),
+                    Color(0xFFD7E8F5),
+                    Color(0xFF9CB9D0),
+                  ],
+                ).createShader(bounds),
+                child: const Text(
+                  _title,
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 46,
+                    fontWeight: FontWeight.w900,
+                    letterSpacing: 7,
+                    height: 1,
+                    shadows: [
+                      Shadow(color: Color(0xFF75B5DF), blurRadius: 18),
+                      Shadow(
+                        color: Color(0xCC000000),
+                        blurRadius: 12,
+                        offset: Offset(0, 5),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 10),
+        Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            _ornamentLine(),
+            const SizedBox(width: 8),
+            const DecoratedBox(
+              decoration: BoxDecoration(
+                color: Color(0xFFDCEBFA),
+                shape: BoxShape.circle,
+              ),
+              child: SizedBox(width: 5, height: 5),
+            ),
+            const SizedBox(width: 8),
+            _ornamentLine(),
+          ],
+        ),
+      ],
+    );
+  }
+
+  Widget _ornamentLine() {
+    return Container(
+      width: 54,
+      height: 1,
+      decoration: const BoxDecoration(
+        gradient: LinearGradient(
+          colors: [Colors.transparent, Color(0xFFDCEBFA)],
+        ),
       ),
     );
   }

@@ -29,7 +29,7 @@ void main() {
     await tester.pumpWidget(const MiniNanheApp());
 
     expect(find.text('正在加载……'), findsOneWidget);
-    expect(find.text('迷你南河'), findsOneWidget);
+    expect(find.text('迷你南河'), findsWidgets);
 
     await tester.runAsync(() async {
       await Future<void>.delayed(const Duration(milliseconds: 100));
