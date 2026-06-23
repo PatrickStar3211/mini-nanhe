@@ -387,27 +387,42 @@ class _CharacterStage extends StatelessWidget {
       child: Stack(
         children: [
           Positioned.fill(
-            child: Padding(
-              padding: const EdgeInsets.fromLTRB(12, 48, 12, 118),
-              child: Semantics(
-                button: true,
-                label: '迷你南河，点击互动',
-                child: InkWell(
-                  key: const Key('character-tap-area'),
-                  borderRadius: BorderRadius.circular(24),
-                  onTap: onTap,
-                  child: AnimatedScale(
-                    scale: isReacting ? 1.035 : 1,
-                    duration: const Duration(milliseconds: 160),
-                    curve: Curves.easeOutBack,
-                    child: Image.asset(
-                      'assets/images/mini_nanhe_transparent.png',
-                      fit: BoxFit.contain,
-                      width: double.infinity,
+            child: LayoutBuilder(
+              builder: (context, constraints) {
+                final maxCharacterWidth = constraints.maxWidth * 0.5;
+                final maxCharacterHeight = constraints.maxHeight * 0.48;
+
+                return Align(
+                  alignment: const Alignment(0, 0.2),
+                  child: Padding(
+                    padding: const EdgeInsets.only(bottom: 86),
+                    child: Semantics(
+                      button: true,
+                      label: '迷你南河，点击互动',
+                      child: InkWell(
+                        key: const Key('character-tap-area'),
+                        borderRadius: BorderRadius.circular(24),
+                        onTap: onTap,
+                        child: AnimatedScale(
+                          scale: isReacting ? 1.035 : 1,
+                          duration: const Duration(milliseconds: 160),
+                          curve: Curves.easeOutBack,
+                          child: ConstrainedBox(
+                            constraints: BoxConstraints(
+                              maxWidth: maxCharacterWidth,
+                              maxHeight: maxCharacterHeight,
+                            ),
+                            child: Image.asset(
+                              'assets/images/mini_nanhe_transparent.png',
+                              fit: BoxFit.contain,
+                            ),
+                          ),
+                        ),
+                      ),
                     ),
                   ),
-                ),
-              ),
+                );
+              },
             ),
           ),
           Positioned(
