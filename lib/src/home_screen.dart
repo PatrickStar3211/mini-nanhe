@@ -228,6 +228,7 @@ class _HomeScreenState extends State<HomeScreen> {
       _soundEffectVolume = value;
       if (value > 0) _soundEffectVolumeBeforeMute = value;
     });
+    widget.audioController.setSoundEffectVolume(value);
   }
 
   void _setVoiceVolume(double value) {
@@ -258,6 +259,7 @@ class _HomeScreenState extends State<HomeScreen> {
         _soundEffectVolume = _soundEffectVolumeBeforeMute;
       }
     });
+    widget.audioController.setSoundEffectVolume(_soundEffectVolume);
   }
 
   void _toggleVoiceMute() {
@@ -311,14 +313,38 @@ class _HomeScreenState extends State<HomeScreen> {
         affectionLevel: _affectionLevel,
         affectionProgress: _affectionProgress,
         energy: _energy,
-        onCharacterTap: () => _showReaction(petReactions),
-        onChat: _openDialogue,
-        onPet: () => _showReaction(petReactions),
-        onObserve: _observe,
-        onWalk: () => _showReaction(walkReactions),
-        onFeed: () => _showReaction(feedReactions),
-        onHit: _showHitReaction,
-        onSleep: _sleepUntilTomorrow,
+        onCharacterTap: () {
+          widget.audioController.playRegularInteraction();
+          _showReaction(petReactions);
+        },
+        onChat: () {
+          widget.audioController.playRegularInteraction();
+          _openDialogue();
+        },
+        onPet: () {
+          widget.audioController.playRegularInteraction();
+          _showReaction(petReactions);
+        },
+        onObserve: () {
+          widget.audioController.playRegularInteraction();
+          _observe();
+        },
+        onWalk: () {
+          widget.audioController.playRegularInteraction();
+          _showReaction(walkReactions);
+        },
+        onFeed: () {
+          widget.audioController.playRegularInteraction();
+          _showReaction(feedReactions);
+        },
+        onHit: () {
+          widget.audioController.playHitInteraction();
+          _showHitReaction();
+        },
+        onSleep: () {
+          widget.audioController.playRegularInteraction();
+          _sleepUntilTomorrow();
+        },
       ),
     };
 

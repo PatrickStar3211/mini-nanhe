@@ -19,8 +19,11 @@ class GameAudioController {
 
   final bool _enabled;
   AudioPlayer? _bgmPlayer;
+  AudioPlayer? _regularSfxPlayer;
+  AudioPlayer? _hitSfxPlayer;
   BgmTrack selectedBgm = BgmTrack.cozyNanhe2;
   double musicVolume = 0.7;
+  double soundEffectVolume = 0.8;
   bool _isPrepared = false;
 
   Future<void> prepare() async {
@@ -65,7 +68,44 @@ class GameAudioController {
     _bgmPlayer?.setVolume(value).catchError((_) {});
   }
 
+  void setSoundEffectVolume(double value) {
+    soundEffectVolume = value;
+    _regularSfxPlayer?.setVolume(value).catchError((_) {});
+    _hitSfxPlayer?.setVolume(value).catchError((_) {});
+  }
+
+  void playRegularInteraction() {
+    if (!_enabled || soundEffectVolume == 0) return;
+    _playSoundEffect(
+      player: _regularSfxPlayer ??= AudioPlayer(),
+      assetPath: 'audio/interaction_regular.wav',
+    );
+  }
+
+  void playHitInteraction() {
+    if (!_enabled || soundEffectVolume == 0) return;
+    _playSoundEffect(
+      player: _hitSfxPlayer ??= AudioPlayer(),
+      assetPath: 'audio/interaction_hit.wav',
+    );
+  }
+
+  void _playSoundEffect({
+    required AudioPlayer player,
+    required String assetPath,
+  }) {
+    player
+        .play(
+          AssetSource(assetPath),
+          volume: soundEffectVolume,
+          mode: PlayerMode.lowLatency,
+        )
+        .catchError((_) {});
+  }
+
   void dispose() {
     _bgmPlayer?.dispose();
+    _regularSfxPlayer?.dispose();
+    _hitSfxPlayer?.dispose();
   }
 }
