@@ -39,33 +39,39 @@ function Write-MonoWave {
 
 New-Item -ItemType Directory -Path $OutputDirectory -Force | Out-Null
 
-$regularLength = [int]($sampleRate * 0.22)
+# Daily interaction: one rounded "boop" with a fast pitch drop.
+$regularLength = [int]($sampleRate * 0.18)
 $regular = [double[]]::new($regularLength)
 for ($i = 0; $i -lt $regularLength; $i++) {
     $t = $i / $sampleRate
-    $progress = $i / $regularLength
-    $frequency = 650 + (420 * $progress)
-    $envelope = [Math]::Pow([Math]::Sin([Math]::PI * $progress), 0.65) *
-        [Math]::Exp(-2.2 * $progress)
-    $sparkle = [Math]::Sin(2 * [Math]::PI * $frequency * $t) +
-        (0.38 * [Math]::Sin(2 * [Math]::PI * $frequency * 2 * $t))
-    $regular[$i] = 0.42 * $envelope * $sparkle
+    $p = $i / $regularLength
+    $phase = 2 * [Math]::PI * ((430 * $t) - (125 * $t * $p))
+    $attack = [Math]::Min(1.0, $p / 0.025)
+    $envelope = $attack * [Math]::Exp(-7.2 * $p)
+    $fundamental = [Math]::Sin($phase)
+    $softBody = 0.28 * [Math]::Sin($phase * 0.5)
+    $regular[$i] = 0.58 * $envelope * ($fundamental + $softBody)
 }
 Write-MonoWave -Path (Join-Path $OutputDirectory "interaction_regular.wav") -Samples $regular
 
-$hitLength = [int]($sampleRate * 0.28)
+# Hit interaction: one dry palm slap, without drum resonance.
+$hitLength = [int]($sampleRate * 0.19)
 $hit = [double[]]::new($hitLength)
-$random = [System.Random]::new(20260624)
+$random = [System.Random]::new(8848)
+$fastNoise = 0.0
+$slowNoise = 0.0
 for ($i = 0; $i -lt $hitLength; $i++) {
     $t = $i / $sampleRate
-    $progress = $i / $hitLength
-    $thumpFrequency = 125 - (55 * $progress)
-    $thump = [Math]::Sin(2 * [Math]::PI * $thumpFrequency * $t) *
-        [Math]::Exp(-8.5 * $progress)
-    $noise = (($random.NextDouble() * 2) - 1) *
-        [Math]::Exp(-18 * $progress)
-    $body = [Math]::Sin(2 * [Math]::PI * 210 * $t) *
-        [Math]::Exp(-13 * $progress)
-    $hit[$i] = (0.7 * $thump) + (0.38 * $noise) + (0.2 * $body)
+    $p = $i / $hitLength
+    $raw = ($random.NextDouble() * 2) - 1
+    $fastNoise = (0.16 * $fastNoise) + (0.84 * $raw)
+    $slowNoise = (0.72 * $slowNoise) + (0.28 * $raw)
+    $crack = $fastNoise * [Math]::Exp(-48 * $p)
+    $skin = ($fastNoise - $slowNoise) * [Math]::Exp(-20 * $p)
+    $palm = [Math]::Sin(2 * [Math]::PI * 185 * $t) *
+        [Math]::Exp(-24 * $p)
+    $air = $slowNoise * [Math]::Exp(-11 * $p)
+    $hit[$i] = (0.78 * $crack) + (0.55 * $skin) +
+        (0.18 * $palm) + (0.25 * $air)
 }
 Write-MonoWave -Path (Join-Path $OutputDirectory "interaction_hit.wav") -Samples $hit
