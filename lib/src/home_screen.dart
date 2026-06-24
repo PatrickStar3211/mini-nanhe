@@ -1,5 +1,6 @@
 import 'dart:math';
 
+import 'package:audioplayers/audioplayers.dart';
 import 'package:flutter/material.dart';
 
 import 'character_reaction.dart';
@@ -10,6 +11,18 @@ const _maxEnergy = 50;
 const _affectionGainPerInteraction = 3;
 const _affectionLossPerHit = 6;
 
+enum _BgmTrack {
+  cozyNanhe1('惬意南河1', 'audio/cozy_nanhe_1.mp3'),
+  cozyNanhe2('惬意南河2', 'audio/cozy_nanhe_2.mp3'),
+  cozyNanhe3('惬意南河3', 'audio/cozy_nanhe_3.mp3'),
+  cozyNanhe4('惬意南河4', 'audio/cozy_nanhe_4.mp3');
+
+  const _BgmTrack(this.label, this.assetPath);
+
+  final String label;
+  final String assetPath;
+}
+
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
 
@@ -19,6 +32,7 @@ class HomeScreen extends StatefulWidget {
 
 class _HomeScreenState extends State<HomeScreen> {
   final _random = Random();
+  final _bgmPlayer = AudioPlayer();
   CharacterReaction? _reaction;
   bool _isReacting = false;
   int _selectedDestination = 0;
@@ -33,8 +47,49 @@ class _HomeScreenState extends State<HomeScreen> {
   final int _strength = 1;
   final int _intelligence = 1;
   final int _endurance = 1;
+  double _musicVolume = 0.7;
+  double _soundEffectVolume = 0.8;
+  double _voiceVolume = 0.8;
+  double _musicVolumeBeforeMute = 0.7;
+  double _soundEffectVolumeBeforeMute = 0.8;
+  double _voiceVolumeBeforeMute = 0.8;
+  _BgmTrack _selectedBgm = _BgmTrack.cozyNanhe2;
 
   bool get _isExhausted => _energy <= 0;
+
+  @override
+  void initState() {
+    super.initState();
+    _startBgm();
+  }
+
+  Future<void> _startBgm() async {
+    try {
+      await _bgmPlayer.setReleaseMode(ReleaseMode.loop);
+      await _bgmPlayer.setVolume(_musicVolume);
+      await _bgmPlayer.play(AssetSource(_selectedBgm.assetPath));
+    } catch (_) {
+      // Audio plugins are unavailable in widget tests and some preview hosts.
+    }
+  }
+
+  Future<void> _changeBgm(_BgmTrack track) async {
+    setState(() => _selectedBgm = track);
+    try {
+      await _bgmPlayer.stop();
+      await _bgmPlayer.setReleaseMode(ReleaseMode.loop);
+      await _bgmPlayer.setVolume(_musicVolume);
+      await _bgmPlayer.play(AssetSource(track.assetPath));
+    } catch (_) {
+      // Keep the selection even if the current host cannot play audio.
+    }
+  }
+
+  @override
+  void dispose() {
+    _bgmPlayer.dispose();
+    super.dispose();
+  }
 
   NanheEmotion get _currentEmotion {
     final emotion = _reaction?.emotion;
@@ -194,6 +249,62 @@ class _HomeScreenState extends State<HomeScreen> {
     setState(() => _selectedDestination = index);
   }
 
+  void _setMusicVolume(double value) {
+    setState(() {
+      _musicVolume = value;
+      if (value > 0) _musicVolumeBeforeMute = value;
+    });
+    _bgmPlayer.setVolume(value);
+  }
+
+  void _setSoundEffectVolume(double value) {
+    setState(() {
+      _soundEffectVolume = value;
+      if (value > 0) _soundEffectVolumeBeforeMute = value;
+    });
+  }
+
+  void _setVoiceVolume(double value) {
+    setState(() {
+      _voiceVolume = value;
+      if (value > 0) _voiceVolumeBeforeMute = value;
+    });
+  }
+
+  void _toggleMusicMute() {
+    setState(() {
+      if (_musicVolume > 0) {
+        _musicVolumeBeforeMute = _musicVolume;
+        _musicVolume = 0;
+      } else {
+        _musicVolume = _musicVolumeBeforeMute;
+      }
+    });
+    _bgmPlayer.setVolume(_musicVolume);
+  }
+
+  void _toggleSoundEffectMute() {
+    setState(() {
+      if (_soundEffectVolume > 0) {
+        _soundEffectVolumeBeforeMute = _soundEffectVolume;
+        _soundEffectVolume = 0;
+      } else {
+        _soundEffectVolume = _soundEffectVolumeBeforeMute;
+      }
+    });
+  }
+
+  void _toggleVoiceMute() {
+    setState(() {
+      if (_voiceVolume > 0) {
+        _voiceVolumeBeforeMute = _voiceVolume;
+        _voiceVolume = 0;
+      } else {
+        _voiceVolume = _voiceVolumeBeforeMute;
+      }
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
     final page = switch (_selectedDestination) {
@@ -207,7 +318,19 @@ class _HomeScreenState extends State<HomeScreen> {
         intelligence: _intelligence,
         endurance: _endurance,
       ),
-      2 => const _SettingsPage(),
+      2 => _SettingsPage(
+        selectedBgm: _selectedBgm,
+        musicVolume: _musicVolume,
+        soundEffectVolume: _soundEffectVolume,
+        voiceVolume: _voiceVolume,
+        onMusicChanged: _setMusicVolume,
+        onSoundEffectChanged: _setSoundEffectVolume,
+        onVoiceChanged: _setVoiceVolume,
+        onMusicMuteToggle: _toggleMusicMute,
+        onSoundEffectMuteToggle: _toggleSoundEffectMute,
+        onVoiceMuteToggle: _toggleVoiceMute,
+        onBgmChanged: _changeBgm,
+      ),
       _ => _CompanionPage(
         totalDaysTogether: _totalDaysTogether,
         season: _season,
@@ -1030,29 +1153,194 @@ class _DialogueChoice extends StatelessWidget {
 }
 
 class _SettingsPage extends StatelessWidget {
-  const _SettingsPage();
+  const _SettingsPage({
+    required this.selectedBgm,
+    required this.musicVolume,
+    required this.soundEffectVolume,
+    required this.voiceVolume,
+    required this.onMusicChanged,
+    required this.onSoundEffectChanged,
+    required this.onVoiceChanged,
+    required this.onMusicMuteToggle,
+    required this.onSoundEffectMuteToggle,
+    required this.onVoiceMuteToggle,
+    required this.onBgmChanged,
+  });
+
+  final _BgmTrack selectedBgm;
+  final double musicVolume;
+  final double soundEffectVolume;
+  final double voiceVolume;
+  final ValueChanged<double> onMusicChanged;
+  final ValueChanged<double> onSoundEffectChanged;
+  final ValueChanged<double> onVoiceChanged;
+  final VoidCallback onMusicMuteToggle;
+  final VoidCallback onSoundEffectMuteToggle;
+  final VoidCallback onVoiceMuteToggle;
+  final ValueChanged<_BgmTrack> onBgmChanged;
 
   @override
   Widget build(BuildContext context) {
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 16, 16, 10),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+      child: ListView(
         children: [
           Text('设置', style: Theme.of(context).textTheme.headlineSmall),
-          const SizedBox(height: 16),
-          const ListTile(
-            contentPadding: EdgeInsets.zero,
-            leading: Icon(Icons.volume_up_outlined),
-            title: Text('音效'),
-            subtitle: Text('雏形阶段尚未加入声音'),
-            trailing: Switch(value: true, onChanged: null),
+          const SizedBox(height: 12),
+          Container(
+            padding: const EdgeInsets.fromLTRB(16, 16, 12, 12),
+            decoration: BoxDecoration(
+              color: frost,
+              borderRadius: BorderRadius.circular(24),
+              border: Border.all(color: const Color(0xFFD7E8FA)),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Text('声音', style: Theme.of(context).textTheme.titleMedium),
+                const SizedBox(height: 4),
+                Text(
+                  '音乐、互动音效和语音可以分别调节。',
+                  style: Theme.of(context).textTheme.bodySmall,
+                ),
+                const SizedBox(height: 14),
+                DropdownButtonFormField<_BgmTrack>(
+                  key: const Key('bgm-selector'),
+                  initialValue: selectedBgm,
+                  decoration: InputDecoration(
+                    labelText: '背景音乐',
+                    prefixIcon: const Icon(Icons.album_rounded),
+                    filled: true,
+                    fillColor: blueMist.withValues(alpha: 0.45),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(16),
+                      borderSide: BorderSide.none,
+                    ),
+                  ),
+                  items: _BgmTrack.values
+                      .map(
+                        (track) => DropdownMenuItem(
+                          value: track,
+                          child: Text(track.label),
+                        ),
+                      )
+                      .toList(),
+                  onChanged: (track) {
+                    if (track != null) onBgmChanged(track);
+                  },
+                ),
+                const SizedBox(height: 10),
+                _VolumeControl(
+                  sliderKey: const Key('music-volume-slider'),
+                  muteKey: const Key('music-mute-button'),
+                  icon: Icons.music_note_rounded,
+                  label: '音乐',
+                  volume: musicVolume,
+                  onChanged: onMusicChanged,
+                  onMuteToggle: onMusicMuteToggle,
+                ),
+                _VolumeControl(
+                  sliderKey: const Key('sound-effect-volume-slider'),
+                  muteKey: const Key('sound-effect-mute-button'),
+                  icon: Icons.touch_app_rounded,
+                  label: '音效',
+                  volume: soundEffectVolume,
+                  onChanged: onSoundEffectChanged,
+                  onMuteToggle: onSoundEffectMuteToggle,
+                ),
+                _VolumeControl(
+                  sliderKey: const Key('voice-volume-slider'),
+                  muteKey: const Key('voice-mute-button'),
+                  icon: Icons.record_voice_over_rounded,
+                  label: '语音',
+                  volume: voiceVolume,
+                  onChanged: onVoiceChanged,
+                  onMuteToggle: onVoiceMuteToggle,
+                ),
+              ],
+            ),
           ),
+          const SizedBox(height: 8),
           const ListTile(
             contentPadding: EdgeInsets.zero,
             leading: Icon(Icons.save_outlined),
             title: Text('本机存档'),
             subtitle: Text('将在 EPIC 7 实作'),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _VolumeControl extends StatelessWidget {
+  const _VolumeControl({
+    required this.sliderKey,
+    required this.muteKey,
+    required this.icon,
+    required this.label,
+    required this.volume,
+    required this.onChanged,
+    required this.onMuteToggle,
+  });
+
+  final Key sliderKey;
+  final Key muteKey;
+  final IconData icon;
+  final String label;
+  final double volume;
+  final ValueChanged<double> onChanged;
+  final VoidCallback onMuteToggle;
+
+  @override
+  Widget build(BuildContext context) {
+    final isMuted = volume == 0;
+    final percentage = (volume * 100).round();
+
+    return Padding(
+      padding: const EdgeInsets.only(top: 10),
+      child: Column(
+        children: [
+          Row(
+            children: [
+              Icon(icon, color: isMuted ? mutedInk : deepBlue),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Text(
+                  label,
+                  style: const TextStyle(
+                    color: ink,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ),
+              Text(
+                '$percentage%',
+                key: Key('$label-volume-value'),
+                style: const TextStyle(
+                  color: mutedInk,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+              const SizedBox(width: 4),
+              IconButton(
+                key: muteKey,
+                tooltip: isMuted ? '取消静音' : '静音',
+                onPressed: onMuteToggle,
+                icon: Icon(
+                  isMuted ? Icons.volume_off_rounded : Icons.volume_up_rounded,
+                ),
+              ),
+            ],
+          ),
+          Slider(
+            key: sliderKey,
+            value: volume,
+            min: 0,
+            max: 1,
+            divisions: 20,
+            label: '$percentage%',
+            onChanged: onChanged,
           ),
         ],
       ),

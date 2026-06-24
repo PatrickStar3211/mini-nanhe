@@ -106,6 +106,44 @@ void main() {
     expect(find.text('3/100'), findsOneWidget);
   });
 
+  testWidgets('settings controls audio volumes and restores muted volume', (
+    tester,
+  ) async {
+    await _pumpLoadedApp(tester);
+    await tester.tap(find.text('设置'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('声音'), findsOneWidget);
+    expect(find.text('音乐'), findsOneWidget);
+    expect(find.text('音效'), findsOneWidget);
+    expect(find.text('语音'), findsOneWidget);
+    expect(find.text('背景音乐'), findsOneWidget);
+    expect(find.text('惬意南河2'), findsOneWidget);
+    expect(find.text('70%'), findsOneWidget);
+    expect(find.text('80%'), findsNWidgets(2));
+
+    await tester.tap(find.byKey(const Key('music-mute-button')));
+    await tester.pump();
+    expect(find.text('0%'), findsOneWidget);
+
+    await tester.tap(find.byKey(const Key('music-mute-button')));
+    await tester.pump();
+    expect(find.text('70%'), findsOneWidget);
+
+    await tester.drag(
+      find.byKey(const Key('voice-volume-slider')),
+      const Offset(-200, 0),
+    );
+    await tester.pump();
+    expect(find.text('80%'), findsOneWidget);
+
+    await tester.tap(find.byKey(const Key('bgm-selector')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('惬意南河4').last);
+    await tester.pumpAndSettle();
+    expect(find.text('惬意南河4'), findsOneWidget);
+  });
+
   testWidgets('hit test interaction lowers affection and sets negative mood', (
     tester,
   ) async {
