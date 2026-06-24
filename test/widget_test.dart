@@ -1,6 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mini_nanhe/main.dart';
+import 'package:mini_nanhe/src/game_audio_controller.dart';
+
+MiniNanheApp _testApp() {
+  return MiniNanheApp(audioController: GameAudioController.disabled());
+}
 
 Future<void> _waitForEnterButton(WidgetTester tester) async {
   for (var attempt = 0; attempt < 50; attempt += 1) {
@@ -17,7 +22,7 @@ Future<void> _waitForEnterButton(WidgetTester tester) async {
 }
 
 Future<void> _pumpLoadedApp(WidgetTester tester) async {
-  await tester.pumpWidget(const MiniNanheApp());
+  await tester.pumpWidget(_testApp());
   await _waitForEnterButton(tester);
   await tester.tap(find.byKey(const Key('enter-game-button')));
   await tester.pumpAndSettle();
@@ -37,7 +42,7 @@ void main() {
   testWidgets('app starts with a loading screen before entering the game', (
     tester,
   ) async {
-    await tester.pumpWidget(const MiniNanheApp());
+    await tester.pumpWidget(_testApp());
 
     expect(find.text('正在加载……'), findsOneWidget);
     expect(find.text('迷你南河'), findsWidgets);

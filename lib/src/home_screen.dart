@@ -1,9 +1,9 @@
 import 'dart:math';
 
-import 'package:audioplayers/audioplayers.dart';
 import 'package:flutter/material.dart';
 
 import 'character_reaction.dart';
+import 'game_audio_controller.dart';
 import 'game_assets.dart';
 import 'theme.dart';
 
@@ -11,20 +11,10 @@ const _maxEnergy = 50;
 const _affectionGainPerInteraction = 3;
 const _affectionLossPerHit = 6;
 
-enum _BgmTrack {
-  cozyNanhe1('惬意南河1', 'audio/cozy_nanhe_1.mp3'),
-  cozyNanhe2('惬意南河2', 'audio/cozy_nanhe_2.mp3'),
-  cozyNanhe3('惬意南河3', 'audio/cozy_nanhe_3.mp3'),
-  cozyNanhe4('惬意南河4', 'audio/cozy_nanhe_4.mp3');
-
-  const _BgmTrack(this.label, this.assetPath);
-
-  final String label;
-  final String assetPath;
-}
-
 class HomeScreen extends StatefulWidget {
-  const HomeScreen({super.key});
+  const HomeScreen({super.key, required this.audioController});
+
+  final GameAudioController audioController;
 
   @override
   State<HomeScreen> createState() => _HomeScreenState();
@@ -32,7 +22,6 @@ class HomeScreen extends StatefulWidget {
 
 class _HomeScreenState extends State<HomeScreen> {
   final _random = Random();
-  final _bgmPlayer = AudioPlayer();
   CharacterReaction? _reaction;
   bool _isReacting = false;
   int _selectedDestination = 0;
@@ -53,41 +42,18 @@ class _HomeScreenState extends State<HomeScreen> {
   double _musicVolumeBeforeMute = 0.7;
   double _soundEffectVolumeBeforeMute = 0.8;
   double _voiceVolumeBeforeMute = 0.8;
-  _BgmTrack _selectedBgm = _BgmTrack.cozyNanhe2;
+  BgmTrack _selectedBgm = BgmTrack.cozyNanhe2;
 
   bool get _isExhausted => _energy <= 0;
 
-  @override
-  void initState() {
-    super.initState();
-    _startBgm();
-  }
-
-  Future<void> _startBgm() async {
-    try {
-      await _bgmPlayer.setReleaseMode(ReleaseMode.loop);
-      await _bgmPlayer.setVolume(_musicVolume);
-      await _bgmPlayer.play(AssetSource(_selectedBgm.assetPath));
-    } catch (_) {
-      // Audio plugins are unavailable in widget tests and some preview hosts.
-    }
-  }
-
-  Future<void> _changeBgm(_BgmTrack track) async {
+  Future<void> _changeBgm(BgmTrack track) async {
     setState(() => _selectedBgm = track);
-    try {
-      await _bgmPlayer.stop();
-      await _bgmPlayer.setReleaseMode(ReleaseMode.loop);
-      await _bgmPlayer.setVolume(_musicVolume);
-      await _bgmPlayer.play(AssetSource(track.assetPath));
-    } catch (_) {
-      // Keep the selection even if the current host cannot play audio.
-    }
+    await widget.audioController.changeBgm(track);
   }
 
   @override
   void dispose() {
-    _bgmPlayer.dispose();
+    widget.audioController.dispose();
     super.dispose();
   }
 
@@ -254,7 +220,7 @@ class _HomeScreenState extends State<HomeScreen> {
       _musicVolume = value;
       if (value > 0) _musicVolumeBeforeMute = value;
     });
-    _bgmPlayer.setVolume(value);
+    widget.audioController.setMusicVolume(value);
   }
 
   void _setSoundEffectVolume(double value) {
@@ -280,7 +246,7 @@ class _HomeScreenState extends State<HomeScreen> {
         _musicVolume = _musicVolumeBeforeMute;
       }
     });
-    _bgmPlayer.setVolume(_musicVolume);
+    widget.audioController.setMusicVolume(_musicVolume);
   }
 
   void _toggleSoundEffectMute() {
@@ -1167,7 +1133,7 @@ class _SettingsPage extends StatelessWidget {
     required this.onBgmChanged,
   });
 
-  final _BgmTrack selectedBgm;
+  final BgmTrack selectedBgm;
   final double musicVolume;
   final double soundEffectVolume;
   final double voiceVolume;
@@ -1177,7 +1143,7 @@ class _SettingsPage extends StatelessWidget {
   final VoidCallback onMusicMuteToggle;
   final VoidCallback onSoundEffectMuteToggle;
   final VoidCallback onVoiceMuteToggle;
-  final ValueChanged<_BgmTrack> onBgmChanged;
+  final ValueChanged<BgmTrack> onBgmChanged;
 
   @override
   Widget build(BuildContext context) {
@@ -1204,7 +1170,7 @@ class _SettingsPage extends StatelessWidget {
                   style: Theme.of(context).textTheme.bodySmall,
                 ),
                 const SizedBox(height: 14),
-                DropdownButtonFormField<_BgmTrack>(
+                DropdownButtonFormField<BgmTrack>(
                   key: const Key('bgm-selector'),
                   initialValue: selectedBgm,
                   decoration: InputDecoration(
@@ -1217,7 +1183,7 @@ class _SettingsPage extends StatelessWidget {
                       borderSide: BorderSide.none,
                     ),
                   ),
-                  items: _BgmTrack.values
+                  items: BgmTrack.values
                       .map(
                         (track) => DropdownMenuItem(
                           value: track,

@@ -1,19 +1,29 @@
 import 'package:flutter/material.dart';
 
+import 'game_audio_controller.dart';
 import 'game_assets.dart';
 import 'home_screen.dart';
 
 class LoadingScreen extends StatefulWidget {
-  const LoadingScreen({super.key});
+  const LoadingScreen({super.key, this.audioController});
+
+  final GameAudioController? audioController;
 
   @override
   State<LoadingScreen> createState() => _LoadingScreenState();
 }
 
 class _LoadingScreenState extends State<LoadingScreen> {
+  late final GameAudioController _audioController;
   bool _started = false;
   bool _ready = false;
   bool _entering = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _audioController = widget.audioController ?? GameAudioController();
+  }
 
   @override
   void didChangeDependencies() {
@@ -24,11 +34,12 @@ class _LoadingScreenState extends State<LoadingScreen> {
   }
 
   Future<void> _preloadAssets() async {
-    await Future.wait(
-      startupPreloadAssets.map(
+    await Future.wait([
+      ...startupPreloadAssets.map(
         (asset) => precacheImage(AssetImage(asset), context),
       ),
-    );
+      _audioController.prepare(),
+    ]);
 
     if (mounted) {
       setState(() => _ready = true);
@@ -38,10 +49,12 @@ class _LoadingScreenState extends State<LoadingScreen> {
   Future<void> _enterGame() async {
     if (!_ready || _entering) return;
 
+    _audioController.playFromUserGesture();
     setState(() => _entering = true);
     await Navigator.of(context).pushReplacement(
       PageRouteBuilder<void>(
-        pageBuilder: (_, animation, secondaryAnimation) => const HomeScreen(),
+        pageBuilder: (_, animation, secondaryAnimation) =>
+            HomeScreen(audioController: _audioController),
         transitionDuration: const Duration(milliseconds: 700),
         transitionsBuilder: (_, animation, secondaryAnimation, child) {
           return FadeTransition(opacity: animation, child: child);
