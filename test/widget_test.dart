@@ -2,12 +2,23 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mini_nanhe/main.dart';
 
+Future<void> _waitForEnterButton(WidgetTester tester) async {
+  for (var attempt = 0; attempt < 50; attempt += 1) {
+    if (find.byKey(const Key('enter-game-button')).evaluate().isNotEmpty) {
+      await tester.pump(const Duration(milliseconds: 500));
+      return;
+    }
+    await tester.runAsync(() async {
+      await Future<void>.delayed(const Duration(milliseconds: 50));
+    });
+    await tester.pump(const Duration(milliseconds: 100));
+  }
+  fail('Loading screen did not finish preloading within the test timeout.');
+}
+
 Future<void> _pumpLoadedApp(WidgetTester tester) async {
   await tester.pumpWidget(const MiniNanheApp());
-  await tester.runAsync(() async {
-    await Future<void>.delayed(const Duration(milliseconds: 100));
-  });
-  await tester.pumpAndSettle();
+  await _waitForEnterButton(tester);
   await tester.tap(find.byKey(const Key('enter-game-button')));
   await tester.pumpAndSettle();
   await tester.pump();
@@ -31,11 +42,7 @@ void main() {
     expect(find.text('正在加载……'), findsOneWidget);
     expect(find.text('迷你南河'), findsWidgets);
 
-    await tester.runAsync(() async {
-      await Future<void>.delayed(const Duration(milliseconds: 100));
-    });
-    await tester.pumpAndSettle();
-    await tester.pump();
+    await _waitForEnterButton(tester);
     expect(find.text('正在加载……'), findsNothing);
     expect(find.text('带他回家'), findsOneWidget);
     expect(find.text('陪伴'), findsNothing);
