@@ -1,3 +1,5 @@
+import 'dart:math';
+
 import 'package:audioplayers/audioplayers.dart';
 
 enum BgmTrack {
@@ -18,6 +20,7 @@ class GameAudioController {
   GameAudioController.disabled() : _enabled = false;
 
   final bool _enabled;
+  final Random _random = Random();
   AudioPlayer? _bgmPlayer;
   AudioPlayer? _regularSfxPlayer;
   AudioPlayer? _hitSfxPlayer;
@@ -78,15 +81,16 @@ class GameAudioController {
     if (!_enabled || soundEffectVolume == 0) return;
     _playSoundEffect(
       player: _regularSfxPlayer ??= AudioPlayer(),
-      assetPath: 'audio/interaction_regular.wav',
+      assetPath: 'audio/button.mp3',
     );
   }
 
   void playHitInteraction() {
     if (!_enabled || soundEffectVolume == 0) return;
+    final hitAsset = _random.nextBool() ? 'audio/punch.mp3' : 'audio/slap.mp3';
     _playSoundEffect(
       player: _hitSfxPlayer ??= AudioPlayer(),
-      assetPath: 'audio/interaction_hit.wav',
+      assetPath: hitAsset,
     );
   }
 
