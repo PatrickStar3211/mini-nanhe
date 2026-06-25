@@ -39,10 +39,10 @@ class _HomeScreenState extends State<HomeScreen> {
   final int _endurance = 1;
   double _musicVolume = 0.7;
   double _soundEffectVolume = 0.8;
-  double _voiceVolume = 0.8;
+  double _voiceVolume = 0.9;
   double _musicVolumeBeforeMute = 0.7;
   double _soundEffectVolumeBeforeMute = 0.8;
-  double _voiceVolumeBeforeMute = 0.8;
+  double _voiceVolumeBeforeMute = 0.9;
   BgmTrack _selectedBgm = BgmTrack.cozyNanhe2;
 
   bool get _isExhausted => _energy <= 0;

@@ -141,7 +141,8 @@ void main() {
     expect(find.text('背景音乐'), findsOneWidget);
     expect(find.text('惬意南河2'), findsOneWidget);
     expect(find.text('70%'), findsOneWidget);
-    expect(find.text('80%'), findsNWidgets(2));
+    expect(find.text('80%'), findsOneWidget);
+    expect(find.text('90%'), findsOneWidget);
 
     await tester.tap(find.byKey(const Key('music-mute-button')));
     await tester.pump();
@@ -156,7 +157,7 @@ void main() {
       const Offset(-200, 0),
     );
     await tester.pump();
-    expect(find.text('80%'), findsOneWidget);
+    expect(find.text('90%'), findsNothing);
 
     await tester.tap(find.byKey(const Key('bgm-selector')));
     await tester.pumpAndSettle();
@@ -169,7 +170,7 @@ void main() {
       200,
       scrollable: find.byType(Scrollable).first,
     );
-    expect(find.text('版本 0.1.4'), findsOneWidget);
+    expect(find.text('版本 0.1.5'), findsOneWidget);
   });
 
   testWidgets('hit test interaction lowers affection and sets negative mood', (

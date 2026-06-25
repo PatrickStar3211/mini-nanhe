@@ -31,7 +31,7 @@ class GameAudioController {
   BgmTrack selectedBgm = BgmTrack.cozyNanhe2;
   double musicVolume = 0.7;
   double soundEffectVolume = 0.8;
-  double voiceVolume = 0.8;
+  double voiceVolume = 0.9;
   bool _isPrepared = false;
 
   Future<void> prepare() async {
