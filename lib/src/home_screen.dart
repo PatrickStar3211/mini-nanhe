@@ -107,21 +107,24 @@ class _HomeScreenState extends State<HomeScreen> {
   }) {
     if (consumesEnergy && _isExhausted) {
       setState(() => _reaction = exhaustedReaction);
+      widget.audioController.playVoice(exhaustedReaction.voice);
       return;
     }
 
     final available = responses.length > 1
         ? responses.where((response) => response != _reaction).toList()
         : responses;
+    final reaction = available[_random.nextInt(available.length)];
 
     setState(() {
       if (consumesEnergy) {
         _energy -= 1;
         _gainAffection();
       }
-      _reaction = available[_random.nextInt(available.length)];
+      _reaction = reaction;
       _isReacting = true;
     });
+    widget.audioController.playVoice(reaction.voice);
 
     Future<void>.delayed(const Duration(milliseconds: 170), () {
       if (mounted) setState(() => _isReacting = false);
@@ -151,15 +154,21 @@ class _HomeScreenState extends State<HomeScreen> {
   void _showHitReaction() {
     if (_isExhausted) {
       setState(() => _reaction = exhaustedReaction);
+      widget.audioController.playVoice(exhaustedReaction.voice);
       return;
     }
 
+    final reaction = hitReactions[_random.nextInt(hitReactions.length)];
     setState(() {
       _energy -= 1;
       _loseAffection(_affectionLossPerHit);
-      _reaction = hitReactions[_random.nextInt(hitReactions.length)];
+      _reaction = reaction;
       _isReacting = true;
     });
+    widget.audioController.playVoice(
+      reaction.voice,
+      delay: const Duration(milliseconds: 180),
+    );
 
     Future<void>.delayed(const Duration(milliseconds: 170), () {
       if (mounted) setState(() => _isReacting = false);
@@ -186,6 +195,7 @@ class _HomeScreenState extends State<HomeScreen> {
       _reaction = wakeUpReaction;
       _isReacting = false;
     });
+    widget.audioController.playVoice(wakeUpReaction.voice);
   }
 
   void _observe() {
@@ -236,6 +246,7 @@ class _HomeScreenState extends State<HomeScreen> {
       _voiceVolume = value;
       if (value > 0) _voiceVolumeBeforeMute = value;
     });
+    widget.audioController.setVoiceVolume(value);
   }
 
   void _toggleMusicMute() {
@@ -271,6 +282,7 @@ class _HomeScreenState extends State<HomeScreen> {
         _voiceVolume = _voiceVolumeBeforeMute;
       }
     });
+    widget.audioController.setVoiceVolume(_voiceVolume);
   }
 
   @override
@@ -554,6 +566,7 @@ class _CharacterStage extends StatelessWidget {
           emotion: NanheEmotion.calm,
           nanheSpeech: '南河？',
           meaning: '轻轻点我试试看。',
+          voice: NanheVoice.calmSingle,
         );
 
     return Container(

@@ -2,6 +2,8 @@ import 'dart:math';
 
 import 'package:audioplayers/audioplayers.dart';
 
+import 'character_reaction.dart';
+
 enum BgmTrack {
   cozyNanhe1('惬意南河1', 'audio/cozy_nanhe_1.mp3'),
   cozyNanhe2('惬意南河2', 'audio/cozy_nanhe_2.mp3'),
@@ -24,9 +26,12 @@ class GameAudioController {
   AudioPlayer? _bgmPlayer;
   AudioPlayer? _regularSfxPlayer;
   AudioPlayer? _hitSfxPlayer;
+  AudioPlayer? _voicePlayer;
+  int _voiceRequestId = 0;
   BgmTrack selectedBgm = BgmTrack.cozyNanhe2;
   double musicVolume = 0.7;
   double soundEffectVolume = 0.8;
+  double voiceVolume = 0.8;
   bool _isPrepared = false;
 
   Future<void> prepare() async {
@@ -36,6 +41,9 @@ class GameAudioController {
       await player.setReleaseMode(ReleaseMode.loop);
       await player.setVolume(musicVolume);
       await player.setSource(AssetSource(selectedBgm.assetPath));
+      await AudioCache.instance.loadAll(
+        NanheVoice.values.map((voice) => voice.assetPath).toList(),
+      );
       _isPrepared = true;
     } catch (_) {
       _isPrepared = false;
@@ -77,6 +85,34 @@ class GameAudioController {
     _hitSfxPlayer?.setVolume(value).catchError((_) {});
   }
 
+  void setVoiceVolume(double value) {
+    voiceVolume = value;
+    _voicePlayer?.setVolume(value).catchError((_) {});
+  }
+
+  Future<void> playVoice(
+    NanheVoice voice, {
+    Duration delay = const Duration(milliseconds: 90),
+  }) async {
+    if (!_enabled || voiceVolume == 0) return;
+
+    final requestId = ++_voiceRequestId;
+    if (delay > Duration.zero) {
+      await Future<void>.delayed(delay);
+    }
+    if (requestId != _voiceRequestId || !_enabled || voiceVolume == 0) return;
+
+    try {
+      final player = _voicePlayer ??= AudioPlayer();
+      await player.stop();
+      await player.play(
+        AssetSource(voice.assetPath),
+        volume: voiceVolume,
+        mode: PlayerMode.lowLatency,
+      );
+    } catch (_) {}
+  }
+
   void playRegularInteraction() {
     if (!_enabled || soundEffectVolume == 0) return;
     _playSoundEffect(
@@ -111,5 +147,6 @@ class GameAudioController {
     _bgmPlayer?.dispose();
     _regularSfxPlayer?.dispose();
     _hitSfxPlayer?.dispose();
+    _voicePlayer?.dispose();
   }
 }
