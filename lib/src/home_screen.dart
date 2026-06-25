@@ -2,6 +2,7 @@ import 'dart:math';
 
 import 'package:flutter/material.dart';
 
+import 'app_version.dart';
 import 'character_reaction.dart';
 import 'game_audio_controller.dart';
 import 'game_assets.dart';
@@ -1272,6 +1273,19 @@ class _SettingsPage extends StatelessWidget {
             title: Text('本机存档'),
             subtitle: Text('将在 EPIC 7 实作'),
           ),
+          const SizedBox(height: 24),
+          const Center(
+            child: Text(
+              '版本 $appVersion',
+              key: Key('app-version'),
+              style: TextStyle(
+                color: Color(0xFF7A8796),
+                fontSize: 12,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ),
+          const SizedBox(height: 8),
         ],
       ),
     );

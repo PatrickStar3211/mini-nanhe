@@ -154,6 +154,13 @@ void main() {
     await tester.tap(find.text('惬意南河4').last);
     await tester.pumpAndSettle();
     expect(find.text('惬意南河4'), findsOneWidget);
+
+    await tester.scrollUntilVisible(
+      find.byKey(const Key('app-version')),
+      200,
+      scrollable: find.byType(Scrollable).first,
+    );
+    expect(find.text('版本 0.1.3'), findsOneWidget);
   });
 
   testWidgets('hit test interaction lowers affection and sets negative mood', (
