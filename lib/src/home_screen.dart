@@ -433,16 +433,24 @@ class _CompanionPage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 8, 16, 10),
-      child: Column(
-        children: [
-          _Header(totalDaysTogether: totalDaysTogether),
-          const SizedBox(height: 8),
-          _CalendarCard(season: season, year: year, month: month, day: day),
-          const SizedBox(height: 12),
-          Expanded(
-            child: _CharacterStage(
+    return Align(
+      alignment: Alignment.topCenter,
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 752),
+        child: LayoutBuilder(
+          builder: (context, constraints) {
+            const horizontalPadding = 16.0;
+            const fixedContentHeight = 254.0;
+            final contentWidth = constraints.maxWidth - (horizontalPadding * 2);
+            final availableStageHeight =
+                constraints.maxHeight - fixedContentHeight;
+            final protectedStageHeight = (contentWidth * 1.05).clamp(
+              380.0,
+              520.0,
+            );
+            final needsScrolling = availableStageHeight < protectedStageHeight;
+
+            final stage = _CharacterStage(
               reaction: reaction,
               isReacting: isReacting,
               moodLabel: moodLabel,
@@ -451,20 +459,62 @@ class _CompanionPage extends StatelessWidget {
               affectionProgress: affectionProgress,
               energy: energy,
               onTap: onCharacterTap,
-            ),
-          ),
-          const SizedBox(height: 12),
-          _ActionPanel(
-            isExhausted: isExhausted,
-            onChat: onChat,
-            onPet: onPet,
-            onObserve: onObserve,
-            onWalk: onWalk,
-            onFeed: onFeed,
-            onHit: onHit,
-            onSleep: onSleep,
-          ),
-        ],
+            );
+            final actions = _ActionPanel(
+              isExhausted: isExhausted,
+              onChat: onChat,
+              onPet: onPet,
+              onObserve: onObserve,
+              onWalk: onWalk,
+              onFeed: onFeed,
+              onHit: onHit,
+              onSleep: onSleep,
+            );
+
+            if (needsScrolling) {
+              return SingleChildScrollView(
+                key: const Key('companion-scroll-view'),
+                padding: const EdgeInsets.fromLTRB(16, 8, 16, 10),
+                child: Column(
+                  children: [
+                    _Header(totalDaysTogether: totalDaysTogether),
+                    const SizedBox(height: 8),
+                    _CalendarCard(
+                      season: season,
+                      year: year,
+                      month: month,
+                      day: day,
+                    ),
+                    const SizedBox(height: 12),
+                    SizedBox(height: protectedStageHeight, child: stage),
+                    const SizedBox(height: 12),
+                    actions,
+                  ],
+                ),
+              );
+            }
+
+            return Padding(
+              padding: const EdgeInsets.fromLTRB(16, 8, 16, 10),
+              child: Column(
+                children: [
+                  _Header(totalDaysTogether: totalDaysTogether),
+                  const SizedBox(height: 8),
+                  _CalendarCard(
+                    season: season,
+                    year: year,
+                    month: month,
+                    day: day,
+                  ),
+                  const SizedBox(height: 12),
+                  Expanded(child: stage),
+                  const SizedBox(height: 12),
+                  actions,
+                ],
+              ),
+            );
+          },
+        ),
       ),
     );
   }

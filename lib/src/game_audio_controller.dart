@@ -23,10 +23,33 @@ class GameAudioController {
 
   final bool _enabled;
   final Random _random = Random();
+  static final _bgmAudioContext = AudioContext(
+    android: AudioContextAndroid(
+      contentType: AndroidContentType.music,
+      usageType: AndroidUsageType.game,
+      audioFocus: AndroidAudioFocus.gain,
+    ),
+  );
+  static final _effectAudioContext = AudioContext(
+    android: AudioContextAndroid(
+      contentType: AndroidContentType.sonification,
+      usageType: AndroidUsageType.game,
+      audioFocus: AndroidAudioFocus.none,
+    ),
+  );
+  static final _voiceAudioContext = AudioContext(
+    android: AudioContextAndroid(
+      contentType: AndroidContentType.speech,
+      usageType: AndroidUsageType.game,
+      audioFocus: AndroidAudioFocus.none,
+    ),
+  );
+
   AudioPlayer? _bgmPlayer;
-  AudioPlayer? _regularSfxPlayer;
-  AudioPlayer? _hitSfxPlayer;
   AudioPlayer? _voicePlayer;
+  AudioPool? _regularSfxPool;
+  AudioPool? _punchSfxPool;
+  AudioPool? _slapSfxPool;
   int _voiceRequestId = 0;
   BgmTrack selectedBgm = BgmTrack.cozyNanhe2;
   double musicVolume = 0.7;
@@ -38,9 +61,17 @@ class GameAudioController {
     if (!_enabled) return;
     try {
       final player = _bgmPlayer ??= AudioPlayer();
+      await player.setAudioContext(_bgmAudioContext);
       await player.setReleaseMode(ReleaseMode.loop);
       await player.setVolume(musicVolume);
       await player.setSource(AssetSource(selectedBgm.assetPath));
+      final voicePlayer = _voicePlayer ??= AudioPlayer();
+      await voicePlayer.setAudioContext(_voiceAudioContext);
+      await voicePlayer.setPlayerMode(PlayerMode.mediaPlayer);
+      await voicePlayer.setReleaseMode(ReleaseMode.stop);
+      _regularSfxPool ??= await _createEffectPool('audio/button.mp3', 3);
+      _punchSfxPool ??= await _createEffectPool('audio/punch.mp3', 2);
+      _slapSfxPool ??= await _createEffectPool('audio/slap.mp3', 2);
       await AudioCache.instance.loadAll(
         NanheVoice.values.map((voice) => voice.assetPath).toList(),
       );
@@ -65,6 +96,7 @@ class GameAudioController {
     try {
       final player = _bgmPlayer ??= AudioPlayer();
       await player.stop();
+      await player.setAudioContext(_bgmAudioContext);
       await player.setReleaseMode(ReleaseMode.loop);
       await player.setVolume(musicVolume);
       await player.play(AssetSource(track.assetPath));
@@ -81,8 +113,6 @@ class GameAudioController {
 
   void setSoundEffectVolume(double value) {
     soundEffectVolume = value;
-    _regularSfxPlayer?.setVolume(value).catchError((_) {});
-    _hitSfxPlayer?.setVolume(value).catchError((_) {});
   }
 
   void setVoiceVolume(double value) {
@@ -105,48 +135,57 @@ class GameAudioController {
     try {
       final player = _voicePlayer ??= AudioPlayer();
       await player.stop();
-      await player.play(
-        AssetSource(voice.assetPath),
-        volume: voiceVolume,
-        mode: PlayerMode.lowLatency,
-      );
+      await player.play(AssetSource(voice.assetPath), volume: voiceVolume);
+      _ensureBgmContinues();
     } catch (_) {}
   }
 
   void playRegularInteraction() {
     if (!_enabled || soundEffectVolume == 0) return;
-    _playSoundEffect(
-      player: _regularSfxPlayer ??= AudioPlayer(),
-      assetPath: 'audio/button.mp3',
-    );
+    _playPooledSound(_regularSfxPool);
   }
 
   void playHitInteraction() {
     if (!_enabled || soundEffectVolume == 0) return;
-    final hitAsset = _random.nextBool() ? 'audio/punch.mp3' : 'audio/slap.mp3';
-    _playSoundEffect(
-      player: _hitSfxPlayer ??= AudioPlayer(),
-      assetPath: hitAsset,
+    _playPooledSound(_random.nextBool() ? _punchSfxPool : _slapSfxPool);
+  }
+
+  Future<AudioPool> _createEffectPool(String assetPath, int maxPlayers) {
+    return AudioPool.create(
+      source: AssetSource(assetPath),
+      minPlayers: 1,
+      maxPlayers: maxPlayers,
+      playerMode: PlayerMode.lowLatency,
+      audioContext: _effectAudioContext,
     );
   }
 
-  void _playSoundEffect({
-    required AudioPlayer player,
-    required String assetPath,
-  }) {
-    player
-        .play(
-          AssetSource(assetPath),
-          volume: soundEffectVolume,
-          mode: PlayerMode.lowLatency,
-        )
+  void _playPooledSound(AudioPool? pool) {
+    if (pool == null) return;
+    pool
+        .start(volume: soundEffectVolume)
+        .then((stop) {
+          Future<void>.delayed(const Duration(seconds: 2), stop);
+          _ensureBgmContinues();
+        })
         .catchError((_) {});
+  }
+
+  void _ensureBgmContinues() {
+    if (!_enabled || musicVolume == 0) return;
+    Future<void>.delayed(const Duration(milliseconds: 250), () {
+      final player = _bgmPlayer;
+      if (player != null && player.state != PlayerState.playing) {
+        player.resume().catchError((_) {});
+      }
+    });
   }
 
   void dispose() {
     _bgmPlayer?.dispose();
-    _regularSfxPlayer?.dispose();
-    _hitSfxPlayer?.dispose();
     _voicePlayer?.dispose();
+    _regularSfxPool?.dispose();
+    _punchSfxPool?.dispose();
+    _slapSfxPool?.dispose();
   }
 }

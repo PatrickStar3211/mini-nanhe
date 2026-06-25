@@ -24,6 +24,10 @@ Future<void> _waitForEnterButton(WidgetTester tester) async {
 }
 
 Future<void> _pumpLoadedApp(WidgetTester tester) async {
+  tester.view.physicalSize = const Size(430, 900);
+  tester.view.devicePixelRatio = 1;
+  addTearDown(tester.view.resetPhysicalSize);
+  addTearDown(tester.view.resetDevicePixelRatio);
   await tester.pumpWidget(_testApp());
   await _waitForEnterButton(tester);
   await tester.tap(find.byKey(const Key('enter-game-button')));
@@ -170,7 +174,35 @@ void main() {
       200,
       scrollable: find.byType(Scrollable).first,
     );
-    expect(find.text('版本 0.1.5'), findsOneWidget);
+    expect(find.text('版本 0.1.6'), findsOneWidget);
+  });
+
+  testWidgets('short screens preserve the character stage and can scroll', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(430, 650);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    await tester.pumpWidget(_testApp());
+    await _waitForEnterButton(tester);
+    await tester.tap(find.byKey(const Key('enter-game-button')));
+    await tester.pumpAndSettle();
+
+    expect(find.byKey(const Key('companion-scroll-view')), findsOneWidget);
+    expect(tester.takeException(), isNull);
+
+    await tester.scrollUntilVisible(
+      find.byKey(const Key('hit-button')),
+      250,
+      scrollable: find.descendant(
+        of: find.byKey(const Key('companion-scroll-view')),
+        matching: find.byType(Scrollable),
+      ),
+    );
+    expect(find.byKey(const Key('hit-button')), findsOneWidget);
+    expect(tester.takeException(), isNull);
   });
 
   testWidgets('hit test interaction lowers affection and sets negative mood', (
