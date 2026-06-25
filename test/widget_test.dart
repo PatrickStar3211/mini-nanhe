@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mini_nanhe/main.dart';
+import 'package:mini_nanhe/src/character_reaction.dart';
 import 'package:mini_nanhe/src/game_audio_controller.dart';
 
 MiniNanheApp _testApp() {
@@ -39,6 +41,13 @@ Finder _negativeMoodFinder() {
 }
 
 void main() {
+  test('all Nanhe voice assets are bundled', () async {
+    for (final voice in NanheVoice.values) {
+      final data = await rootBundle.load('assets/${voice.assetPath}');
+      expect(data.lengthInBytes, greaterThan(0), reason: voice.assetPath);
+    }
+  });
+
   testWidgets('app starts with a loading screen before entering the game', (
     tester,
   ) async {
@@ -160,7 +169,7 @@ void main() {
       200,
       scrollable: find.byType(Scrollable).first,
     );
-    expect(find.text('版本 0.1.3'), findsOneWidget);
+    expect(find.text('版本 0.1.4'), findsOneWidget);
   });
 
   testWidgets('hit test interaction lowers affection and sets negative mood', (
