@@ -175,6 +175,41 @@ const exhaustedReaction = CharacterReaction(
   voice: NanheVoice.sleepySingle,
 );
 
+const restReaction = CharacterReaction(
+  emotion: NanheEmotion.sleepy,
+  nanheSpeech: '南河～',
+  meaning: '他靠近你身边，安静地休息了一会儿。',
+  voice: NanheVoice.sleepySingle,
+);
+
+const tooEarlyToSleepReaction = CharacterReaction(
+  emotion: NanheEmotion.calm,
+  nanheSpeech: '还没到睡觉的时候。',
+  meaning: '再陪南河一会儿吧。',
+  voice: NanheVoice.calmSingle,
+);
+
+const sleepReactions = <CharacterReaction>[
+  CharacterReaction(
+    emotion: NanheEmotion.sleepy,
+    nanheSpeech: '晚安，南河。',
+    meaning: '你轻轻道别，屋子慢慢安静下来。',
+    voice: NanheVoice.sleepySingle,
+  ),
+  CharacterReaction(
+    emotion: NanheEmotion.sleepy,
+    nanheSpeech: '灯被调暗了。',
+    meaning: '南河缩进柔软的被子里，呼吸渐渐平稳。',
+    voice: NanheVoice.sleepySingle,
+  ),
+  CharacterReaction(
+    emotion: NanheEmotion.sleepy,
+    nanheSpeech: '今天也辛苦了。',
+    meaning: '你确认他已经睡好，才把门轻轻带上。',
+    voice: NanheVoice.sleepySingle,
+  ),
+];
+
 const wakeUpReaction = CharacterReaction(
   emotion: NanheEmotion.happy,
   nanheSpeech: '南河！南河！',

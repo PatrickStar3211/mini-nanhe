@@ -87,18 +87,21 @@ void main() {
     expect(find.text('散步'), findsOneWidget);
     expect(find.text('喂食'), findsOneWidget);
     expect(find.text('殴打'), findsOneWidget);
+    expect(find.text('休息'), findsOneWidget);
+    expect(find.text('睡觉'), findsOneWidget);
     expect(find.text('迷你期 · 第 1 天'), findsOneWidget);
-    expect(find.text('冬｜第 1 年・1 月 1 日'), findsOneWidget);
+    expect(find.text('冬 | 第1年 · 1月1日 | 06:00 | 晴'), findsOneWidget);
     expect(find.text('好感 Lv.1'), findsOneWidget);
     expect(find.text('0/100'), findsOneWidget);
-    expect(find.text('50/50'), findsOneWidget);
+    expect(find.text('25/25'), findsOneWidget);
     expect(find.text('☺ 平静'), findsOneWidget);
 
     await tester.tap(find.byKey(const Key('pet-button')));
     await tester.pump(const Duration(milliseconds: 200));
 
-    expect(find.text('49/50'), findsOneWidget);
+    expect(find.text('24/25'), findsOneWidget);
     expect(find.text('3/100'), findsOneWidget);
+    expect(find.text('冬 | 第1年 · 1月1日 | 06:30 | 晴'), findsOneWidget);
 
     await tester.tap(find.text('状态'));
     await tester.pumpAndSettle();
@@ -107,28 +110,27 @@ void main() {
     expect(find.text('当前好感度'), findsOneWidget);
     expect(find.text('Lv.1  3/100'), findsOneWidget);
     expect(find.text('当前体力'), findsOneWidget);
-    expect(find.text('49/50'), findsOneWidget);
+    expect(find.text('24/25'), findsOneWidget);
     expect(find.text('心情'), findsOneWidget);
     expect(find.text('力量'), findsOneWidget);
     expect(find.text('智力'), findsOneWidget);
     expect(find.text('耐力'), findsOneWidget);
   });
 
-  testWidgets('chat opens dialogue choices', (tester) async {
+  testWidgets('chat shows dialogue in the stage bubble', (tester) async {
     await _pumpLoadedApp(tester);
     await tester.tap(find.byKey(const Key('chat-button')));
+    await tester.pump(const Duration(milliseconds: 200));
+
+    expect(find.text('和南河聊聊'), findsNothing);
+    expect(find.textContaining('南河'), findsWidgets);
+    expect(find.text('24/25'), findsOneWidget);
+    expect(find.text('1/100'), findsOneWidget);
+    expect(find.text('冬 | 第1年 · 1月1日 | 06:30 | 晴'), findsOneWidget);
+
+    await tester.tap(find.byIcon(Icons.arrow_drop_down_rounded));
     await tester.pumpAndSettle();
-
-    expect(find.text('和南河聊聊'), findsOneWidget);
-    expect(find.text('问问他今天的心情'), findsOneWidget);
-
-    await tester.tap(find.text('问问他今天的心情'));
-    await tester.pumpAndSettle();
-
-    expect(find.text('南河！南河！(*^▽^*)'), findsOneWidget);
-    expect(find.text('（今天很开心，因为你有来！）'), findsOneWidget);
-    expect(find.text('49/50'), findsOneWidget);
-    expect(find.text('3/100'), findsOneWidget);
+    expect(find.byIcon(Icons.arrow_drop_down_rounded), findsNothing);
   });
 
   testWidgets('settings controls audio volumes and restores muted volume', (
@@ -213,51 +215,93 @@ void main() {
     await tester.tap(find.byKey(const Key('hit-button')));
     await tester.pump(const Duration(milliseconds: 200));
 
-    expect(find.text('49/50'), findsOneWidget);
+    expect(find.text('24/25'), findsOneWidget);
     expect(find.text('0/100'), findsOneWidget);
     expect(_negativeMoodFinder(), findsOneWidget);
     expect(find.textContaining('南河'), findsWidgets);
   });
 
-  testWidgets('hit can downgrade affection level but never below initial', (
-    tester,
-  ) async {
+  testWidgets('hit lowers affection by five after gains', (tester) async {
     await _pumpLoadedApp(tester);
 
-    for (var i = 0; i < 34; i += 1) {
+    for (var i = 0; i < 2; i += 1) {
       await tester.tap(find.byKey(const Key('pet-button')));
       await tester.pump(const Duration(milliseconds: 200));
     }
 
-    expect(find.text('好感 Lv.2'), findsOneWidget);
-    expect(find.text('2/100'), findsOneWidget);
+    expect(find.text('6/100'), findsOneWidget);
 
     await tester.tap(find.byKey(const Key('hit-button')));
     await tester.pump(const Duration(milliseconds: 200));
 
     expect(find.text('好感 Lv.1'), findsOneWidget);
-    expect(find.text('96/100'), findsOneWidget);
+    expect(find.text('1/100'), findsOneWidget);
   });
 
-  testWidgets('sleep appears when energy is exhausted and advances the day', (
+  testWidgets(
+    'rest restores energy and action paging shows disabled page two',
+    (tester) async {
+      await _pumpLoadedApp(tester);
+
+      await tester.tap(find.byKey(const Key('pet-button')));
+      await tester.pump(const Duration(milliseconds: 200));
+      expect(find.text('24/25'), findsOneWidget);
+
+      await tester.tap(find.byKey(const Key('rest-button')));
+      await tester.pump(const Duration(milliseconds: 200));
+      expect(find.text('25/25'), findsOneWidget);
+      expect(find.text('冬 | 第1年 · 1月1日 | 07:00 | 晴'), findsOneWidget);
+
+      expect(find.byKey(const Key('action-page-up')), findsNothing);
+      expect(find.byKey(const Key('action-page-down')), findsOneWidget);
+
+      await tester.tap(find.byKey(const Key('action-page-down')));
+      await tester.pumpAndSettle();
+      expect(find.byKey(const Key('action-page-up')), findsOneWidget);
+      expect(find.byKey(const Key('action-page-down')), findsNothing);
+      expect(find.byKey(const Key('placeholder-action-1')), findsOneWidget);
+      expect(find.byKey(const Key('placeholder-action-8')), findsOneWidget);
+    },
+  );
+
+  testWidgets('sleep before night shows a hint without advancing time', (
     tester,
   ) async {
     await _pumpLoadedApp(tester);
 
-    for (var i = 0; i < 50; i += 1) {
+    await tester.tap(find.byKey(const Key('sleep-button')));
+    await tester.pump(const Duration(milliseconds: 200));
+
+    expect(find.text('还没到睡觉的时候。'), findsOneWidget);
+    expect(find.text('冬 | 第1年 · 1月1日 | 06:00 | 晴'), findsOneWidget);
+  });
+
+  testWidgets('sleep after exhaustion resolves after reading sleep text', (
+    tester,
+  ) async {
+    await _pumpLoadedApp(tester);
+
+    for (var i = 0; i < 25; i += 1) {
       await tester.tap(find.byKey(const Key('pet-button')));
       await tester.pump(const Duration(milliseconds: 200));
     }
 
-    expect(find.text('0/50'), findsOneWidget);
+    expect(find.text('0/25'), findsOneWidget);
     expect(find.text('睡觉'), findsOneWidget);
+    expect(find.byKey(const Key('pet-button')), findsNothing);
 
     await tester.tap(find.byKey(const Key('sleep-button')));
+    await tester.pumpAndSettle();
+
+    expect(find.text('迷你期 · 第 1 天'), findsOneWidget);
+    expect(find.byIcon(Icons.arrow_drop_down_rounded), findsOneWidget);
+
+    await tester.tap(find.byIcon(Icons.arrow_drop_down_rounded).last);
     await tester.pump(const Duration(milliseconds: 200));
 
     expect(find.text('迷你期 · 第 2 天'), findsOneWidget);
-    expect(find.text('冬｜第 1 年・1 月 2 日'), findsOneWidget);
-    expect(find.text('50/50'), findsOneWidget);
-    expect(find.text('睡觉'), findsNothing);
+    expect(find.text('冬 | 第1年 · 1月2日 | 06:00 | 晴'), findsOneWidget);
+    expect(find.text('25/25'), findsOneWidget);
+    expect(find.byKey(const Key('pet-button')), findsOneWidget);
   });
 }
