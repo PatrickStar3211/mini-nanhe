@@ -176,7 +176,7 @@ void main() {
       200,
       scrollable: find.byType(Scrollable).first,
     );
-    expect(find.text('版本 0.1.6'), findsOneWidget);
+    expect(find.text('版本 0.2.1'), findsOneWidget);
   });
 
   testWidgets('short screens preserve the character stage and can scroll', (
@@ -295,6 +295,13 @@ void main() {
 
     expect(find.text('迷你期 · 第 1 天'), findsOneWidget);
     expect(find.byIcon(Icons.arrow_drop_down_rounded), findsOneWidget);
+    expect(find.byKey(const Key('sleep-dialogue-hint')), findsOneWidget);
+    expect(find.byKey(const Key('pet-button')), findsNothing);
+    expect(find.byKey(const Key('action-page-down')), findsNothing);
+
+    await tester.tap(find.byKey(const Key('character-tap-area')));
+    await tester.pump(const Duration(milliseconds: 200));
+    expect(find.text('冬 | 第1年 · 1月1日 | 18:30 | 晴'), findsOneWidget);
 
     await tester.tap(find.byIcon(Icons.arrow_drop_down_rounded).last);
     await tester.pump(const Duration(milliseconds: 200));

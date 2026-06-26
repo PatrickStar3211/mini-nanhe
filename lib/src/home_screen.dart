@@ -57,6 +57,7 @@ class _HomeScreenState extends State<HomeScreen> {
   bool get _isExhausted => _energy <= 0;
   bool get _isMidnight => _minuteOfDay >= _midnightMinute;
   bool get _isForcedSleep => _isExhausted || _isMidnight;
+  bool get _isActionLocked => _isForcedSleep || _sleepPending;
   bool get _canSleepByTime => _minuteOfDay >= _sleepAvailableMinute;
 
   String get _timeLabel {
@@ -128,6 +129,8 @@ class _HomeScreenState extends State<HomeScreen> {
     int affectionGain = _affectionGainPerInteraction,
     bool advancesTime = true,
   }) {
+    if (_sleepPending) return;
+
     if (consumesEnergy && _isForcedSleep) {
       setState(() => _reaction = exhaustedReaction);
       widget.audioController.playVoice(exhaustedReaction.voice);
@@ -176,6 +179,8 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   void _showHitReaction() {
+    if (_sleepPending) return;
+
     if (_isForcedSleep) {
       setState(() => _reaction = exhaustedReaction);
       widget.audioController.playVoice(exhaustedReaction.voice);
@@ -217,6 +222,8 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   void _requestSleep() {
+    if (_sleepPending) return;
+
     if (!_isForcedSleep && !_canSleepByTime) {
       setState(() => _reaction = tooEarlyToSleepReaction);
       return;
@@ -260,6 +267,8 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   void _chat() {
+    if (_sleepPending) return;
+
     if (_isForcedSleep) {
       _showReaction(const [exhaustedReaction], consumesEnergy: false);
       return;
@@ -272,6 +281,8 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   void _rest() {
+    if (_sleepPending) return;
+
     if (_isForcedSleep) {
       _showReaction(const [exhaustedReaction], consumesEnergy: false);
       return;
@@ -405,7 +416,8 @@ class _HomeScreenState extends State<HomeScreen> {
         isReacting: _isReacting,
         moodLabel: _moodLabel,
         characterAsset: _characterAsset,
-        isForcedSleep: _isForcedSleep,
+        isForcedSleep: _isActionLocked,
+        isSleepPending: _sleepPending,
         canSleep: _canSleepByTime,
         actionPage: _actionPage,
         affectionLevel: _affectionLevel,
@@ -489,6 +501,7 @@ class _CompanionPage extends StatelessWidget {
     required this.moodLabel,
     required this.characterAsset,
     required this.isForcedSleep,
+    required this.isSleepPending,
     required this.canSleep,
     required this.actionPage,
     required this.affectionLevel,
@@ -519,6 +532,7 @@ class _CompanionPage extends StatelessWidget {
   final String moodLabel;
   final String characterAsset;
   final bool isForcedSleep;
+  final bool isSleepPending;
   final bool canSleep;
   final int actionPage;
   final int affectionLevel;
@@ -568,6 +582,7 @@ class _CompanionPage extends StatelessWidget {
             );
             final actions = _ActionPanel(
               isForcedSleep: isForcedSleep,
+              isSleepPending: isSleepPending,
               canSleep: canSleep,
               actionPage: actionPage,
               onPageChanged: onPageChanged,
@@ -1163,6 +1178,7 @@ class _StatusValueRow extends StatelessWidget {
 class _ActionPanel extends StatelessWidget {
   const _ActionPanel({
     required this.isForcedSleep,
+    required this.isSleepPending,
     required this.canSleep,
     required this.actionPage,
     required this.onPageChanged,
@@ -1177,6 +1193,7 @@ class _ActionPanel extends StatelessWidget {
   });
 
   final bool isForcedSleep;
+  final bool isSleepPending;
   final bool canSleep;
   final int actionPage;
   final ValueChanged<int> onPageChanged;
@@ -1192,11 +1209,33 @@ class _ActionPanel extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     if (isForcedSleep) {
-      return _ActionButton(
-        key: const Key('sleep-button'),
-        label: '睡觉',
-        emphasized: true,
-        onPressed: onSleep,
+      return Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Center(
+            child: SizedBox(
+              width: 160,
+              child: _ActionButton(
+                key: const Key('sleep-button'),
+                label: '睡觉',
+                emphasized: true,
+                onPressed: onSleep,
+              ),
+            ),
+          ),
+          if (isSleepPending) ...[
+            const SizedBox(height: 6),
+            Text(
+              '点击对话框开始下一天',
+              key: const Key('sleep-dialogue-hint'),
+              textAlign: TextAlign.center,
+              style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                color: mutedInk,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ],
+        ],
       );
     }
 
