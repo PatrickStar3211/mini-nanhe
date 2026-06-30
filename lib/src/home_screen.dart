@@ -22,6 +22,13 @@ const _earliestWakeMinute = 6 * 60;
 const _sleepDurationMinutes = 8 * 60;
 const _endurancePerMaxEnergy = 4;
 
+class _ReactionRule {
+  const _ReactionRule(this.matches, this.responses);
+
+  final bool Function() matches;
+  final List<CharacterReaction> responses;
+}
+
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key, required this.audioController});
 
@@ -79,6 +86,16 @@ class _HomeScreenState extends State<HomeScreen> {
   bool get _isForcedSleep => _isExhausted || _isMidnight;
   bool get _isActionLocked => _isForcedSleep || _sleepPending;
   bool get _canSleepByTime => _minuteOfDay >= _sleepAvailableMinute;
+  bool get _isTired => _energy <= max(1, (_maxEnergy * 0.35).ceil());
+  bool get _hasHighPressure => _pressure >= 70;
+  bool get _hasLowTrust => _trustLevel == 1 && _trustProgress < 20;
+  bool get _hasHighTrust => _trustLevel >= 2 || _trustProgress >= 70;
+  bool get _hasHighAffection =>
+      _affectionLevel >= 2 || _affectionProgress >= 50;
+  bool get _isDirty => _cleanliness <= 35;
+  bool get _isSick => _cleanliness <= 20 || _healthValue < 30;
+  bool get _isInjured => _injury >= 10;
+  bool get _isLateNight => _minuteOfDay >= 20 * 60;
   int get _maxEnergy {
     final enduranceBonus =
         (_endurance - _minStatValue) ~/ _endurancePerMaxEnergy;
@@ -235,6 +252,16 @@ class _HomeScreenState extends State<HomeScreen> {
     return available[_random.nextInt(available.length)];
   }
 
+  List<CharacterReaction> _responsesFor(
+    List<CharacterReaction> fallback,
+    List<_ReactionRule> rules,
+  ) {
+    for (final rule in rules) {
+      if (rule.matches()) return rule.responses;
+    }
+    return fallback;
+  }
+
   void _applyAction(
     List<CharacterReaction> responses, {
     int energyDelta = -1,
@@ -323,9 +350,15 @@ class _HomeScreenState extends State<HomeScreen> {
       return;
     }
 
-    final reactions = _affectionProgress >= 50 && _trustProgress <= 10
-        ? sadHitReactions
-        : hitReactions;
+    final reactions = _responsesFor(hitReactions, [
+      _ReactionRule(
+        () => _hasHighAffection && _hasHighTrust,
+        trustedHitReactions,
+      ),
+      _ReactionRule(() => _hasHighAffection && _hasLowTrust, sadHitReactions),
+      _ReactionRule(() => _hasHighTrust, confusedHitReactions),
+      _ReactionRule(() => _hasLowTrust, lowBondHitReactions),
+    ]);
     _applyAction(
       reactions,
       energyDelta: -1,
@@ -402,7 +435,11 @@ class _HomeScreenState extends State<HomeScreen> {
 
   void _observe() {
     _applyAction(
-      observeReactions,
+      _responsesFor(observeReactions, [
+        _ReactionRule(() => _isInjured, injuredObserveReactions),
+        _ReactionRule(() => _isSick, sickObserveReactions),
+        _ReactionRule(() => _hasHighPressure, highPressureObserveReactions),
+      ]),
       energyDelta: -1,
       affectionDelta: _affectionGainPerQuietInteraction,
       curiosityDelta: 2,
@@ -418,7 +455,11 @@ class _HomeScreenState extends State<HomeScreen> {
     }
 
     _applyAction(
-      dialogueReactions,
+      _responsesFor(dialogueReactions, [
+        _ReactionRule(() => _hasHighPressure, highPressureChatReactions),
+        _ReactionRule(() => _isTired, tiredChatReactions),
+        _ReactionRule(() => _hasLowTrust, lowTrustChatReactions),
+      ]),
       energyDelta: -1,
       affectionDelta: _affectionGainPerQuietInteraction,
       trustDelta: 1,
@@ -430,7 +471,17 @@ class _HomeScreenState extends State<HomeScreen> {
 
   void _pet() {
     _applyAction(
-      petReactions,
+      _responsesFor(petReactions, [
+        _ReactionRule(
+          () => _hasLowTrust && (_hasHighPressure || _isInjured),
+          lowTrustPetReactions,
+        ),
+        _ReactionRule(() => _isTired, tiredPetReactions),
+        _ReactionRule(
+          () => _hasHighAffection && _hasHighTrust,
+          highBondPetReactions,
+        ),
+      ]),
       energyDelta: -1,
       affectionDelta: _affectionGainPerInteraction,
       trustDelta: 1,
@@ -442,7 +493,10 @@ class _HomeScreenState extends State<HomeScreen> {
 
   void _play() {
     _applyAction(
-      playReactions,
+      _responsesFor(playReactions, [
+        _ReactionRule(() => _isTired, tiredPlayReactions),
+        _ReactionRule(() => _hasHighPressure, highPressurePlayReactions),
+      ]),
       energyDelta: -2,
       affectionDelta: 2,
       trustDelta: 1,
@@ -454,7 +508,10 @@ class _HomeScreenState extends State<HomeScreen> {
 
   void _walk() {
     _applyAction(
-      walkReactions,
+      _responsesFor(walkReactions, [
+        _ReactionRule(() => _isTired, tiredWalkReactions),
+        _ReactionRule(() => _hasLowTrust, lowTrustWalkReactions),
+      ]),
       energyDelta: -2,
       affectionDelta: 1,
       trustDelta: 1,
@@ -467,7 +524,10 @@ class _HomeScreenState extends State<HomeScreen> {
 
   void _feed() {
     _applyAction(
-      feedReactions,
+      _responsesFor(feedReactions, [
+        _ReactionRule(() => _isSick, sickFeedReactions),
+        _ReactionRule(() => _hasHighPressure, highPressureFeedReactions),
+      ]),
       energyDelta: -1,
       affectionDelta: 2,
       trustDelta: 1,
@@ -486,7 +546,13 @@ class _HomeScreenState extends State<HomeScreen> {
     }
 
     _applyAction(
-      const [restReaction],
+      _responsesFor(
+        const [restReaction],
+        [
+          _ReactionRule(() => _hasHighPressure, highPressureRestReactions),
+          _ReactionRule(() => _isLateNight, lateRestReactions),
+        ],
+      ),
       energyDelta: 5,
       pressureDelta: -3,
       healthDelta: 1,
@@ -496,7 +562,10 @@ class _HomeScreenState extends State<HomeScreen> {
 
   void _study() {
     _applyAction(
-      studyReactions,
+      _responsesFor(studyReactions, [
+        _ReactionRule(() => _isTired, tiredStudyReactions),
+        _ReactionRule(() => _hasHighPressure, highPressureStudyReactions),
+      ]),
       energyDelta: -3,
       pressureDelta: 4,
       intelligenceDelta: 2,
@@ -507,7 +576,10 @@ class _HomeScreenState extends State<HomeScreen> {
 
   void _exercise() {
     _applyAction(
-      exerciseReactions,
+      _responsesFor(exerciseReactions, [
+        _ReactionRule(() => _isTired, tiredExerciseReactions),
+        _ReactionRule(() => _hasHighPressure, highPressureExerciseReactions),
+      ]),
       energyDelta: -4,
       pressureDelta: -5,
       cleanlinessDelta: -5,
@@ -521,7 +593,10 @@ class _HomeScreenState extends State<HomeScreen> {
 
   void _game() {
     _applyAction(
-      gameReactions,
+      _responsesFor(gameReactions, [
+        _ReactionRule(() => _isTired, tiredGameReactions),
+        _ReactionRule(() => _hasHighPressure, highPressureGameReactions),
+      ]),
       energyDelta: -3,
       pressureDelta: -6,
       cleanlinessDelta: -3,
@@ -533,7 +608,10 @@ class _HomeScreenState extends State<HomeScreen> {
 
   void _create() {
     _applyAction(
-      createReactions,
+      _responsesFor(createReactions, [
+        _ReactionRule(() => _isTired, tiredCreateReactions),
+        _ReactionRule(() => _hasHighPressure, highPressureCreateReactions),
+      ]),
       energyDelta: -2,
       pressureDelta: -2,
       charmDelta: 1,
@@ -544,7 +622,13 @@ class _HomeScreenState extends State<HomeScreen> {
 
   void _perform() {
     _applyAction(
-      performReactions,
+      _responsesFor(performReactions, [
+        _ReactionRule(() => _hasLowTrust, lowTrustPerformReactions),
+        _ReactionRule(
+          () => _hasHighAffection && _hasHighTrust,
+          highBondPerformReactions,
+        ),
+      ]),
       energyDelta: -3,
       pressureDelta: 2,
       charmDelta: 2,
@@ -555,7 +639,10 @@ class _HomeScreenState extends State<HomeScreen> {
 
   void _bath() {
     _applyAction(
-      bathReactions,
+      _responsesFor(bathReactions, [
+        _ReactionRule(() => _isDirty, dirtyBathReactions),
+        _ReactionRule(() => _hasLowTrust, lowTrustBathReactions),
+      ]),
       energyDelta: -1,
       pressureDelta: -1,
       cleanlinessDelta: 35,
@@ -565,7 +652,13 @@ class _HomeScreenState extends State<HomeScreen> {
 
   void _outing() {
     _applyAction(
-      outingReactions,
+      _responsesFor(outingReactions, [
+        _ReactionRule(() => _hasLowTrust, lowTrustOutingReactions),
+        _ReactionRule(
+          () => _hasHighAffection && _hasHighTrust,
+          highBondOutingReactions,
+        ),
+      ]),
       energyDelta: -3,
       pressureDelta: -4,
       charmDelta: 1,

@@ -303,6 +303,342 @@ const outingReactions = <CharacterReaction>[
   ),
 ];
 
+const highPressureChatReactions = <CharacterReaction>[
+  CharacterReaction(
+    emotion: NanheEmotion.frustrated,
+    nanheSpeech: '南河……',
+    meaning: '不要一直问我……',
+    voice: NanheVoice.sadSingle,
+  ),
+  CharacterReaction(
+    emotion: NanheEmotion.sad,
+    nanheSpeech: '南河……南河……',
+    meaning: '我有点乱。',
+    voice: NanheVoice.sadDouble,
+  ),
+];
+
+const lowTrustChatReactions = <CharacterReaction>[
+  CharacterReaction(
+    emotion: NanheEmotion.curious,
+    nanheSpeech: '南河？',
+    meaning: '你想说什么？',
+    voice: NanheVoice.curiousSingle,
+  ),
+  CharacterReaction(
+    emotion: NanheEmotion.calm,
+    nanheSpeech: '南河……',
+    meaning: '我在听。',
+    voice: NanheVoice.calmSingle,
+  ),
+];
+
+const tiredChatReactions = <CharacterReaction>[
+  CharacterReaction(
+    emotion: NanheEmotion.sleepy,
+    nanheSpeech: '南河……',
+    meaning: '小声一点……',
+    voice: NanheVoice.sleepySingle,
+  ),
+];
+
+const lowTrustPetReactions = <CharacterReaction>[
+  CharacterReaction(
+    emotion: NanheEmotion.sad,
+    nanheSpeech: '南河……？',
+    meaning: '不要突然碰我。',
+    voice: NanheVoice.sadSingle,
+  ),
+  CharacterReaction(
+    emotion: NanheEmotion.frustrated,
+    nanheSpeech: '南河……',
+    meaning: '轻一点。',
+    voice: NanheVoice.sadSingle,
+  ),
+];
+
+const highBondPetReactions = <CharacterReaction>[
+  CharacterReaction(
+    emotion: NanheEmotion.affectionate,
+    nanheSpeech: '南河～南河！',
+    meaning: '再摸摸也可以！',
+    voice: NanheVoice.affectionDouble,
+  ),
+];
+
+const tiredPetReactions = <CharacterReaction>[
+  CharacterReaction(
+    emotion: NanheEmotion.sleepy,
+    nanheSpeech: '南河～',
+    meaning: '摸摸可以，别吵醒我。',
+    voice: NanheVoice.sleepySingle,
+  ),
+];
+
+const injuredObserveReactions = <CharacterReaction>[
+  CharacterReaction(
+    emotion: NanheEmotion.sad,
+    nanheSpeech: '南河……',
+    meaning: '这里还痛。',
+    voice: NanheVoice.sadSingle,
+  ),
+];
+
+const sickObserveReactions = <CharacterReaction>[
+  CharacterReaction(
+    emotion: NanheEmotion.sad,
+    nanheSpeech: '南河……',
+    meaning: '不太舒服。',
+    voice: NanheVoice.sadSingle,
+  ),
+];
+
+const highPressureObserveReactions = <CharacterReaction>[
+  CharacterReaction(
+    emotion: NanheEmotion.frustrated,
+    nanheSpeech: '南河……？',
+    meaning: '别一直看我。',
+    voice: NanheVoice.sadSingle,
+  ),
+];
+
+const tiredPlayReactions = <CharacterReaction>[
+  CharacterReaction(
+    emotion: NanheEmotion.sleepy,
+    nanheSpeech: '南河……',
+    meaning: '今天玩不动了。',
+    voice: NanheVoice.sleepySingle,
+  ),
+];
+
+const highPressurePlayReactions = <CharacterReaction>[
+  CharacterReaction(
+    emotion: NanheEmotion.happy,
+    nanheSpeech: '南河！南河！',
+    meaning: '再来一次！',
+    voice: NanheVoice.affectionDouble,
+  ),
+];
+
+const lowTrustWalkReactions = <CharacterReaction>[
+  CharacterReaction(
+    emotion: NanheEmotion.curious,
+    nanheSpeech: '南河？',
+    meaning: '要去哪里？',
+    voice: NanheVoice.curiousSingle,
+  ),
+];
+
+const tiredWalkReactions = <CharacterReaction>[
+  CharacterReaction(
+    emotion: NanheEmotion.sleepy,
+    nanheSpeech: '南河……',
+    meaning: '走慢一点……',
+    voice: NanheVoice.sleepySingle,
+  ),
+];
+
+const sickFeedReactions = <CharacterReaction>[
+  CharacterReaction(
+    emotion: NanheEmotion.sad,
+    nanheSpeech: '南河……',
+    meaning: '吃不太下。',
+    voice: NanheVoice.sadSingle,
+  ),
+];
+
+const highPressureFeedReactions = <CharacterReaction>[
+  CharacterReaction(
+    emotion: NanheEmotion.calm,
+    nanheSpeech: '南河……',
+    meaning: '先放这里。',
+    voice: NanheVoice.calmSingle,
+  ),
+];
+
+const highPressureRestReactions = <CharacterReaction>[
+  CharacterReaction(
+    emotion: NanheEmotion.sleepy,
+    nanheSpeech: '南河……',
+    meaning: '想安静一下。',
+    voice: NanheVoice.sleepySingle,
+  ),
+];
+
+const lateRestReactions = <CharacterReaction>[
+  CharacterReaction(
+    emotion: NanheEmotion.sleepy,
+    nanheSpeech: '南河～',
+    meaning: '就休息一下下。',
+    voice: NanheVoice.sleepySingle,
+  ),
+];
+
+const tiredStudyReactions = <CharacterReaction>[
+  CharacterReaction(
+    emotion: NanheEmotion.sleepy,
+    nanheSpeech: '南河……',
+    meaning: '字都在晃。',
+    voice: NanheVoice.sleepySingle,
+  ),
+];
+
+const highPressureStudyReactions = <CharacterReaction>[
+  CharacterReaction(
+    emotion: NanheEmotion.frustrated,
+    nanheSpeech: '南河……',
+    meaning: '现在不想学。',
+    voice: NanheVoice.sadSingle,
+  ),
+];
+
+const tiredExerciseReactions = <CharacterReaction>[
+  CharacterReaction(
+    emotion: NanheEmotion.sleepy,
+    nanheSpeech: '南河……南河……',
+    meaning: '腿软了。',
+    voice: NanheVoice.sleepyDouble,
+  ),
+];
+
+const highPressureExerciseReactions = <CharacterReaction>[
+  CharacterReaction(
+    emotion: NanheEmotion.happy,
+    nanheSpeech: '南河！',
+    meaning: '动起来会好一点！',
+    voice: NanheVoice.affectionSingle,
+  ),
+];
+
+const tiredGameReactions = <CharacterReaction>[
+  CharacterReaction(
+    emotion: NanheEmotion.sleepy,
+    nanheSpeech: '南河……',
+    meaning: '眼睛要闭上了。',
+    voice: NanheVoice.sleepySingle,
+  ),
+];
+
+const highPressureGameReactions = <CharacterReaction>[
+  CharacterReaction(
+    emotion: NanheEmotion.happy,
+    nanheSpeech: '南河！南河！',
+    meaning: '这局能赢！',
+    voice: NanheVoice.affectionDouble,
+  ),
+];
+
+const tiredCreateReactions = <CharacterReaction>[
+  CharacterReaction(
+    emotion: NanheEmotion.sleepy,
+    nanheSpeech: '南河……',
+    meaning: '明天再画。',
+    voice: NanheVoice.sleepySingle,
+  ),
+];
+
+const highPressureCreateReactions = <CharacterReaction>[
+  CharacterReaction(
+    emotion: NanheEmotion.curious,
+    nanheSpeech: '南河……',
+    meaning: '乱乱的，也能画。',
+    voice: NanheVoice.curiousSingle,
+  ),
+];
+
+const lowTrustPerformReactions = <CharacterReaction>[
+  CharacterReaction(
+    emotion: NanheEmotion.frustrated,
+    nanheSpeech: '南河……？',
+    meaning: '一定要看吗？',
+    voice: NanheVoice.sadSingle,
+  ),
+];
+
+const highBondPerformReactions = <CharacterReaction>[
+  CharacterReaction(
+    emotion: NanheEmotion.happy,
+    nanheSpeech: '南河！南河！',
+    meaning: '看好了！',
+    voice: NanheVoice.affectionDouble,
+  ),
+];
+
+const dirtyBathReactions = <CharacterReaction>[
+  CharacterReaction(
+    emotion: NanheEmotion.calm,
+    nanheSpeech: '南河～',
+    meaning: '干净了。',
+    voice: NanheVoice.calmSingle,
+  ),
+];
+
+const lowTrustBathReactions = <CharacterReaction>[
+  CharacterReaction(
+    emotion: NanheEmotion.frustrated,
+    nanheSpeech: '南河……',
+    meaning: '不要偷看。',
+    voice: NanheVoice.sadSingle,
+  ),
+];
+
+const lowTrustOutingReactions = <CharacterReaction>[
+  CharacterReaction(
+    emotion: NanheEmotion.curious,
+    nanheSpeech: '南河？',
+    meaning: '你会带我回来吗？',
+    voice: NanheVoice.curiousSingle,
+  ),
+];
+
+const highBondOutingReactions = <CharacterReaction>[
+  CharacterReaction(
+    emotion: NanheEmotion.happy,
+    nanheSpeech: '南河！南河！',
+    meaning: '一起出去！',
+    voice: NanheVoice.affectionDouble,
+  ),
+];
+
+const lowBondHitReactions = <CharacterReaction>[
+  CharacterReaction(
+    emotion: NanheEmotion.angry,
+    nanheSpeech: '南河！！',
+    meaning: '不要这样！',
+    voice: NanheVoice.angryDouble,
+  ),
+  CharacterReaction(
+    emotion: NanheEmotion.angry,
+    nanheSpeech: '南河！南河！',
+    meaning: '走开！',
+    voice: NanheVoice.angryDouble,
+  ),
+];
+
+const trustedHitReactions = <CharacterReaction>[
+  CharacterReaction(
+    emotion: NanheEmotion.sad,
+    nanheSpeech: '南河……？',
+    meaning: '为什么是你？',
+    voice: NanheVoice.sadSingle,
+  ),
+  CharacterReaction(
+    emotion: NanheEmotion.sad,
+    nanheSpeech: '南河……南河……',
+    meaning: '明明相信你的。',
+    voice: NanheVoice.sadDouble,
+  ),
+];
+
+const confusedHitReactions = <CharacterReaction>[
+  CharacterReaction(
+    emotion: NanheEmotion.frustrated,
+    nanheSpeech: '南河……？',
+    meaning: '我做错了吗？',
+    voice: NanheVoice.sadSingle,
+  ),
+];
+
 const exhaustedReaction = CharacterReaction(
   emotion: NanheEmotion.sleepy,
   nanheSpeech: '南河……',

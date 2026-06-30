@@ -44,6 +44,13 @@ Finder _negativeMoodFinder() {
   });
 }
 
+Finder _anyTextContaining(Set<String> values) {
+  return find.byWidgetPredicate((widget) {
+    final data = widget is Text ? widget.data : null;
+    return data != null && values.any(data.contains);
+  });
+}
+
 void main() {
   test('all Nanhe voice assets are bundled', () async {
     for (final voice in NanheVoice.values) {
@@ -199,7 +206,7 @@ void main() {
       200,
       scrollable: find.byType(Scrollable).first,
     );
-    expect(find.text('版本 0.2.3'), findsOneWidget);
+    expect(find.text('版本 0.2.4'), findsOneWidget);
   });
 
   testWidgets('short screens preserve the character stage and can scroll', (
@@ -261,6 +268,22 @@ void main() {
     expect(find.text('1/100'), findsOneWidget);
   });
 
+  testWidgets('high pressure chat uses contextual short reactions', (
+    tester,
+  ) async {
+    await _pumpLoadedApp(tester);
+
+    for (var i = 0; i < 7; i += 1) {
+      await tester.tap(find.byKey(const Key('hit-button')));
+      await tester.pump(const Duration(milliseconds: 200));
+    }
+
+    await tester.tap(find.byKey(const Key('chat-button')));
+    await tester.pump(const Duration(milliseconds: 200));
+
+    expect(_anyTextContaining({'不要一直问我', '我有点乱'}), findsOneWidget);
+  });
+
   testWidgets('training page restores energy and shows training actions', (
     tester,
   ) async {
@@ -316,6 +339,10 @@ void main() {
     expect(find.text('6/27'), findsOneWidget);
     expect(find.text('6/29'), findsNothing);
     expect(find.text('冬 | 第1年 · 1月1日 | 09:30 | 晴'), findsOneWidget);
+
+    await tester.tap(find.byKey(const Key('exercise-button')));
+    await tester.pump(const Duration(milliseconds: 200));
+    expect(find.textContaining('腿软'), findsOneWidget);
   });
 
   testWidgets('sleep before night shows a hint without advancing time', (
