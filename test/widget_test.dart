@@ -206,7 +206,7 @@ void main() {
       200,
       scrollable: find.byType(Scrollable).first,
     );
-    expect(find.text('版本 0.2.4'), findsOneWidget);
+    expect(find.text('版本 0.2.5'), findsOneWidget);
   });
 
   testWidgets('short screens preserve the character stage and can scroll', (
@@ -268,12 +268,12 @@ void main() {
     expect(find.text('1/100'), findsOneWidget);
   });
 
-  testWidgets('high pressure chat uses contextual short reactions', (
+  testWidgets('injured chat prioritizes hurt reactions over pressure', (
     tester,
   ) async {
     await _pumpLoadedApp(tester);
 
-    for (var i = 0; i < 7; i += 1) {
+    for (var i = 0; i < 2; i += 1) {
       await tester.tap(find.byKey(const Key('hit-button')));
       await tester.pump(const Duration(milliseconds: 200));
     }
@@ -281,7 +281,29 @@ void main() {
     await tester.tap(find.byKey(const Key('chat-button')));
     await tester.pump(const Duration(milliseconds: 200));
 
-    expect(_anyTextContaining({'不要一直问我', '我有点乱'}), findsOneWidget);
+    expect(_anyTextContaining({'现在会痛', '一定要现在吗'}), findsWidgets);
+    expect(find.textContaining('我有点乱'), findsNothing);
+  });
+
+  testWidgets('injured and wary Nanhe refuses active interactions', (
+    tester,
+  ) async {
+    await _pumpLoadedApp(tester);
+
+    for (var i = 0; i < 2; i += 1) {
+      await tester.tap(find.byKey(const Key('hit-button')));
+      await tester.pump(const Duration(milliseconds: 200));
+    }
+
+    await tester.tap(find.byKey(const Key('play-button')));
+    await tester.pump(const Duration(milliseconds: 200));
+    expect(_anyTextContaining({'现在会痛', '一定要现在吗'}), findsWidgets);
+    expect(find.textContaining('再来一次'), findsNothing);
+
+    await tester.tap(find.byKey(const Key('walk-button')));
+    await tester.pump(const Duration(milliseconds: 200));
+    expect(_anyTextContaining({'现在会痛', '一定要现在吗'}), findsWidgets);
+    expect(find.textContaining('想去外面'), findsNothing);
   });
 
   testWidgets('training page restores energy and shows training actions', (

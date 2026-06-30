@@ -6,6 +6,7 @@ import 'app_version.dart';
 import 'character_reaction.dart';
 import 'game_audio_controller.dart';
 import 'game_assets.dart';
+import 'reaction_rules.dart';
 import 'theme.dart';
 
 const _initialMaxEnergy = 25;
@@ -21,13 +22,6 @@ const _midnightMinute = 24 * 60;
 const _earliestWakeMinute = 6 * 60;
 const _sleepDurationMinutes = 8 * 60;
 const _endurancePerMaxEnergy = 4;
-
-class _ReactionRule {
-  const _ReactionRule(this.matches, this.responses);
-
-  final bool Function() matches;
-  final List<CharacterReaction> responses;
-}
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key, required this.audioController});
@@ -92,6 +86,7 @@ class _HomeScreenState extends State<HomeScreen> {
   bool get _hasHighTrust => _trustLevel >= 2 || _trustProgress >= 70;
   bool get _hasHighAffection =>
       _affectionLevel >= 2 || _affectionProgress >= 50;
+  bool get _hasLowAffection => _affectionLevel == 1 && _affectionProgress < 20;
   bool get _isDirty => _cleanliness <= 35;
   bool get _isSick => _cleanliness <= 20 || _healthValue < 30;
   bool get _isInjured => _injury >= 10;
@@ -252,14 +247,23 @@ class _HomeScreenState extends State<HomeScreen> {
     return available[_random.nextInt(available.length)];
   }
 
-  List<CharacterReaction> _responsesFor(
-    List<CharacterReaction> fallback,
-    List<_ReactionRule> rules,
-  ) {
-    for (final rule in rules) {
-      if (rule.matches()) return rule.responses;
-    }
-    return fallback;
+  ReactionContext get _reactionContext {
+    return ReactionContext(
+      isTired: _isTired,
+      hasHighPressure: _hasHighPressure,
+      hasLowTrust: _hasLowTrust,
+      hasHighTrust: _hasHighTrust,
+      hasHighAffection: _hasHighAffection,
+      hasLowAffection: _hasLowAffection,
+      isDirty: _isDirty,
+      isSick: _isSick,
+      isInjured: _isInjured,
+      isLateNight: _isLateNight,
+    );
+  }
+
+  List<CharacterReaction> _contextualResponses(ReactionAction action) {
+    return selectContextualReactions(action, _reactionContext);
   }
 
   void _applyAction(
@@ -350,15 +354,15 @@ class _HomeScreenState extends State<HomeScreen> {
       return;
     }
 
-    final reactions = _responsesFor(hitReactions, [
-      _ReactionRule(
-        () => _hasHighAffection && _hasHighTrust,
-        trustedHitReactions,
-      ),
-      _ReactionRule(() => _hasHighAffection && _hasLowTrust, sadHitReactions),
-      _ReactionRule(() => _hasHighTrust, confusedHitReactions),
-      _ReactionRule(() => _hasLowTrust, lowBondHitReactions),
-    ]);
+    final reactions = _hasHighAffection && _hasHighTrust
+        ? trustedHitReactions
+        : _hasHighAffection && _hasLowTrust
+        ? sadHitReactions
+        : _hasHighTrust
+        ? confusedHitReactions
+        : _hasLowTrust
+        ? lowBondHitReactions
+        : hitReactions;
     _applyAction(
       reactions,
       energyDelta: -1,
@@ -435,11 +439,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
   void _observe() {
     _applyAction(
-      _responsesFor(observeReactions, [
-        _ReactionRule(() => _isInjured, injuredObserveReactions),
-        _ReactionRule(() => _isSick, sickObserveReactions),
-        _ReactionRule(() => _hasHighPressure, highPressureObserveReactions),
-      ]),
+      _contextualResponses(ReactionAction.observe),
       energyDelta: -1,
       affectionDelta: _affectionGainPerQuietInteraction,
       curiosityDelta: 2,
@@ -455,11 +455,7 @@ class _HomeScreenState extends State<HomeScreen> {
     }
 
     _applyAction(
-      _responsesFor(dialogueReactions, [
-        _ReactionRule(() => _hasHighPressure, highPressureChatReactions),
-        _ReactionRule(() => _isTired, tiredChatReactions),
-        _ReactionRule(() => _hasLowTrust, lowTrustChatReactions),
-      ]),
+      _contextualResponses(ReactionAction.chat),
       energyDelta: -1,
       affectionDelta: _affectionGainPerQuietInteraction,
       trustDelta: 1,
@@ -471,17 +467,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
   void _pet() {
     _applyAction(
-      _responsesFor(petReactions, [
-        _ReactionRule(
-          () => _hasLowTrust && (_hasHighPressure || _isInjured),
-          lowTrustPetReactions,
-        ),
-        _ReactionRule(() => _isTired, tiredPetReactions),
-        _ReactionRule(
-          () => _hasHighAffection && _hasHighTrust,
-          highBondPetReactions,
-        ),
-      ]),
+      _contextualResponses(ReactionAction.pet),
       energyDelta: -1,
       affectionDelta: _affectionGainPerInteraction,
       trustDelta: 1,
@@ -493,10 +479,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
   void _play() {
     _applyAction(
-      _responsesFor(playReactions, [
-        _ReactionRule(() => _isTired, tiredPlayReactions),
-        _ReactionRule(() => _hasHighPressure, highPressurePlayReactions),
-      ]),
+      _contextualResponses(ReactionAction.play),
       energyDelta: -2,
       affectionDelta: 2,
       trustDelta: 1,
@@ -508,10 +491,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
   void _walk() {
     _applyAction(
-      _responsesFor(walkReactions, [
-        _ReactionRule(() => _isTired, tiredWalkReactions),
-        _ReactionRule(() => _hasLowTrust, lowTrustWalkReactions),
-      ]),
+      _contextualResponses(ReactionAction.walk),
       energyDelta: -2,
       affectionDelta: 1,
       trustDelta: 1,
@@ -524,10 +504,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
   void _feed() {
     _applyAction(
-      _responsesFor(feedReactions, [
-        _ReactionRule(() => _isSick, sickFeedReactions),
-        _ReactionRule(() => _hasHighPressure, highPressureFeedReactions),
-      ]),
+      _contextualResponses(ReactionAction.feed),
       energyDelta: -1,
       affectionDelta: 2,
       trustDelta: 1,
@@ -546,13 +523,7 @@ class _HomeScreenState extends State<HomeScreen> {
     }
 
     _applyAction(
-      _responsesFor(
-        const [restReaction],
-        [
-          _ReactionRule(() => _hasHighPressure, highPressureRestReactions),
-          _ReactionRule(() => _isLateNight, lateRestReactions),
-        ],
-      ),
+      _contextualResponses(ReactionAction.rest),
       energyDelta: 5,
       pressureDelta: -3,
       healthDelta: 1,
@@ -562,10 +533,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
   void _study() {
     _applyAction(
-      _responsesFor(studyReactions, [
-        _ReactionRule(() => _isTired, tiredStudyReactions),
-        _ReactionRule(() => _hasHighPressure, highPressureStudyReactions),
-      ]),
+      _contextualResponses(ReactionAction.study),
       energyDelta: -3,
       pressureDelta: 4,
       intelligenceDelta: 2,
@@ -576,10 +544,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
   void _exercise() {
     _applyAction(
-      _responsesFor(exerciseReactions, [
-        _ReactionRule(() => _isTired, tiredExerciseReactions),
-        _ReactionRule(() => _hasHighPressure, highPressureExerciseReactions),
-      ]),
+      _contextualResponses(ReactionAction.exercise),
       energyDelta: -4,
       pressureDelta: -5,
       cleanlinessDelta: -5,
@@ -593,10 +558,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
   void _game() {
     _applyAction(
-      _responsesFor(gameReactions, [
-        _ReactionRule(() => _isTired, tiredGameReactions),
-        _ReactionRule(() => _hasHighPressure, highPressureGameReactions),
-      ]),
+      _contextualResponses(ReactionAction.game),
       energyDelta: -3,
       pressureDelta: -6,
       cleanlinessDelta: -3,
@@ -608,10 +570,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
   void _create() {
     _applyAction(
-      _responsesFor(createReactions, [
-        _ReactionRule(() => _isTired, tiredCreateReactions),
-        _ReactionRule(() => _hasHighPressure, highPressureCreateReactions),
-      ]),
+      _contextualResponses(ReactionAction.create),
       energyDelta: -2,
       pressureDelta: -2,
       charmDelta: 1,
@@ -622,13 +581,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
   void _perform() {
     _applyAction(
-      _responsesFor(performReactions, [
-        _ReactionRule(() => _hasLowTrust, lowTrustPerformReactions),
-        _ReactionRule(
-          () => _hasHighAffection && _hasHighTrust,
-          highBondPerformReactions,
-        ),
-      ]),
+      _contextualResponses(ReactionAction.perform),
       energyDelta: -3,
       pressureDelta: 2,
       charmDelta: 2,
@@ -639,10 +592,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
   void _bath() {
     _applyAction(
-      _responsesFor(bathReactions, [
-        _ReactionRule(() => _isDirty, dirtyBathReactions),
-        _ReactionRule(() => _hasLowTrust, lowTrustBathReactions),
-      ]),
+      _contextualResponses(ReactionAction.bath),
       energyDelta: -1,
       pressureDelta: -1,
       cleanlinessDelta: 35,
@@ -652,13 +602,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
   void _outing() {
     _applyAction(
-      _responsesFor(outingReactions, [
-        _ReactionRule(() => _hasLowTrust, lowTrustOutingReactions),
-        _ReactionRule(
-          () => _hasHighAffection && _hasHighTrust,
-          highBondOutingReactions,
-        ),
-      ]),
+      _contextualResponses(ReactionAction.outing),
       energyDelta: -3,
       pressureDelta: -4,
       charmDelta: 1,

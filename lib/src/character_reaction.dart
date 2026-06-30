@@ -402,6 +402,78 @@ const highPressureObserveReactions = <CharacterReaction>[
   ),
 ];
 
+const injuredActivityReactions = <CharacterReaction>[
+  CharacterReaction(
+    emotion: NanheEmotion.sad,
+    nanheSpeech: '南河……',
+    meaning: '现在会痛。',
+    voice: NanheVoice.sadSingle,
+  ),
+  CharacterReaction(
+    emotion: NanheEmotion.frustrated,
+    nanheSpeech: '南河……？',
+    meaning: '一定要现在吗？',
+    voice: NanheVoice.sadSingle,
+  ),
+];
+
+const sickActivityReactions = <CharacterReaction>[
+  CharacterReaction(
+    emotion: NanheEmotion.sad,
+    nanheSpeech: '南河……',
+    meaning: '今天不想动。',
+    voice: NanheVoice.sadSingle,
+  ),
+  CharacterReaction(
+    emotion: NanheEmotion.sleepy,
+    nanheSpeech: '南河……',
+    meaning: '想躺一下。',
+    voice: NanheVoice.sleepySingle,
+  ),
+];
+
+const waryActivityReactions = <CharacterReaction>[
+  CharacterReaction(
+    emotion: NanheEmotion.frustrated,
+    nanheSpeech: '南河……',
+    meaning: '不想和你玩。',
+    voice: NanheVoice.sadSingle,
+  ),
+  CharacterReaction(
+    emotion: NanheEmotion.curious,
+    nanheSpeech: '南河？',
+    meaning: '为什么要跟你去？',
+    voice: NanheVoice.curiousSingle,
+  ),
+];
+
+const injuredCareReactions = <CharacterReaction>[
+  CharacterReaction(
+    emotion: NanheEmotion.sad,
+    nanheSpeech: '南河……',
+    meaning: '轻一点。',
+    voice: NanheVoice.sadSingle,
+  ),
+];
+
+const sickCareReactions = <CharacterReaction>[
+  CharacterReaction(
+    emotion: NanheEmotion.sleepy,
+    nanheSpeech: '南河……',
+    meaning: '慢一点。',
+    voice: NanheVoice.sleepySingle,
+  ),
+];
+
+const lowTrustCareReactions = <CharacterReaction>[
+  CharacterReaction(
+    emotion: NanheEmotion.frustrated,
+    nanheSpeech: '南河……？',
+    meaning: '你要做什么？',
+    voice: NanheVoice.sadSingle,
+  ),
+];
+
 const tiredPlayReactions = <CharacterReaction>[
   CharacterReaction(
     emotion: NanheEmotion.sleepy,
