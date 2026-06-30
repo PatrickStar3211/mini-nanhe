@@ -8,10 +8,13 @@ import 'game_audio_controller.dart';
 import 'game_assets.dart';
 import 'theme.dart';
 
-const _maxEnergy = 25;
+const _initialMaxEnergy = 25;
+const _minStatValue = 1;
+const _maxStatValue = 999;
 const _affectionGainPerInteraction = 3;
 const _affectionGainPerQuietInteraction = 1;
 const _affectionLossPerHit = 5;
+const _trustLossPerHit = 10;
 const _minutesPerInteraction = 30;
 const _sleepAvailableMinute = 22 * 60;
 const _midnightMinute = 24 * 60;
@@ -38,14 +41,31 @@ class _HomeScreenState extends State<HomeScreen> {
   int _month = 1;
   int _day = 1;
   int _minuteOfDay = 6 * 60;
-  int _energy = _maxEnergy;
+  int _maxEnergy = _initialMaxEnergy;
+  int _energy = _initialMaxEnergy;
   int _affectionLevel = 1;
   int _affectionProgress = 0;
+  int _trustLevel = 1;
+  int _trustProgress = 0;
+  int _pressure = 0;
+  int _cleanliness = 100;
+  int _healthValue = 80;
+  int _injury = 0;
+  int _exhaustionCount = 0;
   int _actionPage = 0;
   bool _sleepPending = false;
-  final int _strength = 1;
-  final int _intelligence = 1;
-  final int _endurance = 1;
+  int _strength = 1;
+  int _intelligence = 1;
+  int _charm = 1;
+  int _art = 1;
+  int _skill = 1;
+  int _endurance = 1;
+  int _curiosity = 0;
+  int _selfDiscipline = 0;
+  int _rebellion = 0;
+  int _dependence = 0;
+  int _confidence = 0;
+  int _gentleness = 0;
   double _musicVolume = 0.7;
   double _soundEffectVolume = 0.8;
   double _voiceVolume = 0.9;
@@ -81,13 +101,18 @@ class _HomeScreenState extends State<HomeScreen> {
 
   NanheEmotion get _currentEmotion {
     final emotion = _reaction?.emotion;
-    if (_isExhausted &&
-        emotion != NanheEmotion.sad &&
-        emotion != NanheEmotion.angry &&
-        emotion != NanheEmotion.frustrated) {
-      return NanheEmotion.sleepy;
+    if (emotion != null) return emotion;
+    if (_isExhausted) return NanheEmotion.sleepy;
+    if (_pressure >= 80) return NanheEmotion.frustrated;
+    if (_healthLabel == '受伤' || _healthLabel == '生病') {
+      return NanheEmotion.sad;
     }
-    return emotion ?? NanheEmotion.calm;
+    if (_affectionLevel == 1 &&
+        _affectionProgress == 0 &&
+        _trustProgress == 0) {
+      return NanheEmotion.calm;
+    }
+    return NanheEmotion.calm;
   }
 
   String get _season {
@@ -97,7 +122,7 @@ class _HomeScreenState extends State<HomeScreen> {
     return '冬';
   }
 
-  String get _moodLabel {
+  String get _emotionLabel {
     return switch (_currentEmotion) {
       NanheEmotion.happy => '☺ 开心',
       NanheEmotion.affectionate => '♥ 亲近',
@@ -108,6 +133,45 @@ class _HomeScreenState extends State<HomeScreen> {
       NanheEmotion.sleepy => '☾ 困了',
       NanheEmotion.calm => '☺ 平静',
     };
+  }
+
+  String get _healthLabel {
+    if (_injury >= 10) return '受伤';
+    if (_isExhausted || _exhaustionCount >= 2) return '疲劳';
+    if (_cleanliness <= 20) return '生病';
+    if (_healthValue >= 90) return '非常健康';
+    if (_healthValue >= 70) return '健康';
+    if (_healthValue >= 50) return '亚健康';
+    if (_healthValue >= 30) return '不健康';
+    return '生病';
+  }
+
+  String get _personalityLabel {
+    final tendencies = <String, int>{
+      '好奇': _curiosity,
+      '自律': _selfDiscipline,
+      '叛逆': _rebellion,
+      '依赖': _dependence,
+      '自信': _confidence,
+      '温柔': _gentleness,
+    };
+    final strongest = tendencies.entries.reduce(
+      (a, b) => a.value >= b.value ? a : b,
+    );
+    return strongest.value >= 15 ? strongest.key : '普通';
+  }
+
+  String get _traitLabel {
+    if (_intelligence >= 20 && _curiosity >= 15 && _pressure < 80) {
+      return '研究者';
+    }
+    if (_intelligence >= 20 && _selfDiscipline >= 15 && _healthValue >= 70) {
+      return '优等生';
+    }
+    if (_skill >= 20 && _endurance >= 10) return '游戏高手';
+    if (_skill >= 20 && _charm >= 15) return '人气玩家';
+    if (_art >= 20 && _pressure < 70) return '小艺术家';
+    return '无';
   }
 
   String get _characterAsset {
@@ -123,51 +187,16 @@ class _HomeScreenState extends State<HomeScreen> {
     };
   }
 
-  void _showReaction(
-    List<CharacterReaction> responses, {
-    bool consumesEnergy = true,
-    int affectionGain = _affectionGainPerInteraction,
-    bool advancesTime = true,
-  }) {
-    if (_sleepPending) return;
+  int _clampStat(int value) => value.clamp(_minStatValue, _maxStatValue);
 
-    if (consumesEnergy && _isForcedSleep) {
-      setState(() => _reaction = exhaustedReaction);
-      widget.audioController.playVoice(exhaustedReaction.voice);
-      return;
-    }
+  int _clampPercent(int value) => value.clamp(0, 100);
 
-    final available = responses.length > 1
-        ? responses.where((response) => response != _reaction).toList()
-        : responses;
-    final reaction = available[_random.nextInt(available.length)];
-
-    setState(() {
-      if (consumesEnergy) {
-        _energy = (_energy - 1).clamp(0, _maxEnergy);
-        _gainAffection(affectionGain);
-      }
-      if (advancesTime) _advanceMinutes(_minutesPerInteraction);
-      _reaction = reaction;
-      _isReacting = true;
-    });
-    widget.audioController.playVoice(reaction.voice);
-
-    Future<void>.delayed(const Duration(milliseconds: 170), () {
-      if (mounted) setState(() => _isReacting = false);
-    });
-  }
-
-  void _gainAffection(int amount) {
+  void _changeAffection(int amount) {
     _affectionProgress += amount;
     while (_affectionProgress >= 100) {
-      _affectionLevel += 1;
+      _affectionLevel = _clampStat(_affectionLevel + 1);
       _affectionProgress -= 100;
     }
-  }
-
-  void _loseAffection(int amount) {
-    _affectionProgress -= amount;
     while (_affectionProgress < 0 && _affectionLevel > 1) {
       _affectionLevel -= 1;
       _affectionProgress += 100;
@@ -176,6 +205,110 @@ class _HomeScreenState extends State<HomeScreen> {
       _affectionLevel = 1;
       _affectionProgress = 0;
     }
+  }
+
+  void _changeTrust(int amount) {
+    _trustProgress += amount;
+    while (_trustProgress >= 100) {
+      _trustLevel = _clampStat(_trustLevel + 1);
+      _trustProgress -= 100;
+    }
+    while (_trustProgress < 0 && _trustLevel > 1) {
+      _trustLevel -= 1;
+      _trustProgress += 100;
+    }
+    if (_trustLevel <= 1 && _trustProgress < 0) {
+      _trustLevel = 1;
+      _trustProgress = 0;
+    }
+  }
+
+  CharacterReaction _pickReaction(List<CharacterReaction> responses) {
+    final available = responses.length > 1
+        ? responses.where((response) => response != _reaction).toList()
+        : responses;
+    return available[_random.nextInt(available.length)];
+  }
+
+  void _applyAction(
+    List<CharacterReaction> responses, {
+    int energyDelta = -1,
+    int maxEnergyDelta = 0,
+    int affectionDelta = 0,
+    int trustDelta = 0,
+    int pressureDelta = 0,
+    int cleanlinessDelta = 0,
+    int healthDelta = 0,
+    int injuryDelta = 0,
+    int strengthDelta = 0,
+    int intelligenceDelta = 0,
+    int charmDelta = 0,
+    int artDelta = 0,
+    int skillDelta = 0,
+    int enduranceDelta = 0,
+    int curiosityDelta = 0,
+    int selfDisciplineDelta = 0,
+    int rebellionDelta = 0,
+    int dependenceDelta = 0,
+    int confidenceDelta = 0,
+    int gentlenessDelta = 0,
+    bool advancesTime = true,
+    Duration voiceDelay = const Duration(milliseconds: 90),
+  }) {
+    if (_sleepPending) return;
+
+    if (energyDelta < 0 && _isForcedSleep) {
+      setState(() => _reaction = exhaustedReaction);
+      widget.audioController.playVoice(exhaustedReaction.voice);
+      return;
+    }
+
+    final reaction = _pickReaction(responses);
+
+    setState(() {
+      _maxEnergy = _clampStat(_maxEnergy + maxEnergyDelta);
+      _energy = (_energy + energyDelta).clamp(0, _maxEnergy);
+      _changeAffection(affectionDelta);
+      _changeTrust(trustDelta);
+      _pressure = _clampPercent(_pressure + pressureDelta);
+      _cleanliness = _clampPercent(_cleanliness + cleanlinessDelta);
+      _healthValue = _clampPercent(_healthValue + healthDelta);
+      _injury = _clampPercent(_injury + injuryDelta);
+      _strength = _clampStat(_strength + strengthDelta);
+      _intelligence = _clampStat(_intelligence + intelligenceDelta);
+      _charm = _clampStat(_charm + charmDelta);
+      _art = _clampStat(_art + artDelta);
+      _skill = _clampStat(_skill + skillDelta);
+      _endurance = _clampStat(_endurance + enduranceDelta);
+      _curiosity = _clampPercent(_curiosity + curiosityDelta);
+      _selfDiscipline = _clampPercent(_selfDiscipline + selfDisciplineDelta);
+      _rebellion = _clampPercent(_rebellion + rebellionDelta);
+      _dependence = _clampPercent(_dependence + dependenceDelta);
+      _confidence = _clampPercent(_confidence + confidenceDelta);
+      _gentleness = _clampPercent(_gentleness + gentlenessDelta);
+      if (advancesTime) _advanceMinutes(_minutesPerInteraction);
+      _reaction = reaction;
+      _isReacting = true;
+    });
+    widget.audioController.playVoice(reaction.voice, delay: voiceDelay);
+
+    Future<void>.delayed(const Duration(milliseconds: 170), () {
+      if (mounted) setState(() => _isReacting = false);
+    });
+  }
+
+  void _showReaction(
+    List<CharacterReaction> responses, {
+    bool consumesEnergy = true,
+    int affectionGain = _affectionGainPerInteraction,
+    bool advancesTime = true,
+  }) {
+    _applyAction(
+      responses,
+      energyDelta: consumesEnergy ? -1 : 0,
+      affectionDelta: consumesEnergy ? affectionGain : 0,
+      advancesTime: advancesTime,
+    );
   }
 
   void _showHitReaction() {
@@ -187,22 +320,20 @@ class _HomeScreenState extends State<HomeScreen> {
       return;
     }
 
-    final reaction = hitReactions[_random.nextInt(hitReactions.length)];
-    setState(() {
-      _energy = (_energy - 1).clamp(0, _maxEnergy);
-      _advanceMinutes(_minutesPerInteraction);
-      _loseAffection(_affectionLossPerHit);
-      _reaction = reaction;
-      _isReacting = true;
-    });
-    widget.audioController.playVoice(
-      reaction.voice,
-      delay: const Duration(milliseconds: 180),
+    final reactions = _affectionProgress >= 50 && _trustProgress <= 10
+        ? sadHitReactions
+        : hitReactions;
+    _applyAction(
+      reactions,
+      energyDelta: -1,
+      affectionDelta: -_affectionLossPerHit,
+      trustDelta: -_trustLossPerHit,
+      pressureDelta: 10,
+      healthDelta: -2,
+      injuryDelta: 5,
+      rebellionDelta: 3,
+      voiceDelay: const Duration(milliseconds: 180),
     );
-
-    Future<void>.delayed(const Duration(milliseconds: 170), () {
-      if (mounted) setState(() => _isReacting = false);
-    });
   }
 
   void _advanceOneDay() {
@@ -248,10 +379,17 @@ class _HomeScreenState extends State<HomeScreen> {
       _minuteOfDay + _sleepDurationMinutes - _midnightMinute,
     );
     setState(() {
+      final sleptFromExhaustion = _isExhausted;
       _advanceOneDay();
       _totalDaysTogether += 1;
       _minuteOfDay = wakeMinute;
       _energy = _maxEnergy;
+      _pressure = _clampPercent(_pressure - 4);
+      _healthValue = _clampPercent(_healthValue + 3);
+      _injury = _clampPercent(_injury - 2);
+      _exhaustionCount = sleptFromExhaustion
+          ? _clampPercent(_exhaustionCount + 1)
+          : _clampPercent(_exhaustionCount - 1);
       _reaction = wakeUpReaction;
       _sleepPending = false;
       _isReacting = false;
@@ -260,9 +398,11 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   void _observe() {
-    _showReaction(
+    _applyAction(
       observeReactions,
-      affectionGain: _affectionGainPerQuietInteraction,
+      energyDelta: -1,
+      affectionDelta: _affectionGainPerQuietInteraction,
+      curiosityDelta: 2,
     );
   }
 
@@ -274,9 +414,63 @@ class _HomeScreenState extends State<HomeScreen> {
       return;
     }
 
-    _showReaction(
+    _applyAction(
       dialogueReactions,
-      affectionGain: _affectionGainPerQuietInteraction,
+      energyDelta: -1,
+      affectionDelta: _affectionGainPerQuietInteraction,
+      trustDelta: 1,
+      pressureDelta: -1,
+      curiosityDelta: 1,
+      gentlenessDelta: 1,
+    );
+  }
+
+  void _pet() {
+    _applyAction(
+      petReactions,
+      energyDelta: -1,
+      affectionDelta: _affectionGainPerInteraction,
+      trustDelta: 1,
+      pressureDelta: -2,
+      dependenceDelta: 1,
+      gentlenessDelta: 1,
+    );
+  }
+
+  void _play() {
+    _applyAction(
+      playReactions,
+      energyDelta: -2,
+      affectionDelta: 2,
+      trustDelta: 1,
+      pressureDelta: -4,
+      skillDelta: 1,
+      confidenceDelta: 1,
+    );
+  }
+
+  void _walk() {
+    _applyAction(
+      walkReactions,
+      energyDelta: -2,
+      affectionDelta: 1,
+      trustDelta: 1,
+      pressureDelta: -5,
+      healthDelta: 1,
+      enduranceDelta: 1,
+      curiosityDelta: 1,
+    );
+  }
+
+  void _feed() {
+    _applyAction(
+      feedReactions,
+      energyDelta: -1,
+      affectionDelta: 2,
+      trustDelta: 1,
+      pressureDelta: -1,
+      healthDelta: 1,
+      gentlenessDelta: 1,
     );
   }
 
@@ -288,17 +482,94 @@ class _HomeScreenState extends State<HomeScreen> {
       return;
     }
 
-    setState(() {
-      _energy = (_energy + 5).clamp(0, _maxEnergy);
-      _advanceMinutes(_minutesPerInteraction);
-      _reaction = restReaction;
-      _isReacting = true;
-    });
-    widget.audioController.playVoice(restReaction.voice);
+    _applyAction(
+      const [restReaction],
+      energyDelta: 5,
+      pressureDelta: -3,
+      healthDelta: 1,
+      selfDisciplineDelta: 1,
+    );
+  }
 
-    Future<void>.delayed(const Duration(milliseconds: 170), () {
-      if (mounted) setState(() => _isReacting = false);
-    });
+  void _study() {
+    _applyAction(
+      studyReactions,
+      energyDelta: -3,
+      pressureDelta: 4,
+      intelligenceDelta: 2,
+      curiosityDelta: 1,
+      selfDisciplineDelta: 1,
+    );
+  }
+
+  void _exercise() {
+    _applyAction(
+      exerciseReactions,
+      energyDelta: -4,
+      maxEnergyDelta: 1,
+      pressureDelta: -5,
+      cleanlinessDelta: -5,
+      healthDelta: 2,
+      strengthDelta: 2,
+      enduranceDelta: 2,
+      selfDisciplineDelta: 1,
+      confidenceDelta: 1,
+    );
+  }
+
+  void _game() {
+    _applyAction(
+      gameReactions,
+      energyDelta: -3,
+      pressureDelta: -6,
+      cleanlinessDelta: -3,
+      intelligenceDelta: 1,
+      skillDelta: 2,
+      confidenceDelta: 1,
+    );
+  }
+
+  void _create() {
+    _applyAction(
+      createReactions,
+      energyDelta: -2,
+      pressureDelta: -2,
+      charmDelta: 1,
+      artDelta: 2,
+      curiosityDelta: 1,
+    );
+  }
+
+  void _perform() {
+    _applyAction(
+      performReactions,
+      energyDelta: -3,
+      pressureDelta: 2,
+      charmDelta: 2,
+      artDelta: 1,
+      confidenceDelta: 2,
+    );
+  }
+
+  void _bath() {
+    _applyAction(
+      bathReactions,
+      energyDelta: -1,
+      pressureDelta: -1,
+      cleanlinessDelta: 35,
+      healthDelta: 2,
+    );
+  }
+
+  void _outing() {
+    _applyAction(
+      outingReactions,
+      energyDelta: -3,
+      pressureDelta: -4,
+      charmDelta: 1,
+      curiosityDelta: 2,
+      confidenceDelta: 1,
+    );
   }
 
   void _readDialogue() {
@@ -384,11 +655,22 @@ class _HomeScreenState extends State<HomeScreen> {
       1 => _StatusPage(
         affectionLevel: _affectionLevel,
         affectionProgress: _affectionProgress,
+        trustLevel: _trustLevel,
+        trustProgress: _trustProgress,
         energy: _energy,
-        moodLabel: _moodLabel,
+        maxEnergy: _maxEnergy,
+        emotionLabel: _emotionLabel,
+        pressure: _pressure,
+        cleanliness: _cleanliness,
+        healthLabel: _healthLabel,
+        personalityLabel: _personalityLabel,
+        traitLabel: _traitLabel,
         characterAsset: _characterAsset,
         strength: _strength,
         intelligence: _intelligence,
+        charm: _charm,
+        art: _art,
+        skill: _skill,
         endurance: _endurance,
       ),
       2 => _SettingsPage(
@@ -414,7 +696,7 @@ class _HomeScreenState extends State<HomeScreen> {
         weatherLabel: '晴',
         reaction: _reaction,
         isReacting: _isReacting,
-        moodLabel: _moodLabel,
+        emotionLabel: _emotionLabel,
         characterAsset: _characterAsset,
         isForcedSleep: _isActionLocked,
         isSleepPending: _sleepPending,
@@ -422,12 +704,17 @@ class _HomeScreenState extends State<HomeScreen> {
         actionPage: _actionPage,
         affectionLevel: _affectionLevel,
         affectionProgress: _affectionProgress,
+        trustLevel: _trustLevel,
+        trustProgress: _trustProgress,
         energy: _energy,
+        maxEnergy: _maxEnergy,
+        pressure: _pressure,
+        cleanliness: _cleanliness,
         onReadDialogue: _readDialogue,
         onPageChanged: _setActionPage,
         onCharacterTap: () {
           widget.audioController.playRegularInteraction();
-          _showReaction(petReactions);
+          _pet();
         },
         onChat: () {
           widget.audioController.playRegularInteraction();
@@ -435,7 +722,11 @@ class _HomeScreenState extends State<HomeScreen> {
         },
         onPet: () {
           widget.audioController.playRegularInteraction();
-          _showReaction(petReactions);
+          _pet();
+        },
+        onPlay: () {
+          widget.audioController.playRegularInteraction();
+          _play();
         },
         onObserve: () {
           widget.audioController.playRegularInteraction();
@@ -443,15 +734,43 @@ class _HomeScreenState extends State<HomeScreen> {
         },
         onWalk: () {
           widget.audioController.playRegularInteraction();
-          _showReaction(walkReactions);
+          _walk();
         },
         onFeed: () {
           widget.audioController.playRegularInteraction();
-          _showReaction(feedReactions);
+          _feed();
         },
         onRest: () {
           widget.audioController.playRegularInteraction();
           _rest();
+        },
+        onStudy: () {
+          widget.audioController.playRegularInteraction();
+          _study();
+        },
+        onExercise: () {
+          widget.audioController.playRegularInteraction();
+          _exercise();
+        },
+        onGame: () {
+          widget.audioController.playRegularInteraction();
+          _game();
+        },
+        onCreate: () {
+          widget.audioController.playRegularInteraction();
+          _create();
+        },
+        onPerform: () {
+          widget.audioController.playRegularInteraction();
+          _perform();
+        },
+        onBath: () {
+          widget.audioController.playRegularInteraction();
+          _bath();
+        },
+        onOuting: () {
+          widget.audioController.playRegularInteraction();
+          _outing();
         },
         onHit: () {
           widget.audioController.playHitInteraction();
@@ -498,7 +817,7 @@ class _CompanionPage extends StatelessWidget {
     required this.weatherLabel,
     required this.reaction,
     required this.isReacting,
-    required this.moodLabel,
+    required this.emotionLabel,
     required this.characterAsset,
     required this.isForcedSleep,
     required this.isSleepPending,
@@ -506,16 +825,29 @@ class _CompanionPage extends StatelessWidget {
     required this.actionPage,
     required this.affectionLevel,
     required this.affectionProgress,
+    required this.trustLevel,
+    required this.trustProgress,
     required this.energy,
+    required this.maxEnergy,
+    required this.pressure,
+    required this.cleanliness,
     required this.onReadDialogue,
     required this.onPageChanged,
     required this.onCharacterTap,
     required this.onChat,
     required this.onPet,
+    required this.onPlay,
     required this.onObserve,
     required this.onWalk,
     required this.onFeed,
     required this.onRest,
+    required this.onStudy,
+    required this.onExercise,
+    required this.onGame,
+    required this.onCreate,
+    required this.onPerform,
+    required this.onBath,
+    required this.onOuting,
     required this.onHit,
     required this.onSleep,
   });
@@ -529,7 +861,7 @@ class _CompanionPage extends StatelessWidget {
   final String weatherLabel;
   final CharacterReaction? reaction;
   final bool isReacting;
-  final String moodLabel;
+  final String emotionLabel;
   final String characterAsset;
   final bool isForcedSleep;
   final bool isSleepPending;
@@ -537,16 +869,29 @@ class _CompanionPage extends StatelessWidget {
   final int actionPage;
   final int affectionLevel;
   final int affectionProgress;
+  final int trustLevel;
+  final int trustProgress;
   final int energy;
+  final int maxEnergy;
+  final int pressure;
+  final int cleanliness;
   final VoidCallback onReadDialogue;
   final ValueChanged<int> onPageChanged;
   final VoidCallback onCharacterTap;
   final VoidCallback onChat;
   final VoidCallback onPet;
+  final VoidCallback onPlay;
   final VoidCallback onObserve;
   final VoidCallback onWalk;
   final VoidCallback onFeed;
   final VoidCallback onRest;
+  final VoidCallback onStudy;
+  final VoidCallback onExercise;
+  final VoidCallback onGame;
+  final VoidCallback onCreate;
+  final VoidCallback onPerform;
+  final VoidCallback onBath;
+  final VoidCallback onOuting;
   final VoidCallback onHit;
   final VoidCallback onSleep;
 
@@ -572,11 +917,16 @@ class _CompanionPage extends StatelessWidget {
             final stage = _CharacterStage(
               reaction: reaction,
               isReacting: isReacting,
-              moodLabel: moodLabel,
+              emotionLabel: emotionLabel,
               characterAsset: characterAsset,
               affectionLevel: affectionLevel,
               affectionProgress: affectionProgress,
+              trustLevel: trustLevel,
+              trustProgress: trustProgress,
               energy: energy,
+              maxEnergy: maxEnergy,
+              pressure: pressure,
+              cleanliness: cleanliness,
               onTap: onCharacterTap,
               onReadDialogue: onReadDialogue,
             );
@@ -588,10 +938,18 @@ class _CompanionPage extends StatelessWidget {
               onPageChanged: onPageChanged,
               onChat: onChat,
               onPet: onPet,
+              onPlay: onPlay,
               onObserve: onObserve,
               onWalk: onWalk,
               onFeed: onFeed,
               onRest: onRest,
+              onStudy: onStudy,
+              onExercise: onExercise,
+              onGame: onGame,
+              onCreate: onCreate,
+              onPerform: onPerform,
+              onBath: onBath,
+              onOuting: onOuting,
               onHit: onHit,
               onSleep: onSleep,
             );
@@ -729,22 +1087,32 @@ class _CharacterStage extends StatelessWidget {
   const _CharacterStage({
     required this.reaction,
     required this.isReacting,
-    required this.moodLabel,
+    required this.emotionLabel,
     required this.characterAsset,
     required this.affectionLevel,
     required this.affectionProgress,
+    required this.trustLevel,
+    required this.trustProgress,
     required this.energy,
+    required this.maxEnergy,
+    required this.pressure,
+    required this.cleanliness,
     required this.onTap,
     required this.onReadDialogue,
   });
 
   final CharacterReaction? reaction;
   final bool isReacting;
-  final String moodLabel;
+  final String emotionLabel;
   final String characterAsset;
   final int affectionLevel;
   final int affectionProgress;
+  final int trustLevel;
+  final int trustProgress;
   final int energy;
+  final int maxEnergy;
+  final int pressure;
+  final int cleanliness;
   final VoidCallback onTap;
   final VoidCallback onReadDialogue;
 
@@ -816,10 +1184,15 @@ class _CharacterStage extends StatelessWidget {
             child: _CompactStatusPanel(
               affectionLevel: affectionLevel,
               affectionProgress: affectionProgress,
+              trustLevel: trustLevel,
+              trustProgress: trustProgress,
               energy: energy,
+              maxEnergy: maxEnergy,
+              pressure: pressure,
+              cleanliness: cleanliness,
             ),
           ),
-          Positioned(top: 12, right: 14, child: _MoodChip(label: moodLabel)),
+          Positioned(top: 12, right: 14, child: _MoodChip(label: emotionLabel)),
           if (reaction != null)
             Positioned(
               left: 18,
@@ -840,17 +1213,41 @@ class _CompactStatusPanel extends StatelessWidget {
   const _CompactStatusPanel({
     required this.affectionLevel,
     required this.affectionProgress,
+    required this.trustLevel,
+    required this.trustProgress,
     required this.energy,
+    required this.maxEnergy,
+    required this.pressure,
+    required this.cleanliness,
   });
 
   final int affectionLevel;
   final int affectionProgress;
+  final int trustLevel;
+  final int trustProgress;
   final int energy;
+  final int maxEnergy;
+  final int pressure;
+  final int cleanliness;
+
+  Color _pressureColor() {
+    if (pressure <= 30) return const Color(0xFF2E9D68);
+    if (pressure <= 60) return const Color(0xFFD49A22);
+    if (pressure <= 80) return const Color(0xFFE46F32);
+    return const Color(0xFFD13D3D);
+  }
+
+  Color _cleanlinessColor() {
+    if (cleanliness >= 80) return const Color(0xFF2E9D68);
+    if (cleanliness >= 50) return const Color(0xFFD49A22);
+    if (cleanliness >= 21) return const Color(0xFFE46F32);
+    return const Color(0xFFD13D3D);
+  }
 
   @override
   Widget build(BuildContext context) {
     return Container(
-      width: 150,
+      width: 164,
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
       decoration: BoxDecoration(
         color: const Color(0xEFFFFFFF),
@@ -868,12 +1265,93 @@ class _CompactStatusPanel extends StatelessWidget {
           ),
           const SizedBox(height: 6),
           _MiniStatusBar(
+            label: '信任 Lv.$trustLevel',
+            valueLabel: '$trustProgress/100',
+            value: trustProgress / 100,
+            color: const Color(0xFF9DA8FF),
+          ),
+          const SizedBox(height: 6),
+          _MiniStatusBar(
             label: '体力',
-            valueLabel: '$energy/$_maxEnergy',
-            value: energy / _maxEnergy,
+            valueLabel: '$energy/$maxEnergy',
+            value: energy / maxEnergy,
             color: azure,
           ),
+          const SizedBox(height: 8),
+          Row(
+            children: [
+              Expanded(
+                child: _MiniStatusIcon(
+                  key: const Key('pressure-indicator'),
+                  tooltip: '压力',
+                  icon: Icons.psychology_alt_rounded,
+                  label: '$pressure%',
+                  color: _pressureColor(),
+                ),
+              ),
+              const SizedBox(width: 6),
+              Expanded(
+                child: _MiniStatusIcon(
+                  key: const Key('cleanliness-indicator'),
+                  tooltip: '清洁',
+                  icon: Icons.cleaning_services_rounded,
+                  label: '$cleanliness%',
+                  color: _cleanlinessColor(),
+                ),
+              ),
+            ],
+          ),
         ],
+      ),
+    );
+  }
+}
+
+class _MiniStatusIcon extends StatelessWidget {
+  const _MiniStatusIcon({
+    super.key,
+    required this.tooltip,
+    required this.icon,
+    required this.label,
+    required this.color,
+  });
+
+  final String tooltip;
+  final IconData icon;
+  final String label;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    return Tooltip(
+      message: tooltip,
+      child: Container(
+        height: 26,
+        padding: const EdgeInsets.symmetric(horizontal: 7),
+        decoration: BoxDecoration(
+          color: color.withValues(alpha: 0.14),
+          borderRadius: BorderRadius.circular(999),
+          border: Border.all(color: color.withValues(alpha: 0.36)),
+        ),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(icon, size: 15, color: color),
+            const SizedBox(width: 3),
+            Flexible(
+              child: Text(
+                label,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(
+                  color: color,
+                  fontSize: 10,
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -1036,29 +1514,50 @@ class _StatusPage extends StatelessWidget {
   const _StatusPage({
     required this.affectionLevel,
     required this.affectionProgress,
+    required this.trustLevel,
+    required this.trustProgress,
     required this.energy,
-    required this.moodLabel,
+    required this.maxEnergy,
+    required this.emotionLabel,
+    required this.pressure,
+    required this.cleanliness,
+    required this.healthLabel,
+    required this.personalityLabel,
+    required this.traitLabel,
     required this.characterAsset,
     required this.strength,
     required this.intelligence,
+    required this.charm,
+    required this.art,
+    required this.skill,
     required this.endurance,
   });
 
   final int affectionLevel;
   final int affectionProgress;
+  final int trustLevel;
+  final int trustProgress;
   final int energy;
-  final String moodLabel;
+  final int maxEnergy;
+  final String emotionLabel;
+  final int pressure;
+  final int cleanliness;
+  final String healthLabel;
+  final String personalityLabel;
+  final String traitLabel;
   final String characterAsset;
   final int strength;
   final int intelligence;
+  final int charm;
+  final int art;
+  final int skill;
   final int endurance;
 
   @override
   Widget build(BuildContext context) {
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 16, 16, 10),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
+      child: ListView(
         children: [
           Text('状态', style: Theme.of(context).textTheme.headlineSmall),
           const SizedBox(height: 12),
@@ -1099,23 +1598,43 @@ class _StatusPage extends StatelessWidget {
           ),
           const SizedBox(height: 14),
           _StatusValueCard(
-            title: '基础数值',
+            title: '日常状态',
             children: [
               _StatusValueRow(
                 label: '当前好感度',
                 value: 'Lv.$affectionLevel  $affectionProgress/100',
               ),
-              _StatusValueRow(label: '当前体力', value: '$energy/$_maxEnergy'),
-              _StatusValueRow(label: '心情', value: moodLabel),
+              _StatusValueRow(
+                label: '当前信任',
+                value: 'Lv.$trustLevel  $trustProgress/100',
+              ),
+              _StatusValueRow(label: '当前体力', value: '$energy/$maxEnergy'),
+              _StatusValueRow(label: '体力上限', value: '$maxEnergy'),
+              _StatusValueRow(label: '情绪', value: emotionLabel),
+              _StatusValueRow(label: '压力', value: '$pressure%'),
+              _StatusValueRow(label: '清洁', value: '$cleanliness%'),
+              _StatusValueRow(label: '健康', value: healthLabel),
+            ],
+          ),
+          const SizedBox(height: 10),
+          _StatusValueCard(
+            title: '能力数值',
+            children: [
               _StatusValueRow(label: '力量', value: '$strength'),
               _StatusValueRow(label: '智力', value: '$intelligence'),
+              _StatusValueRow(label: '魅力', value: '$charm'),
+              _StatusValueRow(label: '艺术', value: '$art'),
+              _StatusValueRow(label: '技巧', value: '$skill'),
               _StatusValueRow(label: '耐力', value: '$endurance'),
             ],
           ),
           const SizedBox(height: 10),
-          Text(
-            '以后增加数值的功能可以放在这里。',
-            style: Theme.of(context).textTheme.bodySmall,
+          _StatusValueCard(
+            title: '性格与特质',
+            children: [
+              _StatusValueRow(label: '性格', value: personalityLabel),
+              _StatusValueRow(label: '特质', value: traitLabel),
+            ],
           ),
         ],
       ),
@@ -1184,10 +1703,18 @@ class _ActionPanel extends StatelessWidget {
     required this.onPageChanged,
     required this.onChat,
     required this.onPet,
+    required this.onPlay,
     required this.onObserve,
     required this.onWalk,
     required this.onFeed,
     required this.onRest,
+    required this.onStudy,
+    required this.onExercise,
+    required this.onGame,
+    required this.onCreate,
+    required this.onPerform,
+    required this.onBath,
+    required this.onOuting,
     required this.onHit,
     required this.onSleep,
   });
@@ -1199,10 +1726,18 @@ class _ActionPanel extends StatelessWidget {
   final ValueChanged<int> onPageChanged;
   final VoidCallback onChat;
   final VoidCallback onPet;
+  final VoidCallback onPlay;
   final VoidCallback onObserve;
   final VoidCallback onWalk;
   final VoidCallback onFeed;
   final VoidCallback onRest;
+  final VoidCallback onStudy;
+  final VoidCallback onExercise;
+  final VoidCallback onGame;
+  final VoidCallback onCreate;
+  final VoidCallback onPerform;
+  final VoidCallback onBath;
+  final VoidCallback onOuting;
   final VoidCallback onHit;
   final VoidCallback onSleep;
 
@@ -1239,7 +1774,7 @@ class _ActionPanel extends StatelessWidget {
       );
     }
 
-    final page = actionPage == 0 ? _primaryPage() : _placeholderPage();
+    final page = actionPage == 0 ? _dailyPage() : _trainingPage();
 
     return Row(
       crossAxisAlignment: CrossAxisAlignment.center,
@@ -1273,7 +1808,7 @@ class _ActionPanel extends StatelessWidget {
     );
   }
 
-  Widget _primaryPage() {
+  Widget _dailyPage() {
     return Column(
       children: [
         _ActionButtonRow(
@@ -1295,9 +1830,9 @@ class _ActionPanel extends StatelessWidget {
               onPressed: onObserve,
             ),
             _ActionButton(
-              key: const Key('rest-button'),
-              label: '休息',
-              onPressed: onRest,
+              key: const Key('play-button'),
+              label: '玩耍',
+              onPressed: onPlay,
             ),
           ],
         ),
@@ -1333,27 +1868,58 @@ class _ActionPanel extends StatelessWidget {
     );
   }
 
-  Widget _placeholderPage() {
+  Widget _trainingPage() {
     return Column(
       children: [
         _ActionButtonRow(
-          children: List.generate(
-            4,
-            (index) => _ActionButton(
-              key: Key('placeholder-action-${index + 1}'),
-              label: '${index + 1}',
+          children: [
+            _ActionButton(
+              key: const Key('study-button'),
+              label: '学习',
+              emphasized: true,
+              onPressed: onStudy,
             ),
-          ),
+            _ActionButton(
+              key: const Key('exercise-button'),
+              label: '运动',
+              onPressed: onExercise,
+            ),
+            _ActionButton(
+              key: const Key('game-button'),
+              label: '打游戏',
+              onPressed: onGame,
+            ),
+            _ActionButton(
+              key: const Key('create-button'),
+              label: '创作',
+              onPressed: onCreate,
+            ),
+          ],
         ),
         const SizedBox(height: 8),
         _ActionButtonRow(
-          children: List.generate(
-            4,
-            (index) => _ActionButton(
-              key: Key('placeholder-action-${index + 5}'),
-              label: '${index + 5}',
+          children: [
+            _ActionButton(
+              key: const Key('perform-button'),
+              label: '表演',
+              onPressed: onPerform,
             ),
-          ),
+            _ActionButton(
+              key: const Key('bath-button'),
+              label: '洗澡',
+              onPressed: onBath,
+            ),
+            _ActionButton(
+              key: const Key('outing-button'),
+              label: '外出',
+              onPressed: onOuting,
+            ),
+            _ActionButton(
+              key: const Key('rest-button'),
+              label: '休息',
+              onPressed: onRest,
+            ),
+          ],
         ),
       ],
     );

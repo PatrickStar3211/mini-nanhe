@@ -168,6 +168,141 @@ const hitReactions = <CharacterReaction>[
   ),
 ];
 
+const sadHitReactions = <CharacterReaction>[
+  CharacterReaction(
+    emotion: NanheEmotion.sad,
+    nanheSpeech: '南河……？',
+    meaning: '他明明想相信你，却害怕地退了一步。',
+    voice: NanheVoice.sadSingle,
+  ),
+  CharacterReaction(
+    emotion: NanheEmotion.frustrated,
+    nanheSpeech: '南河……南河……',
+    meaning: '他低下头，不知道自己做错了什么。',
+    voice: NanheVoice.sadDouble,
+  ),
+];
+
+const playReactions = <CharacterReaction>[
+  CharacterReaction(
+    emotion: NanheEmotion.happy,
+    nanheSpeech: '南河！南河！',
+    meaning: '一起玩的时候，他整个人都亮了起来。',
+    voice: NanheVoice.affectionDouble,
+  ),
+  CharacterReaction(
+    emotion: NanheEmotion.affectionate,
+    nanheSpeech: '南河～',
+    meaning: '他开心地贴近了一点。',
+    voice: NanheVoice.affectionSingle,
+  ),
+];
+
+const studyReactions = <CharacterReaction>[
+  CharacterReaction(
+    emotion: NanheEmotion.curious,
+    nanheSpeech: '南河？南河！',
+    meaning: '他认真看着书页，像是理解了什么。',
+    voice: NanheVoice.curiousDouble,
+  ),
+  CharacterReaction(
+    emotion: NanheEmotion.calm,
+    nanheSpeech: '南河……',
+    meaning: '学习有点累，但他还是努力坚持着。',
+    voice: NanheVoice.calmSingle,
+  ),
+];
+
+const exerciseReactions = <CharacterReaction>[
+  CharacterReaction(
+    emotion: NanheEmotion.happy,
+    nanheSpeech: '南河！',
+    meaning: '运动之后，他看起来更有精神了。',
+    voice: NanheVoice.affectionSingle,
+  ),
+  CharacterReaction(
+    emotion: NanheEmotion.sleepy,
+    nanheSpeech: '南河……',
+    meaning: '训练消耗了不少体力。',
+    voice: NanheVoice.sleepySingle,
+  ),
+];
+
+const gameReactions = <CharacterReaction>[
+  CharacterReaction(
+    emotion: NanheEmotion.happy,
+    nanheSpeech: '南河！南河！',
+    meaning: '他盯着画面，操作越来越熟练。',
+    voice: NanheVoice.affectionDouble,
+  ),
+  CharacterReaction(
+    emotion: NanheEmotion.curious,
+    nanheSpeech: '南河？南河！',
+    meaning: '他好像发现了新的打法。',
+    voice: NanheVoice.curiousDouble,
+  ),
+];
+
+const createReactions = <CharacterReaction>[
+  CharacterReaction(
+    emotion: NanheEmotion.curious,
+    nanheSpeech: '南河……',
+    meaning: '他安静地试着把想法画出来。',
+    voice: NanheVoice.curiousSingle,
+  ),
+  CharacterReaction(
+    emotion: NanheEmotion.happy,
+    nanheSpeech: '南河！',
+    meaning: '完成作品后，他看起来很开心。',
+    voice: NanheVoice.affectionSingle,
+  ),
+];
+
+const performReactions = <CharacterReaction>[
+  CharacterReaction(
+    emotion: NanheEmotion.happy,
+    nanheSpeech: '南河！南河！',
+    meaning: '他努力表现自己，虽然还有点紧张。',
+    voice: NanheVoice.affectionDouble,
+  ),
+  CharacterReaction(
+    emotion: NanheEmotion.calm,
+    nanheSpeech: '南河～',
+    meaning: '练习之后，他似乎更有自信了。',
+    voice: NanheVoice.calmSingle,
+  ),
+];
+
+const bathReactions = <CharacterReaction>[
+  CharacterReaction(
+    emotion: NanheEmotion.calm,
+    nanheSpeech: '南河～',
+    meaning: '洗完澡后，他身上有干净清爽的味道。',
+    voice: NanheVoice.calmSingle,
+  ),
+  CharacterReaction(
+    emotion: NanheEmotion.happy,
+    nanheSpeech: '南河！',
+    meaning: '他甩了甩水珠，看起来舒服多了。',
+    voice: NanheVoice.affectionSingle,
+  ),
+];
+
+const outingReactions = <CharacterReaction>[
+  CharacterReaction(
+    emotion: NanheEmotion.curious,
+    nanheSpeech: '南河？南河？',
+    meaning: '外面的东西让他忍不住四处张望。',
+    voice: NanheVoice.curiousDouble,
+  ),
+  CharacterReaction(
+    emotion: NanheEmotion.happy,
+    nanheSpeech: '南河！',
+    meaning: '出去走走之后，他的心情轻快了不少。',
+    voice: NanheVoice.affectionSingle,
+  ),
+];
+
 const exhaustedReaction = CharacterReaction(
   emotion: NanheEmotion.sleepy,
   nanheSpeech: '南河……',
