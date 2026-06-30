@@ -199,7 +199,7 @@ void main() {
       200,
       scrollable: find.byType(Scrollable).first,
     );
-    expect(find.text('版本 0.2.2'), findsOneWidget);
+    expect(find.text('版本 0.2.3'), findsOneWidget);
   });
 
   testWidgets('short screens preserve the character stage and can scroll', (
@@ -295,6 +295,16 @@ void main() {
     await tester.pump(const Duration(milliseconds: 200));
     expect(find.text('22/25'), findsOneWidget);
     expect(find.text('冬 | 第1年 · 1月1日 | 07:30 | 晴'), findsOneWidget);
+
+    await tester.tap(find.byKey(const Key('exercise-button')));
+    await tester.pump(const Duration(milliseconds: 200));
+    expect(find.text('18/25'), findsOneWidget);
+    expect(find.text('冬 | 第1年 · 1月1日 | 08:00 | 晴'), findsOneWidget);
+
+    await tester.tap(find.byKey(const Key('exercise-button')));
+    await tester.pump(const Duration(milliseconds: 200));
+    expect(find.text('14/26'), findsOneWidget);
+    expect(find.text('冬 | 第1年 · 1月1日 | 08:30 | 晴'), findsOneWidget);
   });
 
   testWidgets('sleep before night shows a hint without advancing time', (

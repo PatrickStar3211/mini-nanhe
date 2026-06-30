@@ -20,6 +20,7 @@ const _sleepAvailableMinute = 22 * 60;
 const _midnightMinute = 24 * 60;
 const _earliestWakeMinute = 6 * 60;
 const _sleepDurationMinutes = 8 * 60;
+const _endurancePerMaxEnergy = 4;
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key, required this.audioController});
@@ -41,7 +42,6 @@ class _HomeScreenState extends State<HomeScreen> {
   int _month = 1;
   int _day = 1;
   int _minuteOfDay = 6 * 60;
-  int _maxEnergy = _initialMaxEnergy;
   int _energy = _initialMaxEnergy;
   int _affectionLevel = 1;
   int _affectionProgress = 0;
@@ -79,6 +79,11 @@ class _HomeScreenState extends State<HomeScreen> {
   bool get _isForcedSleep => _isExhausted || _isMidnight;
   bool get _isActionLocked => _isForcedSleep || _sleepPending;
   bool get _canSleepByTime => _minuteOfDay >= _sleepAvailableMinute;
+  int get _maxEnergy {
+    final enduranceBonus =
+        (_endurance - _minStatValue) ~/ _endurancePerMaxEnergy;
+    return _clampStat(_initialMaxEnergy + enduranceBonus);
+  }
 
   String get _timeLabel {
     final normalizedMinute = _minuteOfDay % _midnightMinute;
@@ -233,7 +238,6 @@ class _HomeScreenState extends State<HomeScreen> {
   void _applyAction(
     List<CharacterReaction> responses, {
     int energyDelta = -1,
-    int maxEnergyDelta = 0,
     int affectionDelta = 0,
     int trustDelta = 0,
     int pressureDelta = 0,
@@ -266,8 +270,6 @@ class _HomeScreenState extends State<HomeScreen> {
     final reaction = _pickReaction(responses);
 
     setState(() {
-      _maxEnergy = _clampStat(_maxEnergy + maxEnergyDelta);
-      _energy = (_energy + energyDelta).clamp(0, _maxEnergy);
       _changeAffection(affectionDelta);
       _changeTrust(trustDelta);
       _pressure = _clampPercent(_pressure + pressureDelta);
@@ -280,6 +282,7 @@ class _HomeScreenState extends State<HomeScreen> {
       _art = _clampStat(_art + artDelta);
       _skill = _clampStat(_skill + skillDelta);
       _endurance = _clampStat(_endurance + enduranceDelta);
+      _energy = (_energy + energyDelta).clamp(0, _maxEnergy);
       _curiosity = _clampPercent(_curiosity + curiosityDelta);
       _selfDiscipline = _clampPercent(_selfDiscipline + selfDisciplineDelta);
       _rebellion = _clampPercent(_rebellion + rebellionDelta);
@@ -506,7 +509,6 @@ class _HomeScreenState extends State<HomeScreen> {
     _applyAction(
       exerciseReactions,
       energyDelta: -4,
-      maxEnergyDelta: 1,
       pressureDelta: -5,
       cleanlinessDelta: -5,
       healthDelta: 2,
