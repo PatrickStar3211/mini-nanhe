@@ -1611,7 +1611,6 @@ class _StatusPage extends StatelessWidget {
                 value: 'Lv.$trustLevel  $trustProgress/100',
               ),
               _StatusValueRow(label: '当前体力', value: '$energy/$maxEnergy'),
-              _StatusValueRow(label: '体力上限', value: '$maxEnergy'),
               _StatusValueRow(label: '情绪', value: emotionLabel),
               _StatusValueRow(label: '压力', value: '$pressure%'),
               _StatusValueRow(label: '清洁', value: '$cleanliness%'),

@@ -305,6 +305,17 @@ void main() {
     await tester.pump(const Duration(milliseconds: 200));
     expect(find.text('14/26'), findsOneWidget);
     expect(find.text('冬 | 第1年 · 1月1日 | 08:30 | 晴'), findsOneWidget);
+
+    await tester.tap(find.byKey(const Key('exercise-button')));
+    await tester.pump(const Duration(milliseconds: 200));
+    expect(find.text('10/26'), findsOneWidget);
+    expect(find.text('冬 | 第1年 · 1月1日 | 09:00 | 晴'), findsOneWidget);
+
+    await tester.tap(find.byKey(const Key('exercise-button')));
+    await tester.pump(const Duration(milliseconds: 200));
+    expect(find.text('6/27'), findsOneWidget);
+    expect(find.text('6/29'), findsNothing);
+    expect(find.text('冬 | 第1年 · 1月1日 | 09:30 | 晴'), findsOneWidget);
   });
 
   testWidgets('sleep before night shows a hint without advancing time', (
