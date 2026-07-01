@@ -23,6 +23,10 @@ const _earliestWakeMinute = 6 * 60;
 const _sleepDurationMinutes = 8 * 60;
 const _endurancePerMaxEnergy = 4;
 
+enum YardHomeTier { box, doghouse, luxury }
+
+enum WeatherCondition { sunny, rainy, snowy }
+
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key, required this.audioController});
 
@@ -55,6 +59,8 @@ class _HomeScreenState extends State<HomeScreen> {
   int _exhaustionCount = 0;
   int _actionPage = 0;
   bool _sleepPending = false;
+  YardHomeTier _yardHomeTier = YardHomeTier.doghouse;
+  final WeatherCondition _weatherCondition = WeatherCondition.sunny;
   int _strength = 1;
   int _intelligence = 1;
   int _charm = 1;
@@ -103,6 +109,55 @@ class _HomeScreenState extends State<HomeScreen> {
     final minute = normalizedMinute % 60;
     return '${hour.toString().padLeft(2, '0')}:'
         '${minute.toString().padLeft(2, '0')}';
+  }
+
+  String get _seasonAssetKey {
+    if (_month >= 3 && _month <= 5) return 'spring';
+    if (_month >= 6 && _month <= 8) return 'summer';
+    if (_month >= 9 && _month <= 11) return 'autumn';
+    return 'winter';
+  }
+
+  String get _timeOfDayAssetKey {
+    final normalizedMinute = _minuteOfDay % _midnightMinute;
+    return normalizedMinute >= _earliestWakeMinute && normalizedMinute < 18 * 60
+        ? 'day'
+        : 'night';
+  }
+
+  bool get _canShowSnowWeather =>
+      _seasonAssetKey == 'winter' || _seasonAssetKey == 'spring';
+
+  WeatherCondition get _visibleWeatherCondition {
+    if (_weatherCondition == WeatherCondition.snowy && !_canShowSnowWeather) {
+      return WeatherCondition.rainy;
+    }
+    return _weatherCondition;
+  }
+
+  String get _weatherLabel {
+    return switch (_visibleWeatherCondition) {
+      WeatherCondition.sunny => '晴',
+      WeatherCondition.rainy => '雨',
+      WeatherCondition.snowy => '雪',
+    };
+  }
+
+  String get _yardBackgroundAsset {
+    return yardBackgroundAsset(
+      home: _yardHomeTier.name,
+      season: _seasonAssetKey,
+      timeOfDay: _timeOfDayAssetKey,
+    );
+  }
+
+  void _changeYardHome(int direction) {
+    final unlockedHomes = YardHomeTier.values;
+    final currentIndex = unlockedHomes.indexOf(_yardHomeTier);
+    final nextIndex =
+        (currentIndex + direction + unlockedHomes.length) %
+        unlockedHomes.length;
+    setState(() => _yardHomeTier = unlockedHomes[nextIndex]);
   }
 
   Future<void> _changeBgm(BgmTrack track) async {
@@ -712,7 +767,22 @@ class _HomeScreenState extends State<HomeScreen> {
         skill: _skill,
         endurance: _endurance,
       ),
-      2 => _SettingsPage(
+      2 => const _PlaceholderPage(
+        title: '手机',
+        icon: Icons.smartphone_rounded,
+        pageKey: Key('phone-page'),
+      ),
+      3 => const _PlaceholderPage(
+        title: '战斗',
+        icon: Icons.sports_martial_arts_rounded,
+        pageKey: Key('battle-page'),
+      ),
+      4 => const _PlaceholderPage(
+        title: '收藏',
+        icon: Icons.collections_bookmark_rounded,
+        pageKey: Key('collection-page'),
+      ),
+      5 => _SettingsPage(
         selectedBgm: _selectedBgm,
         musicVolume: _musicVolume,
         soundEffectVolume: _soundEffectVolume,
@@ -732,7 +802,9 @@ class _HomeScreenState extends State<HomeScreen> {
         month: _month,
         day: _day,
         timeLabel: _timeLabel,
-        weatherLabel: '晴',
+        weatherLabel: _weatherLabel,
+        weatherCondition: _visibleWeatherCondition,
+        backgroundAsset: _yardBackgroundAsset,
         reaction: _reaction,
         isReacting: _isReacting,
         emotionLabel: _emotionLabel,
@@ -750,6 +822,8 @@ class _HomeScreenState extends State<HomeScreen> {
         pressure: _pressure,
         cleanliness: _cleanliness,
         onReadDialogue: _readDialogue,
+        onPreviousBackground: () => _changeYardHome(-1),
+        onNextBackground: () => _changeYardHome(1),
         onPageChanged: _setActionPage,
         onCharacterTap: () {
           widget.audioController.playRegularInteraction();
@@ -838,7 +912,49 @@ class _HomeScreenState extends State<HomeScreen> {
             selectedIcon: Icon(Icons.monitor_heart_rounded),
             label: '状态',
           ),
+          NavigationDestination(
+            icon: Icon(Icons.smartphone_outlined),
+            selectedIcon: Icon(Icons.smartphone_rounded),
+            label: '手机',
+          ),
+          NavigationDestination(
+            icon: Icon(Icons.sports_martial_arts_outlined),
+            selectedIcon: Icon(Icons.sports_martial_arts_rounded),
+            label: '战斗',
+          ),
+          NavigationDestination(
+            icon: Icon(Icons.collections_bookmark_outlined),
+            selectedIcon: Icon(Icons.collections_bookmark_rounded),
+            label: '收藏',
+          ),
           NavigationDestination(icon: Icon(Icons.tune_rounded), label: '设置'),
+        ],
+      ),
+    );
+  }
+}
+
+class _PlaceholderPage extends StatelessWidget {
+  const _PlaceholderPage({
+    required this.title,
+    required this.icon,
+    required this.pageKey,
+  });
+
+  final String title;
+  final IconData icon;
+  final Key pageKey;
+
+  @override
+  Widget build(BuildContext context) {
+    return Center(
+      key: pageKey,
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 36, color: azure),
+          const SizedBox(height: 12),
+          Text(title, style: Theme.of(context).textTheme.headlineSmall),
         ],
       ),
     );
@@ -854,6 +970,8 @@ class _CompanionPage extends StatelessWidget {
     required this.day,
     required this.timeLabel,
     required this.weatherLabel,
+    required this.weatherCondition,
+    required this.backgroundAsset,
     required this.reaction,
     required this.isReacting,
     required this.emotionLabel,
@@ -871,6 +989,8 @@ class _CompanionPage extends StatelessWidget {
     required this.pressure,
     required this.cleanliness,
     required this.onReadDialogue,
+    required this.onPreviousBackground,
+    required this.onNextBackground,
     required this.onPageChanged,
     required this.onCharacterTap,
     required this.onChat,
@@ -898,6 +1018,8 @@ class _CompanionPage extends StatelessWidget {
   final int day;
   final String timeLabel;
   final String weatherLabel;
+  final WeatherCondition weatherCondition;
+  final String backgroundAsset;
   final CharacterReaction? reaction;
   final bool isReacting;
   final String emotionLabel;
@@ -915,6 +1037,8 @@ class _CompanionPage extends StatelessWidget {
   final int pressure;
   final int cleanliness;
   final VoidCallback onReadDialogue;
+  final VoidCallback onPreviousBackground;
+  final VoidCallback onNextBackground;
   final ValueChanged<int> onPageChanged;
   final VoidCallback onCharacterTap;
   final VoidCallback onChat;
@@ -954,6 +1078,8 @@ class _CompanionPage extends StatelessWidget {
             final needsScrolling = availableStageHeight < protectedStageHeight;
 
             final stage = _CharacterStage(
+              backgroundAsset: backgroundAsset,
+              weatherCondition: weatherCondition,
               reaction: reaction,
               isReacting: isReacting,
               emotionLabel: emotionLabel,
@@ -968,6 +1094,8 @@ class _CompanionPage extends StatelessWidget {
               cleanliness: cleanliness,
               onTap: onCharacterTap,
               onReadDialogue: onReadDialogue,
+              onPreviousBackground: onPreviousBackground,
+              onNextBackground: onNextBackground,
             );
             final actions = _ActionPanel(
               isForcedSleep: isForcedSleep,
@@ -1124,6 +1252,8 @@ class _CalendarCard extends StatelessWidget {
 
 class _CharacterStage extends StatelessWidget {
   const _CharacterStage({
+    required this.backgroundAsset,
+    required this.weatherCondition,
     required this.reaction,
     required this.isReacting,
     required this.emotionLabel,
@@ -1138,8 +1268,12 @@ class _CharacterStage extends StatelessWidget {
     required this.cleanliness,
     required this.onTap,
     required this.onReadDialogue,
+    required this.onPreviousBackground,
+    required this.onNextBackground,
   });
 
+  final String backgroundAsset;
+  final WeatherCondition weatherCondition;
   final CharacterReaction? reaction;
   final bool isReacting;
   final String emotionLabel;
@@ -1154,6 +1288,8 @@ class _CharacterStage extends StatelessWidget {
   final int cleanliness;
   final VoidCallback onTap;
   final VoidCallback onReadDialogue;
+  final VoidCallback onPreviousBackground;
+  final VoidCallback onNextBackground;
 
   @override
   Widget build(BuildContext context) {
@@ -1161,8 +1297,8 @@ class _CharacterStage extends StatelessWidget {
       width: double.infinity,
       decoration: BoxDecoration(
         color: frost,
-        image: const DecorationImage(
-          image: AssetImage(defaultGardenDoghouseAsset),
+        image: DecorationImage(
+          image: AssetImage(backgroundAsset),
           fit: BoxFit.cover,
         ),
         borderRadius: BorderRadius.circular(28),
@@ -1178,6 +1314,12 @@ class _CharacterStage extends StatelessWidget {
       clipBehavior: Clip.antiAlias,
       child: Stack(
         children: [
+          if (weatherCondition != WeatherCondition.sunny)
+            Positioned.fill(
+              child: IgnorePointer(
+                child: _WeatherOverlay(condition: weatherCondition),
+              ),
+            ),
           Positioned.fill(
             child: LayoutBuilder(
               builder: (context, constraints) {
@@ -1232,6 +1374,12 @@ class _CharacterStage extends StatelessWidget {
             ),
           ),
           Positioned(top: 12, right: 14, child: _MoodChip(label: emotionLabel)),
+          Positioned.fill(
+            child: _BackgroundSwitchControls(
+              onPrevious: onPreviousBackground,
+              onNext: onNextBackground,
+            ),
+          ),
           if (reaction != null)
             Positioned(
               left: 18,
@@ -1245,6 +1393,173 @@ class _CharacterStage extends StatelessWidget {
         ],
       ),
     );
+  }
+}
+
+class _BackgroundSwitchControls extends StatelessWidget {
+  const _BackgroundSwitchControls({
+    required this.onPrevious,
+    required this.onNext,
+  });
+
+  final VoidCallback onPrevious;
+  final VoidCallback onNext;
+
+  @override
+  Widget build(BuildContext context) {
+    return IgnorePointer(
+      ignoring: false,
+      child: Row(
+        children: [
+          Padding(
+            padding: const EdgeInsets.only(left: 10),
+            child: _BackgroundSwitchButton(
+              key: const Key('background-previous-button'),
+              icon: Icons.chevron_left_rounded,
+              tooltip: '切换上一个背景',
+              onPressed: onPrevious,
+            ),
+          ),
+          const Spacer(),
+          Padding(
+            padding: const EdgeInsets.only(right: 10),
+            child: _BackgroundSwitchButton(
+              key: const Key('background-next-button'),
+              icon: Icons.chevron_right_rounded,
+              tooltip: '切换下一个背景',
+              onPressed: onNext,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _BackgroundSwitchButton extends StatelessWidget {
+  const _BackgroundSwitchButton({
+    super.key,
+    required this.icon,
+    required this.tooltip,
+    required this.onPressed,
+  });
+
+  final IconData icon;
+  final String tooltip;
+  final VoidCallback onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    return Tooltip(
+      message: tooltip,
+      child: Material(
+        color: Colors.white.withValues(alpha: 0.74),
+        shape: const CircleBorder(),
+        elevation: 2,
+        shadowColor: const Color(0x339B7B4B),
+        child: IconButton(
+          icon: Icon(icon),
+          color: deepBlue,
+          iconSize: 28,
+          splashRadius: 24,
+          onPressed: onPressed,
+        ),
+      ),
+    );
+  }
+}
+
+class _WeatherOverlay extends StatelessWidget {
+  const _WeatherOverlay({required this.condition});
+
+  final WeatherCondition condition;
+
+  @override
+  Widget build(BuildContext context) {
+    final tint = switch (condition) {
+      WeatherCondition.rainy => const Color(0x44384F6F),
+      WeatherCondition.snowy => const Color(0x2CEAF6FF),
+      WeatherCondition.sunny => Colors.transparent,
+    };
+
+    return DecoratedBox(
+      decoration: BoxDecoration(color: tint),
+      child: CustomPaint(painter: _WeatherPainter(condition)),
+    );
+  }
+}
+
+class _WeatherPainter extends CustomPainter {
+  const _WeatherPainter(this.condition);
+
+  final WeatherCondition condition;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    switch (condition) {
+      case WeatherCondition.rainy:
+        _paintRain(canvas, size);
+      case WeatherCondition.snowy:
+        _paintSnow(canvas, size);
+      case WeatherCondition.sunny:
+        break;
+    }
+  }
+
+  void _paintRain(Canvas canvas, Size size) {
+    final paint = Paint()
+      ..color = Colors.white.withValues(alpha: 0.34)
+      ..strokeWidth = 1.2
+      ..strokeCap = StrokeCap.round;
+    final spacing = size.width / 11;
+    final rowSpacing = size.height / 8;
+
+    for (var row = -1; row < 9; row += 1) {
+      for (var col = -1; col < 13; col += 1) {
+        final x = col * spacing + (row.isEven ? 0 : spacing * 0.45);
+        final y = row * rowSpacing + (col % 3) * 9;
+        canvas.drawLine(Offset(x, y), Offset(x - 12, y + 34), paint);
+      }
+    }
+  }
+
+  void _paintSnow(Canvas canvas, Size size) {
+    final paint = Paint()..color = Colors.white.withValues(alpha: 0.62);
+    const points = <Offset>[
+      Offset(0.10, 0.12),
+      Offset(0.28, 0.08),
+      Offset(0.46, 0.16),
+      Offset(0.68, 0.10),
+      Offset(0.84, 0.20),
+      Offset(0.18, 0.32),
+      Offset(0.38, 0.28),
+      Offset(0.58, 0.36),
+      Offset(0.78, 0.30),
+      Offset(0.12, 0.54),
+      Offset(0.32, 0.48),
+      Offset(0.52, 0.58),
+      Offset(0.72, 0.50),
+      Offset(0.90, 0.62),
+      Offset(0.22, 0.76),
+      Offset(0.44, 0.70),
+      Offset(0.64, 0.80),
+      Offset(0.82, 0.72),
+    ];
+
+    for (var i = 0; i < points.length; i += 1) {
+      final point = points[i];
+      final radius = i.isEven ? 2.2 : 1.5;
+      canvas.drawCircle(
+        Offset(point.dx * size.width, point.dy * size.height),
+        radius,
+        paint,
+      );
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant _WeatherPainter oldDelegate) {
+    return oldDelegate.condition != condition;
   }
 }
 

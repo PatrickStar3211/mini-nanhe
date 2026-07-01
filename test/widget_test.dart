@@ -51,6 +51,21 @@ Finder _anyTextContaining(Set<String> values) {
   });
 }
 
+String? _currentBackgroundAsset(WidgetTester tester) {
+  for (final container in tester.widgetList<Container>(
+    find.byType(Container),
+  )) {
+    final decoration = container.decoration;
+    if (decoration is! BoxDecoration) continue;
+    final image = decoration.image?.image;
+    if (image is! AssetImage) continue;
+    if (image.assetName.startsWith('assets/images/backgrounds/')) {
+      return image.assetName;
+    }
+  }
+  return null;
+}
+
 void main() {
   test('all Nanhe voice assets are bundled', () async {
     for (final voice in NanheVoice.values) {
@@ -84,6 +99,9 @@ void main() {
 
     expect(find.text('陪伴'), findsOneWidget);
     expect(find.text('状态'), findsOneWidget);
+    expect(find.text('手机'), findsOneWidget);
+    expect(find.text('战斗'), findsOneWidget);
+    expect(find.text('收藏'), findsOneWidget);
     expect(find.text('设置'), findsOneWidget);
     expect(find.text('回忆'), findsNothing);
     expect(find.text('迷你南河'), findsOneWidget);
@@ -147,6 +165,59 @@ void main() {
     expect(find.text('无'), findsOneWidget);
   });
 
+  testWidgets('background arrows cycle through unlocked yard homes', (
+    tester,
+  ) async {
+    await _pumpLoadedApp(tester);
+
+    expect(find.byKey(const Key('background-previous-button')), findsOneWidget);
+    expect(find.byKey(const Key('background-next-button')), findsOneWidget);
+    expect(
+      _currentBackgroundAsset(tester),
+      'assets/images/backgrounds/yard_doghouse_winter_day.webp',
+    );
+
+    await tester.tap(find.byKey(const Key('background-next-button')));
+    await tester.pumpAndSettle();
+    expect(
+      _currentBackgroundAsset(tester),
+      'assets/images/backgrounds/yard_luxury_winter_day.webp',
+    );
+
+    await tester.tap(find.byKey(const Key('background-next-button')));
+    await tester.pumpAndSettle();
+    expect(
+      _currentBackgroundAsset(tester),
+      'assets/images/backgrounds/yard_box_winter_day.webp',
+    );
+
+    await tester.tap(find.byKey(const Key('background-previous-button')));
+    await tester.pumpAndSettle();
+    expect(
+      _currentBackgroundAsset(tester),
+      'assets/images/backgrounds/yard_luxury_winter_day.webp',
+    );
+  });
+
+  testWidgets('new placeholder destinations open from the bottom navigation', (
+    tester,
+  ) async {
+    await _pumpLoadedApp(tester);
+
+    final pages = {
+      '手机': const Key('phone-page'),
+      '战斗': const Key('battle-page'),
+      '收藏': const Key('collection-page'),
+    };
+
+    for (final entry in pages.entries) {
+      await tester.tap(find.text(entry.key));
+      await tester.pumpAndSettle();
+      expect(find.byKey(entry.value), findsOneWidget);
+      expect(find.byKey(const Key('companion-scroll-view')), findsNothing);
+    }
+  });
+
   testWidgets('chat shows dialogue in the stage bubble', (tester) async {
     await _pumpLoadedApp(tester);
     await tester.tap(find.byKey(const Key('chat-button')));
@@ -206,7 +277,7 @@ void main() {
       200,
       scrollable: find.byType(Scrollable).first,
     );
-    expect(find.text('版本 0.2.5'), findsOneWidget);
+    expect(find.text('版本 0.2.6'), findsOneWidget);
   });
 
   testWidgets('short screens preserve the character stage and can scroll', (

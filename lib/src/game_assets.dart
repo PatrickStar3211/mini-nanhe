@@ -1,5 +1,6 @@
 const defaultGardenDoghouseAsset = 'assets/images/default_garden_doghouse.png';
 const loadingRainyBoxAsset = 'assets/images/loading_rainy_box.png';
+const yardBackgroundAssetDirectory = 'assets/images/backgrounds';
 const miniNanheOriginalAsset = 'assets/images/mini_nanhe.png';
 const miniNanheTransparentAsset = 'assets/images/mini_nanhe_transparent.png';
 
@@ -15,6 +16,14 @@ const miniNanheSadAsset = 'assets/images/nanhe_emotions/mini_nanhe_sad.png';
 const miniNanheAngryAsset = 'assets/images/nanhe_emotions/mini_nanhe_angry.png';
 const miniNanheFrustratedAsset =
     'assets/images/nanhe_emotions/mini_nanhe_frustrated.png';
+
+String yardBackgroundAsset({
+  required String home,
+  required String season,
+  required String timeOfDay,
+}) {
+  return '$yardBackgroundAssetDirectory/yard_${home}_${season}_$timeOfDay.webp';
+}
 
 const startupPreloadAssets = <String>[
   defaultGardenDoghouseAsset,
