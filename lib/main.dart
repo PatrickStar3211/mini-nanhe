@@ -1,3 +1,5 @@
+import 'dart:math';
+
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
@@ -39,7 +41,7 @@ class MiniNanheApp extends StatelessWidget {
 class _PortraitWebShell extends StatelessWidget {
   const _PortraitWebShell({required this.child});
 
-  static const _targetAspectRatio = 390 / 844;
+  static const _maxWideScreenPortraitRatio = 0.72;
 
   final Widget child;
 
@@ -51,13 +53,13 @@ class _PortraitWebShell extends StatelessWidget {
         builder: (context, constraints) {
           final maxWidth = constraints.maxWidth;
           final maxHeight = constraints.maxHeight;
-          var width = maxWidth;
-          var height = width / _targetAspectRatio;
 
-          if (height > maxHeight) {
-            height = maxHeight;
-            width = height * _targetAspectRatio;
+          if (maxHeight > maxWidth) {
+            return SizedBox.expand(child: child);
           }
+
+          final width = min(maxWidth, maxHeight * _maxWideScreenPortraitRatio);
+          final height = maxHeight;
 
           return Center(
             child: SizedBox(width: width, height: height, child: child),
