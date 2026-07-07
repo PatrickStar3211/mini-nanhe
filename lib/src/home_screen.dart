@@ -4,8 +4,10 @@ import 'package:flutter/material.dart';
 
 import 'app_version.dart';
 import 'character_reaction.dart';
+import 'collection_screen.dart';
 import 'game_audio_controller.dart';
 import 'game_assets.dart';
+import 'opening_story_screen.dart';
 import 'reaction_rules.dart';
 import 'theme.dart';
 
@@ -683,6 +685,23 @@ class _HomeScreenState extends State<HomeScreen> {
     setState(() => _selectedDestination = index);
   }
 
+  void _replayOpeningStory() {
+    widget.audioController.playPageTurn();
+    Navigator.of(context).push(
+      PageRouteBuilder<void>(
+        pageBuilder: (_, animation, secondaryAnimation) {
+          return OpeningStoryScreen(
+            onFinished: (storyContext) => Navigator.of(storyContext).pop(),
+          );
+        },
+        transitionDuration: const Duration(milliseconds: 450),
+        transitionsBuilder: (_, animation, secondaryAnimation, child) {
+          return FadeTransition(opacity: animation, child: child);
+        },
+      ),
+    );
+  }
+
   void _setMusicVolume(double value) {
     setState(() {
       _musicVolume = value;
@@ -777,10 +796,9 @@ class _HomeScreenState extends State<HomeScreen> {
         icon: Icons.sports_martial_arts_rounded,
         pageKey: Key('battle-page'),
       ),
-      4 => const _PlaceholderPage(
-        title: '收藏',
-        icon: Icons.collections_bookmark_rounded,
-        pageKey: Key('collection-page'),
+      4 => CollectionScreen(
+        onReplayOpeningStory: _replayOpeningStory,
+        onPageTurn: widget.audioController.playPageTurn,
       ),
       5 => _SettingsPage(
         selectedBgm: _selectedBgm,

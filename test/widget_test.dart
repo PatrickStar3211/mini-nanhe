@@ -245,7 +245,6 @@ void main() {
     final pages = {
       '手机': const Key('phone-page'),
       '战斗': const Key('battle-page'),
-      '收藏': const Key('collection-page'),
     };
 
     for (final entry in pages.entries) {
@@ -254,6 +253,55 @@ void main() {
       expect(find.byKey(entry.value), findsOneWidget);
       expect(find.byKey(const Key('companion-scroll-view')), findsNothing);
     }
+  });
+
+  testWidgets('collection page shows memories achievements and decorations', (
+    tester,
+  ) async {
+    await _pumpLoadedApp(tester);
+    await tester.tap(find.text('收藏'));
+    await tester.pumpAndSettle();
+
+    expect(find.byKey(const Key('collection-page')), findsOneWidget);
+    expect(find.text('回忆'), findsWidgets);
+    expect(find.text('初遇'), findsOneWidget);
+    expect(
+      find.byKey(const Key('collection-card-opening-memory')),
+      findsOneWidget,
+    );
+
+    await tester.tap(find.byKey(const Key('collection-card-opening-memory')));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const Key('opening-story-tap-area')), findsOneWidget);
+    await tester.tap(find.byKey(const Key('opening-story-tap-area')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('opening-story-tap-area')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('opening-story-tap-area')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('opening-story-tap-area')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('opening-story-tap-area')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('opening-story-tap-area')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('opening-story-tap-area')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('opening-story-tap-area')));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const Key('collection-page')), findsOneWidget);
+
+    await tester.tap(find.byKey(const Key('collection-tab-成就')));
+    await tester.pumpAndSettle();
+    expect(find.text('那天下雨了'), findsOneWidget);
+    expect(find.text('初次相遇'), findsNothing);
+
+    await tester.tap(find.byKey(const Key('collection-tab-装饰')));
+    await tester.pumpAndSettle();
+    expect(find.text('破纸箱'), findsOneWidget);
+    expect(find.text('普通狗窝'), findsOneWidget);
+    expect(find.text('豪华狗窝'), findsOneWidget);
+    expect(find.byKey(const Key('collection-page-next')), findsOneWidget);
   });
 
   testWidgets('chat shows dialogue in the stage bubble', (tester) async {
@@ -315,7 +363,7 @@ void main() {
       200,
       scrollable: find.byType(Scrollable).first,
     );
-    expect(find.text('版本 0.2.6'), findsOneWidget);
+    expect(find.text('版本 0.2.7'), findsOneWidget);
   });
 
   testWidgets('short screens preserve the character stage and can scroll', (

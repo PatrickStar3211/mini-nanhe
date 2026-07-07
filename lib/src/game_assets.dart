@@ -16,6 +16,7 @@ const miniNanheSadAsset = 'assets/images/nanhe_emotions/mini_nanhe_sad.png';
 const miniNanheAngryAsset = 'assets/images/nanhe_emotions/mini_nanhe_angry.png';
 const miniNanheFrustratedAsset =
     'assets/images/nanhe_emotions/mini_nanhe_frustrated.png';
+const collectionAlbumAsset = 'assets/images/collection/collection_album.webp';
 const openingStoryPage1Asset =
     'assets/images/story/opening/opening_page_1.webp';
 const openingStoryPage2Asset =
@@ -50,5 +51,6 @@ const startupPreloadAssets = <String>[
   miniNanheSadAsset,
   miniNanheAngryAsset,
   miniNanheFrustratedAsset,
+  collectionAlbumAsset,
   ...openingStoryPageAssets,
 ];

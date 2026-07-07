@@ -48,6 +48,7 @@ class GameAudioController {
   AudioPlayer? _bgmPlayer;
   AudioPlayer? _voicePlayer;
   AudioPool? _regularSfxPool;
+  AudioPool? _pageTurnSfxPool;
   AudioPool? _punchSfxPool;
   AudioPool? _slapSfxPool;
   int _voiceRequestId = 0;
@@ -70,6 +71,7 @@ class GameAudioController {
       await voicePlayer.setPlayerMode(PlayerMode.mediaPlayer);
       await voicePlayer.setReleaseMode(ReleaseMode.stop);
       _regularSfxPool ??= await _createEffectPool('audio/button.mp3', 3);
+      _pageTurnSfxPool ??= await _createEffectPool('audio/turn_page.mp3', 2);
       _punchSfxPool ??= await _createEffectPool('audio/punch.mp3', 2);
       _slapSfxPool ??= await _createEffectPool('audio/slap.mp3', 2);
       await AudioCache.instance.loadAll(
@@ -145,6 +147,11 @@ class GameAudioController {
     _playPooledSound(_regularSfxPool);
   }
 
+  void playPageTurn() {
+    if (!_enabled || soundEffectVolume == 0) return;
+    _playPooledSound(_pageTurnSfxPool);
+  }
+
   void playHitInteraction() {
     if (!_enabled || soundEffectVolume == 0) return;
     _playPooledSound(_random.nextBool() ? _punchSfxPool : _slapSfxPool);
@@ -185,6 +192,7 @@ class GameAudioController {
     _bgmPlayer?.dispose();
     _voicePlayer?.dispose();
     _regularSfxPool?.dispose();
+    _pageTurnSfxPool?.dispose();
     _punchSfxPool?.dispose();
     _slapSfxPool?.dispose();
   }
