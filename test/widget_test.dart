@@ -304,6 +304,32 @@ void main() {
     expect(find.byKey(const Key('collection-page-next')), findsOneWidget);
   });
 
+  testWidgets('collection page fits compact mobile dimensions', (tester) async {
+    _mockOpeningStorySeen();
+    tester.view.physicalSize = const Size(390, 844);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    await tester.pumpWidget(_testApp());
+    await _waitForEnterButton(tester);
+    await tester.tap(find.byKey(const Key('enter-game-button')));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('收藏'));
+    await tester.pumpAndSettle();
+    expect(tester.takeException(), isNull);
+    expect(find.byKey(const Key('collection-page')), findsOneWidget);
+
+    await tester.tap(find.byKey(const Key('collection-tab-成就')));
+    await tester.pumpAndSettle();
+    expect(tester.takeException(), isNull);
+
+    await tester.tap(find.byKey(const Key('collection-tab-装饰')));
+    await tester.pumpAndSettle();
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets('chat shows dialogue in the stage bubble', (tester) async {
     await _pumpLoadedApp(tester);
     await tester.tap(find.byKey(const Key('chat-button')));
@@ -363,7 +389,7 @@ void main() {
       200,
       scrollable: find.byType(Scrollable).first,
     );
-    expect(find.text('版本 0.2.7'), findsOneWidget);
+    expect(find.text('版本 0.2.8'), findsOneWidget);
   });
 
   testWidgets('short screens preserve the character stage and can scroll', (

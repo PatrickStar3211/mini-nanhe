@@ -17,6 +17,16 @@ const miniNanheAngryAsset = 'assets/images/nanhe_emotions/mini_nanhe_angry.png';
 const miniNanheFrustratedAsset =
     'assets/images/nanhe_emotions/mini_nanhe_frustrated.png';
 const collectionAlbumAsset = 'assets/images/collection/collection_album.webp';
+const collectionTabMemoryAsset =
+    'assets/images/collection/collection_tab_memory.png';
+const collectionTabAchievementAsset =
+    'assets/images/collection/collection_tab_achievement.png';
+const collectionTabDecorationAsset =
+    'assets/images/collection/collection_tab_decoration.png';
+const collectionArrowPreviousAsset =
+    'assets/images/collection/collection_arrow_previous.png';
+const collectionArrowNextAsset =
+    'assets/images/collection/collection_arrow_next.png';
 const openingStoryPage1Asset =
     'assets/images/story/opening/opening_page_1.webp';
 const openingStoryPage2Asset =
@@ -52,5 +62,10 @@ const startupPreloadAssets = <String>[
   miniNanheAngryAsset,
   miniNanheFrustratedAsset,
   collectionAlbumAsset,
+  collectionTabMemoryAsset,
+  collectionTabAchievementAsset,
+  collectionTabDecorationAsset,
+  collectionArrowPreviousAsset,
+  collectionArrowNextAsset,
   ...openingStoryPageAssets,
 ];

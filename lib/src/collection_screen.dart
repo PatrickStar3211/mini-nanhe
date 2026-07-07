@@ -31,6 +31,14 @@ class _CollectionScreenState extends State<CollectionScreen> {
 
   int get _pageIndex => _pageByCategory[_category] ?? 0;
 
+  int get _itemsPerPage {
+    return switch (_category) {
+      CollectionCategory.memory => 3,
+      CollectionCategory.achievement => 4,
+      CollectionCategory.decoration => 3,
+    };
+  }
+
   int get _pageCount {
     final itemCount = switch (_category) {
       CollectionCategory.memory => _memoryEntries.length,
@@ -38,14 +46,6 @@ class _CollectionScreenState extends State<CollectionScreen> {
       CollectionCategory.decoration => _decorationEntries.length,
     };
     return max(1, (itemCount / _itemsPerPage).ceil());
-  }
-
-  int get _itemsPerPage {
-    return switch (_category) {
-      CollectionCategory.memory => 2,
-      CollectionCategory.achievement => 4,
-      CollectionCategory.decoration => 3,
-    };
   }
 
   void _selectCategory(CollectionCategory category) {
@@ -63,33 +63,27 @@ class _CollectionScreenState extends State<CollectionScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Center(
+    return ColoredBox(
       key: const Key('collection-page'),
-      child: ConstrainedBox(
-        constraints: const BoxConstraints(maxWidth: 752),
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(8, 8, 8, 10),
-          child: AspectRatio(
-            aspectRatio: 941 / 1672,
-            child: ClipRRect(
-              borderRadius: BorderRadius.circular(24),
-              child: Stack(
-                fit: StackFit.expand,
-                children: [
-                  Image.asset(collectionAlbumAsset, fit: BoxFit.cover),
-                  _AlbumOverlay(
-                    category: _category,
-                    pageIndex: _pageIndex,
-                    pageCount: _pageCount,
-                    itemsPerPage: _itemsPerPage,
-                    onCategorySelected: _selectCategory,
-                    onPreviousPage: () => _turnPage(-1),
-                    onNextPage: () => _turnPage(1),
-                    onReplayOpeningStory: widget.onReplayOpeningStory,
-                  ),
-                ],
+      color: const Color(0xFF11151E),
+      child: Center(
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 760),
+          child: Stack(
+            fit: StackFit.expand,
+            children: [
+              Image.asset(collectionAlbumAsset, fit: BoxFit.cover),
+              _AlbumOverlay(
+                category: _category,
+                pageIndex: _pageIndex,
+                pageCount: _pageCount,
+                itemsPerPage: _itemsPerPage,
+                onCategorySelected: _selectCategory,
+                onPreviousPage: () => _turnPage(-1),
+                onNextPage: () => _turnPage(1),
+                onReplayOpeningStory: widget.onReplayOpeningStory,
               ),
-            ),
+            ],
           ),
         ),
       ),
@@ -120,52 +114,40 @@ class _AlbumOverlay extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final topCards = _visibleCards().take(2).toList();
-    final bottomCards = _visibleCards().skip(2).toList();
+    final cards = _visibleCards();
 
     return LayoutBuilder(
       builder: (context, constraints) {
         final width = constraints.maxWidth;
         final height = constraints.maxHeight;
+        final horizontalInset = width * 0.125;
 
         return Stack(
           children: [
             Positioned(
-              top: height * 0.02,
-              right: width * 0.055,
+              top: height * 0.008,
+              right: width * 0.035,
               child: _CategoryTabs(
                 selected: category,
                 onSelected: onCategorySelected,
               ),
             ),
             Positioned(
-              left: width * 0.085,
-              right: width * 0.055,
-              top: height * 0.105,
-              height: height * 0.41,
-              child: _AlbumSection(
-                title: _categoryTitle(category),
-                subtitle: _categorySubtitle(category),
-                cards: topCards,
+              left: horizontalInset,
+              right: width * 0.07,
+              top: height * 0.115,
+              bottom: height * 0.105,
+              child: _AlbumContent(
+                category: category,
+                pageIndex: pageIndex,
+                pageCount: pageCount,
+                cards: cards,
                 onReplayOpeningStory: onReplayOpeningStory,
               ),
             ),
             Positioned(
-              left: width * 0.085,
-              right: width * 0.055,
-              top: height * 0.565,
-              height: height * 0.34,
-              child: _AlbumSection(
-                title: '第 ${pageIndex + 1} / $pageCount 页',
-                subtitle: _pageHint(category),
-                cards: bottomCards,
-                compact: true,
-                onReplayOpeningStory: onReplayOpeningStory,
-              ),
-            ),
-            Positioned(
-              right: width * 0.105,
-              bottom: height * 0.028,
+              right: width * 0.065,
+              bottom: height * 0.018,
               child: _PageControls(
                 canPrevious: pageIndex > 0,
                 canNext: pageIndex < pageCount - 1,
@@ -199,20 +181,29 @@ class _CategoryTabs extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     const tabs = [
-      (CollectionCategory.memory, '回忆'),
-      (CollectionCategory.achievement, '成就'),
-      (CollectionCategory.decoration, '装饰'),
+      _TabSpec(CollectionCategory.memory, '回忆', collectionTabMemoryAsset),
+      _TabSpec(
+        CollectionCategory.achievement,
+        '成就',
+        collectionTabAchievementAsset,
+      ),
+      _TabSpec(
+        CollectionCategory.decoration,
+        '装饰',
+        collectionTabDecorationAsset,
+      ),
     ];
 
     return Row(
+      mainAxisSize: MainAxisSize.min,
       children: [
         for (final tab in tabs)
           Padding(
-            padding: const EdgeInsets.only(left: 4),
+            padding: const EdgeInsets.only(left: 2),
             child: _BookmarkButton(
-              label: tab.$2,
-              selected: selected == tab.$1,
-              onTap: () => onSelected(tab.$1),
+              spec: tab,
+              selected: selected == tab.category,
+              onTap: () => onSelected(tab.category),
             ),
           ),
       ],
@@ -222,80 +213,147 @@ class _CategoryTabs extends StatelessWidget {
 
 class _BookmarkButton extends StatelessWidget {
   const _BookmarkButton({
-    required this.label,
+    required this.spec,
     required this.selected,
     required this.onTap,
   });
 
-  final String label;
+  final _TabSpec spec;
   final bool selected;
   final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
-    return SizedBox(
-      width: 54,
-      height: 68,
-      child: TextButton(
-        key: Key('collection-tab-$label'),
-        onPressed: onTap,
-        style: TextButton.styleFrom(
-          padding: const EdgeInsets.fromLTRB(2, 8, 2, 18),
-          foregroundColor: selected ? frost : ink,
-          textStyle: const TextStyle(fontWeight: FontWeight.w900, fontSize: 13),
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
-          backgroundColor: selected
-              ? const Color(0xCC2D4E8A)
-              : Colors.white.withValues(alpha: 0.16),
+    return GestureDetector(
+      key: Key('collection-tab-${spec.label}'),
+      behavior: HitTestBehavior.opaque,
+      onTap: onTap,
+      child: AnimatedScale(
+        duration: const Duration(milliseconds: 140),
+        scale: selected ? 1.04 : 0.97,
+        child: SizedBox(
+          width: 52,
+          height: 78,
+          child: Stack(
+            alignment: Alignment.topCenter,
+            children: [
+              Positioned.fill(
+                child: Image.asset(
+                  spec.asset,
+                  fit: BoxFit.fill,
+                  opacity: AlwaysStoppedAnimation(selected ? 1 : 0.86),
+                ),
+              ),
+              Positioned(
+                top: 10,
+                child: _VerticalLabel(
+                  text: spec.label,
+                  color: selected ? frost : ink,
+                ),
+              ),
+            ],
+          ),
         ),
-        child: FittedBox(fit: BoxFit.scaleDown, child: Text(label)),
       ),
     );
   }
 }
 
-class _AlbumSection extends StatelessWidget {
-  const _AlbumSection({
-    required this.title,
-    required this.subtitle,
-    required this.cards,
-    required this.onReplayOpeningStory,
-    this.compact = false,
-  });
+class _VerticalLabel extends StatelessWidget {
+  const _VerticalLabel({required this.text, required this.color});
 
-  final String title;
-  final String subtitle;
-  final List<_CollectionCardData> cards;
-  final VoidCallback onReplayOpeningStory;
-  final bool compact;
+  final String text;
+  final Color color;
 
   @override
   Widget build(BuildContext context) {
     return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        for (final rune in text.runes)
+          Text(
+            String.fromCharCode(rune),
+            style: TextStyle(
+              color: color,
+              fontSize: 14,
+              height: 1.04,
+              fontWeight: FontWeight.w900,
+              shadows: const [
+                Shadow(color: Colors.white70, blurRadius: 2),
+                Shadow(color: Color(0x66000000), blurRadius: 1),
+              ],
+            ),
+          ),
+      ],
+    );
+  }
+}
+
+class _AlbumContent extends StatelessWidget {
+  const _AlbumContent({
+    required this.category,
+    required this.pageIndex,
+    required this.pageCount,
+    required this.cards,
+    required this.onReplayOpeningStory,
+  });
+
+  final CollectionCategory category;
+  final int pageIndex;
+  final int pageCount;
+  final List<_CollectionCardData> cards;
+  final VoidCallback onReplayOpeningStory;
+
+  @override
+  Widget build(BuildContext context) {
+    final isAchievement = category == CollectionCategory.achievement;
+
+    return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(
-          title,
-          maxLines: 1,
-          overflow: TextOverflow.ellipsis,
-          style: TextStyle(
-            color: ink,
-            fontSize: compact ? 16 : 18,
-            fontWeight: FontWeight.w900,
-          ),
+        Row(
+          crossAxisAlignment: CrossAxisAlignment.end,
+          children: [
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    _categoryTitle(category),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      color: ink,
+                      fontSize: 24,
+                      height: 1,
+                      fontWeight: FontWeight.w900,
+                    ),
+                  ),
+                  const SizedBox(height: 5),
+                  Text(
+                    _categorySubtitle(category),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      color: mutedInk,
+                      fontSize: 12,
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            Text(
+              '第 ${pageIndex + 1} / $pageCount 页',
+              style: const TextStyle(
+                color: mutedInk,
+                fontSize: 12,
+                fontWeight: FontWeight.w900,
+              ),
+            ),
+          ],
         ),
-        const SizedBox(height: 2),
-        Text(
-          subtitle,
-          maxLines: 1,
-          overflow: TextOverflow.ellipsis,
-          style: const TextStyle(
-            color: mutedInk,
-            fontSize: 11,
-            fontWeight: FontWeight.w700,
-          ),
-        ),
-        const SizedBox(height: 8),
+        const SizedBox(height: 14),
         Expanded(
           child: cards.isEmpty
               ? const _EmptyAlbumSlot()
@@ -304,15 +362,16 @@ class _AlbumSection extends StatelessWidget {
                   padding: EdgeInsets.zero,
                   itemCount: cards.length,
                   gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-                    crossAxisCount: compact ? 2 : 1,
-                    mainAxisSpacing: 8,
-                    crossAxisSpacing: 8,
-                    childAspectRatio: compact ? 1.45 : 2.35,
+                    crossAxisCount: isAchievement ? 2 : 1,
+                    mainAxisSpacing: 10,
+                    crossAxisSpacing: 10,
+                    childAspectRatio: isAchievement ? 1.28 : 2.72,
                   ),
                   itemBuilder: (context, index) {
                     final card = cards[index];
                     return _CollectionCard(
                       data: card,
+                      compact: isAchievement,
                       onTap: card.id == 'opening-memory'
                           ? onReplayOpeningStory
                           : null,
@@ -320,15 +379,31 @@ class _AlbumSection extends StatelessWidget {
                   },
                 ),
         ),
+        const SizedBox(height: 10),
+        Text(
+          _pageHint(category),
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          style: const TextStyle(
+            color: mutedInk,
+            fontSize: 11,
+            fontWeight: FontWeight.w700,
+          ),
+        ),
       ],
     );
   }
 }
 
 class _CollectionCard extends StatelessWidget {
-  const _CollectionCard({required this.data, this.onTap});
+  const _CollectionCard({
+    required this.data,
+    required this.compact,
+    this.onTap,
+  });
 
   final _CollectionCardData data;
+  final bool compact;
   final VoidCallback? onTap;
 
   @override
@@ -336,7 +411,7 @@ class _CollectionCard extends StatelessWidget {
     final locked = !data.unlocked;
 
     return Material(
-      color: Colors.white.withValues(alpha: 0.72),
+      color: Colors.white.withValues(alpha: 0.66),
       borderRadius: BorderRadius.circular(14),
       clipBehavior: Clip.antiAlias,
       child: InkWell(
@@ -344,76 +419,145 @@ class _CollectionCard extends StatelessWidget {
         onTap: locked ? null : onTap,
         child: Ink(
           decoration: BoxDecoration(
-            border: Border.all(color: const Color(0x809AB0C7)),
+            border: Border.all(color: const Color(0x6689A8C8)),
             borderRadius: BorderRadius.circular(14),
           ),
-          child: Row(
-            children: [
-              AspectRatio(
-                aspectRatio: 1,
-                child: Stack(
-                  fit: StackFit.expand,
-                  children: [
-                    if (data.imageAsset != null)
-                      Image.asset(
-                        data.imageAsset!,
-                        fit: BoxFit.cover,
-                        color: locked ? const Color(0xAAFFFFFF) : null,
-                        colorBlendMode: locked ? BlendMode.srcATop : null,
-                      )
-                    else
-                      DecoratedBox(
-                        decoration: BoxDecoration(
-                          color: locked
-                              ? const Color(0xFFE5E1DA)
-                              : const Color(0xFFEAF2FF),
-                        ),
-                        child: Icon(data.icon, color: data.accent, size: 32),
-                      ),
-                    if (locked)
-                      const ColoredBox(
-                        color: Color(0x88EFEAE0),
-                        child: Icon(Icons.lock_rounded, color: mutedInk),
-                      ),
-                  ],
-                ),
-              ),
-              Expanded(
-                child: Padding(
-                  padding: const EdgeInsets.all(10),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Text(
-                        locked ? '？？？' : data.title,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(
-                          color: ink,
-                          fontSize: 14,
-                          fontWeight: FontWeight.w900,
-                        ),
-                      ),
-                      const SizedBox(height: 4),
-                      Text(
-                        locked ? '尚未解锁' : data.description,
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(
-                          color: mutedInk,
-                          fontSize: 11,
-                          height: 1.25,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-            ],
-          ),
+          child: compact
+              ? _CompactCardBody(data: data, locked: locked)
+              : _WideCardBody(data: data, locked: locked),
         ),
+      ),
+    );
+  }
+}
+
+class _WideCardBody extends StatelessWidget {
+  const _WideCardBody({required this.data, required this.locked});
+
+  final _CollectionCardData data;
+  final bool locked;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        SizedBox(
+          width: 150,
+          child: _CardImage(data: data, locked: locked),
+        ),
+        Expanded(
+          child: _CardText(data: data, locked: locked),
+        ),
+      ],
+    );
+  }
+}
+
+class _CompactCardBody extends StatelessWidget {
+  const _CompactCardBody({required this.data, required this.locked});
+
+  final _CollectionCardData data;
+  final bool locked;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      children: [
+        Expanded(
+          flex: 5,
+          child: _CardImage(data: data, locked: locked),
+        ),
+        Expanded(
+          flex: 5,
+          child: _CardText(data: data, locked: locked, compact: true),
+        ),
+      ],
+    );
+  }
+}
+
+class _CardImage extends StatelessWidget {
+  const _CardImage({required this.data, required this.locked});
+
+  final _CollectionCardData data;
+  final bool locked;
+
+  @override
+  Widget build(BuildContext context) {
+    return Stack(
+      fit: StackFit.expand,
+      children: [
+        if (data.imageAsset != null)
+          Image.asset(
+            data.imageAsset!,
+            fit: BoxFit.cover,
+            color: locked ? const Color(0xBBFFFFFF) : null,
+            colorBlendMode: locked ? BlendMode.srcATop : null,
+          )
+        else
+          DecoratedBox(
+            decoration: BoxDecoration(
+              color: locked ? const Color(0xFFE6E1D8) : const Color(0xFFEAF2FF),
+            ),
+            child: Icon(data.icon, color: data.accent, size: 30),
+          ),
+        if (locked)
+          const DecoratedBox(
+            decoration: BoxDecoration(color: Color(0x88EFEAE0)),
+            child: Center(
+              child: Icon(Icons.lock_rounded, color: mutedInk, size: 26),
+            ),
+          ),
+      ],
+    );
+  }
+}
+
+class _CardText extends StatelessWidget {
+  const _CardText({
+    required this.data,
+    required this.locked,
+    this.compact = false,
+  });
+
+  final _CollectionCardData data;
+  final bool locked;
+  final bool compact;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: EdgeInsets.symmetric(
+        horizontal: compact ? 8 : 11,
+        vertical: compact ? 5 : 9,
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Text(
+            locked ? '？？？' : data.title,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: const TextStyle(
+              color: ink,
+              fontSize: 14,
+              fontWeight: FontWeight.w900,
+            ),
+          ),
+          SizedBox(height: compact ? 2 : 4),
+          Text(
+            locked ? '尚未解锁' : data.description,
+            maxLines: compact ? 1 : 2,
+            overflow: TextOverflow.ellipsis,
+            style: const TextStyle(
+              color: mutedInk,
+              fontSize: 11,
+              height: 1.22,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -426,14 +570,14 @@ class _EmptyAlbumSlot extends StatelessWidget {
   Widget build(BuildContext context) {
     return DecoratedBox(
       decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.42),
+        color: Colors.white.withValues(alpha: 0.38),
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: const Color(0x669AB0C7)),
+        border: Border.all(color: const Color(0x6689A8C8)),
       ),
       child: const Center(
         child: Text(
           '这一页还没有内容',
-          style: TextStyle(color: mutedInk, fontWeight: FontWeight.w700),
+          style: TextStyle(color: mutedInk, fontWeight: FontWeight.w800),
         ),
       ),
     );
@@ -456,39 +600,50 @@ class _PageControls extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Row(
+      mainAxisSize: MainAxisSize.min,
       children: [
-        _PageButton(
+        _PageImageButton(
           key: const Key('collection-page-previous'),
-          icon: Icons.chevron_left_rounded,
-          onPressed: canPrevious ? onPrevious : null,
+          asset: collectionArrowPreviousAsset,
+          enabled: canPrevious,
+          onTap: onPrevious,
         ),
-        const SizedBox(width: 8),
-        _PageButton(
+        const SizedBox(width: 4),
+        _PageImageButton(
           key: const Key('collection-page-next'),
-          icon: Icons.chevron_right_rounded,
-          onPressed: canNext ? onNext : null,
+          asset: collectionArrowNextAsset,
+          enabled: canNext,
+          onTap: onNext,
         ),
       ],
     );
   }
 }
 
-class _PageButton extends StatelessWidget {
-  const _PageButton({super.key, required this.icon, required this.onPressed});
+class _PageImageButton extends StatelessWidget {
+  const _PageImageButton({
+    super.key,
+    required this.asset,
+    required this.enabled,
+    required this.onTap,
+  });
 
-  final IconData icon;
-  final VoidCallback? onPressed;
+  final String asset;
+  final bool enabled;
+  final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
-    return IconButton.filledTonal(
-      onPressed: onPressed,
-      icon: Icon(icon),
-      style: IconButton.styleFrom(
-        backgroundColor: Colors.white.withValues(
-          alpha: onPressed == null ? 0.25 : 0.72,
+    return GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onTap: enabled ? onTap : null,
+      child: Opacity(
+        opacity: enabled ? 1 : 0.42,
+        child: SizedBox(
+          width: 46,
+          height: 76,
+          child: Image.asset(asset, fit: BoxFit.fill),
         ),
-        foregroundColor: onPressed == null ? mutedInk : deepBlue,
       ),
     );
   }
@@ -516,6 +671,14 @@ String _pageHint(CollectionCategory category) {
     CollectionCategory.achievement => '更多成就会随着玩法补上',
     CollectionCategory.decoration => '当前先展示已解锁背景',
   };
+}
+
+class _TabSpec {
+  const _TabSpec(this.category, this.label, this.asset);
+
+  final CollectionCategory category;
+  final String label;
+  final String asset;
 }
 
 class _CollectionCardData {
