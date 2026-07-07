@@ -59,7 +59,7 @@ class _HomeScreenState extends State<HomeScreen> {
   int _exhaustionCount = 0;
   int _actionPage = 0;
   bool _sleepPending = false;
-  YardHomeTier _yardHomeTier = YardHomeTier.doghouse;
+  YardHomeTier _yardHomeTier = YardHomeTier.box;
   final WeatherCondition _weatherCondition = WeatherCondition.sunny;
   int _strength = 1;
   int _intelligence = 1;

@@ -4,9 +4,15 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:mini_nanhe/main.dart';
 import 'package:mini_nanhe/src/character_reaction.dart';
 import 'package:mini_nanhe/src/game_audio_controller.dart';
+import 'package:mini_nanhe/src/opening_story_screen.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 MiniNanheApp _testApp() {
   return MiniNanheApp(audioController: GameAudioController.disabled());
+}
+
+void _mockOpeningStorySeen({bool seen = true}) {
+  SharedPreferences.setMockInitialValues({openingStorySeenPreferenceKey: seen});
 }
 
 Future<void> _waitForEnterButton(WidgetTester tester) async {
@@ -24,6 +30,7 @@ Future<void> _waitForEnterButton(WidgetTester tester) async {
 }
 
 Future<void> _pumpLoadedApp(WidgetTester tester) async {
+  _mockOpeningStorySeen();
   tester.view.physicalSize = const Size(430, 900);
   tester.view.devicePixelRatio = 1;
   addTearDown(tester.view.resetPhysicalSize);
@@ -77,6 +84,7 @@ void main() {
   testWidgets('app starts with a loading screen before entering the game', (
     tester,
   ) async {
+    _mockOpeningStorySeen();
     await tester.pumpWidget(_testApp());
 
     expect(find.text('正在加载……'), findsOneWidget);
@@ -90,6 +98,36 @@ void main() {
     await tester.tap(find.byKey(const Key('enter-game-button')));
     await tester.pumpAndSettle();
     expect(find.text('陪伴'), findsOneWidget);
+  });
+
+  testWidgets('first entry plays the opening story before the home screen', (
+    tester,
+  ) async {
+    _mockOpeningStorySeen(seen: false);
+    tester.view.physicalSize = const Size(430, 900);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    await tester.pumpWidget(_testApp());
+    await _waitForEnterButton(tester);
+    await tester.tap(find.byKey(const Key('enter-game-button')));
+    await tester.pumpAndSettle();
+
+    expect(find.byKey(const Key('opening-story-tap-area')), findsOneWidget);
+    expect(find.byKey(const Key('background-next-button')), findsNothing);
+    expect(find.text('1/3'), findsOneWidget);
+
+    for (var tap = 0; tap < 8; tap += 1) {
+      await tester.tap(find.byKey(const Key('opening-story-tap-area')));
+      await tester.pumpAndSettle();
+    }
+
+    expect(find.byKey(const Key('opening-story-tap-area')), findsNothing);
+    expect(find.byKey(const Key('background-next-button')), findsOneWidget);
+
+    final preferences = await SharedPreferences.getInstance();
+    expect(preferences.getBool(openingStorySeenPreferenceKey), isTrue);
   });
 
   testWidgets('companion page shows primary interactions and synced values', (
@@ -174,6 +212,13 @@ void main() {
     expect(find.byKey(const Key('background-next-button')), findsOneWidget);
     expect(
       _currentBackgroundAsset(tester),
+      'assets/images/backgrounds/yard_box_winter_day.webp',
+    );
+
+    await tester.tap(find.byKey(const Key('background-next-button')));
+    await tester.pumpAndSettle();
+    expect(
+      _currentBackgroundAsset(tester),
       'assets/images/backgrounds/yard_doghouse_winter_day.webp',
     );
 
@@ -184,18 +229,11 @@ void main() {
       'assets/images/backgrounds/yard_luxury_winter_day.webp',
     );
 
-    await tester.tap(find.byKey(const Key('background-next-button')));
-    await tester.pumpAndSettle();
-    expect(
-      _currentBackgroundAsset(tester),
-      'assets/images/backgrounds/yard_box_winter_day.webp',
-    );
-
     await tester.tap(find.byKey(const Key('background-previous-button')));
     await tester.pumpAndSettle();
     expect(
       _currentBackgroundAsset(tester),
-      'assets/images/backgrounds/yard_luxury_winter_day.webp',
+      'assets/images/backgrounds/yard_doghouse_winter_day.webp',
     );
   });
 
@@ -283,6 +321,7 @@ void main() {
   testWidgets('short screens preserve the character stage and can scroll', (
     tester,
   ) async {
+    _mockOpeningStorySeen();
     tester.view.physicalSize = const Size(430, 650);
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.resetPhysicalSize);

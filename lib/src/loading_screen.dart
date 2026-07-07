@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import 'game_audio_controller.dart';
 import 'game_assets.dart';
 import 'home_screen.dart';
+import 'opening_story_screen.dart';
 
 class LoadingScreen extends StatefulWidget {
   const LoadingScreen({super.key, this.audioController});
@@ -18,6 +20,7 @@ class _LoadingScreenState extends State<LoadingScreen> {
   bool _started = false;
   bool _ready = false;
   bool _entering = false;
+  bool _shouldShowOpeningStory = true;
 
   @override
   void initState() {
@@ -34,6 +37,10 @@ class _LoadingScreenState extends State<LoadingScreen> {
   }
 
   Future<void> _preloadAssets() async {
+    final preferences = await SharedPreferences.getInstance();
+    final hasSeenOpeningStory =
+        preferences.getBool(openingStorySeenPreferenceKey) ?? false;
+
     await Future.wait([
       ...startupPreloadAssets.map(
         (asset) => precacheImage(AssetImage(asset), context),
@@ -42,7 +49,10 @@ class _LoadingScreenState extends State<LoadingScreen> {
     ]);
 
     if (mounted) {
-      setState(() => _ready = true);
+      setState(() {
+        _shouldShowOpeningStory = !hasSeenOpeningStory;
+        _ready = true;
+      });
     }
   }
 
@@ -51,10 +61,26 @@ class _LoadingScreenState extends State<LoadingScreen> {
 
     _audioController.playFromUserGesture();
     setState(() => _entering = true);
+    final homeScreen = HomeScreen(audioController: _audioController);
     await Navigator.of(context).pushReplacement(
       PageRouteBuilder<void>(
-        pageBuilder: (_, animation, secondaryAnimation) =>
-            HomeScreen(audioController: _audioController),
+        pageBuilder: (_, animation, secondaryAnimation) {
+          if (!_shouldShowOpeningStory) return homeScreen;
+          return OpeningStoryScreen(
+            onFinished: (storyContext) {
+              Navigator.of(storyContext).pushReplacement(
+                PageRouteBuilder<void>(
+                  pageBuilder: (_, animation, secondaryAnimation) => homeScreen,
+                  transitionDuration: const Duration(milliseconds: 500),
+                  transitionsBuilder:
+                      (_, animation, secondaryAnimation, child) {
+                        return FadeTransition(opacity: animation, child: child);
+                      },
+                ),
+              );
+            },
+          );
+        },
         transitionDuration: const Duration(milliseconds: 700),
         transitionsBuilder: (_, animation, secondaryAnimation, child) {
           return FadeTransition(opacity: animation, child: child);

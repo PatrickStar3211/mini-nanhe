@@ -16,6 +16,18 @@ const miniNanheSadAsset = 'assets/images/nanhe_emotions/mini_nanhe_sad.png';
 const miniNanheAngryAsset = 'assets/images/nanhe_emotions/mini_nanhe_angry.png';
 const miniNanheFrustratedAsset =
     'assets/images/nanhe_emotions/mini_nanhe_frustrated.png';
+const openingStoryPage1Asset =
+    'assets/images/story/opening/opening_page_1.webp';
+const openingStoryPage2Asset =
+    'assets/images/story/opening/opening_page_2.webp';
+const openingStoryPage3Asset =
+    'assets/images/story/opening/opening_page_3.webp';
+
+const openingStoryPageAssets = <String>[
+  openingStoryPage1Asset,
+  openingStoryPage2Asset,
+  openingStoryPage3Asset,
+];
 
 String yardBackgroundAsset({
   required String home,
@@ -38,4 +50,5 @@ const startupPreloadAssets = <String>[
   miniNanheSadAsset,
   miniNanheAngryAsset,
   miniNanheFrustratedAsset,
+  ...openingStoryPageAssets,
 ];
