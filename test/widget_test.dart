@@ -7,8 +7,11 @@ import 'package:mini_nanhe/src/game_audio_controller.dart';
 import 'package:mini_nanhe/src/opening_story_screen.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-MiniNanheApp _testApp() {
-  return MiniNanheApp(audioController: GameAudioController.disabled());
+MiniNanheApp _testApp({bool? forcePortraitShell}) {
+  return MiniNanheApp(
+    audioController: GameAudioController.disabled(),
+    forcePortraitShell: forcePortraitShell,
+  );
 }
 
 void _mockOpeningStorySeen({bool seen = true}) {
@@ -326,6 +329,30 @@ void main() {
     expect(tester.takeException(), isNull);
 
     await tester.tap(find.byKey(const Key('collection-tab-装饰')));
+    await tester.pumpAndSettle();
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('web portrait shell constrains wide browser layouts', (
+    tester,
+  ) async {
+    _mockOpeningStorySeen();
+    tester.view.physicalSize = const Size(1200, 800);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    await tester.pumpWidget(_testApp(forcePortraitShell: true));
+    await _waitForEnterButton(tester);
+    await tester.tap(find.byKey(const Key('enter-game-button')));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('收藏'));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const Key('collection-page')), findsOneWidget);
+    expect(tester.takeException(), isNull);
+
+    await tester.tap(find.byKey(const Key('collection-tab-成就')));
     await tester.pumpAndSettle();
     expect(tester.takeException(), isNull);
   });

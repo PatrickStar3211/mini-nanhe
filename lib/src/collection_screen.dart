@@ -66,26 +66,38 @@ class _CollectionScreenState extends State<CollectionScreen> {
     return ColoredBox(
       key: const Key('collection-page'),
       color: const Color(0xFF11151E),
-      child: Center(
-        child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 760),
-          child: Stack(
-            fit: StackFit.expand,
-            children: [
-              Image.asset(collectionAlbumAsset, fit: BoxFit.cover),
-              _AlbumOverlay(
-                category: _category,
-                pageIndex: _pageIndex,
-                pageCount: _pageCount,
-                itemsPerPage: _itemsPerPage,
-                onCategorySelected: _selectCategory,
-                onPreviousPage: () => _turnPage(-1),
-                onNextPage: () => _turnPage(1),
-                onReplayOpeningStory: widget.onReplayOpeningStory,
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          const albumAspectRatio = 941 / 1672;
+          final width = min(
+            constraints.maxWidth,
+            constraints.maxHeight * albumAspectRatio,
+          );
+          final height = width / albumAspectRatio;
+
+          return Center(
+            child: SizedBox(
+              width: width,
+              height: height,
+              child: Stack(
+                fit: StackFit.expand,
+                children: [
+                  Image.asset(collectionAlbumAsset, fit: BoxFit.fill),
+                  _AlbumOverlay(
+                    category: _category,
+                    pageIndex: _pageIndex,
+                    pageCount: _pageCount,
+                    itemsPerPage: _itemsPerPage,
+                    onCategorySelected: _selectCategory,
+                    onPreviousPage: () => _turnPage(-1),
+                    onNextPage: () => _turnPage(1),
+                    onReplayOpeningStory: widget.onReplayOpeningStory,
+                  ),
+                ],
               ),
-            ],
-          ),
-        ),
+            ),
+          );
+        },
       ),
     );
   }
@@ -181,17 +193,9 @@ class _CategoryTabs extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     const tabs = [
-      _TabSpec(CollectionCategory.memory, '回忆', collectionTabMemoryAsset),
-      _TabSpec(
-        CollectionCategory.achievement,
-        '成就',
-        collectionTabAchievementAsset,
-      ),
-      _TabSpec(
-        CollectionCategory.decoration,
-        '装饰',
-        collectionTabDecorationAsset,
-      ),
+      _TabSpec(CollectionCategory.memory, '回忆'),
+      _TabSpec(CollectionCategory.achievement, '成就'),
+      _TabSpec(CollectionCategory.decoration, '装饰'),
     ];
 
     return Row(
@@ -232,20 +236,18 @@ class _BookmarkButton extends StatelessWidget {
         duration: const Duration(milliseconds: 140),
         scale: selected ? 1.04 : 0.97,
         child: SizedBox(
-          width: 52,
-          height: 78,
+          width: 50,
+          height: 82,
           child: Stack(
             alignment: Alignment.topCenter,
             children: [
               Positioned.fill(
-                child: Image.asset(
-                  spec.asset,
-                  fit: BoxFit.fill,
-                  opacity: AlwaysStoppedAnimation(selected ? 1 : 0.86),
+                child: CustomPaint(
+                  painter: _BookmarkPainter(selected: selected),
                 ),
               ),
               Positioned(
-                top: 10,
+                top: 9,
                 child: _VerticalLabel(
                   text: spec.label,
                   color: selected ? frost : ink,
@@ -256,6 +258,58 @@ class _BookmarkButton extends StatelessWidget {
         ),
       ),
     );
+  }
+}
+
+class _BookmarkPainter extends CustomPainter {
+  const _BookmarkPainter({required this.selected});
+
+  final bool selected;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final bodyPaint = Paint()
+      ..shader = LinearGradient(
+        begin: Alignment.topCenter,
+        end: Alignment.bottomCenter,
+        colors: selected
+            ? const [Color(0xFF496FA8), Color(0xFF25456F)]
+            : const [Color(0xFFF4E7C9), Color(0xFFD6BD8A)],
+      ).createShader(Offset.zero & size);
+    final borderPaint = Paint()
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 2
+      ..color = const Color(0xFFD8B664);
+    final shadowPaint = Paint()
+      ..color = const Color(0x33000000)
+      ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 2);
+
+    final path = Path()
+      ..moveTo(size.width * 0.08, 0)
+      ..lineTo(size.width * 0.92, 0)
+      ..lineTo(size.width * 0.92, size.height * 0.72)
+      ..lineTo(size.width * 0.50, size.height * 0.96)
+      ..lineTo(size.width * 0.08, size.height * 0.72)
+      ..close();
+
+    canvas.drawPath(path.shift(const Offset(1, 2)), shadowPaint);
+    canvas.drawPath(path, bodyPaint);
+    canvas.drawPath(path, borderPaint);
+
+    final highlightPaint = Paint()
+      ..color = Colors.white.withValues(alpha: selected ? 0.12 : 0.26)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 1;
+    canvas.drawLine(
+      Offset(size.width * 0.28, size.height * 0.08),
+      Offset(size.width * 0.28, size.height * 0.68),
+      highlightPaint,
+    );
+  }
+
+  @override
+  bool shouldRepaint(covariant _BookmarkPainter oldDelegate) {
+    return oldDelegate.selected != selected;
   }
 }
 
@@ -604,14 +658,14 @@ class _PageControls extends StatelessWidget {
       children: [
         _PageImageButton(
           key: const Key('collection-page-previous'),
-          asset: collectionArrowPreviousAsset,
+          direction: -1,
           enabled: canPrevious,
           onTap: onPrevious,
         ),
         const SizedBox(width: 4),
         _PageImageButton(
           key: const Key('collection-page-next'),
-          asset: collectionArrowNextAsset,
+          direction: 1,
           enabled: canNext,
           onTap: onNext,
         ),
@@ -623,12 +677,12 @@ class _PageControls extends StatelessWidget {
 class _PageImageButton extends StatelessWidget {
   const _PageImageButton({
     super.key,
-    required this.asset,
+    required this.direction,
     required this.enabled,
     required this.onTap,
   });
 
-  final String asset;
+  final int direction;
   final bool enabled;
   final VoidCallback onTap;
 
@@ -640,12 +694,69 @@ class _PageImageButton extends StatelessWidget {
       child: Opacity(
         opacity: enabled ? 1 : 0.42,
         child: SizedBox(
-          width: 46,
-          height: 76,
-          child: Image.asset(asset, fit: BoxFit.fill),
+          width: 48,
+          height: 70,
+          child: CustomPaint(painter: _PageButtonPainter(direction)),
         ),
       ),
     );
+  }
+}
+
+class _PageButtonPainter extends CustomPainter {
+  const _PageButtonPainter(this.direction);
+
+  final int direction;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final rect = Offset.zero & size;
+    final shadowPaint = Paint()
+      ..color = const Color(0x33000000)
+      ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 2);
+    final bodyPaint = Paint()
+      ..shader = const LinearGradient(
+        begin: Alignment.topCenter,
+        end: Alignment.bottomCenter,
+        colors: [Color(0xFFF8EED6), Color(0xFFD8BE86)],
+      ).createShader(rect);
+    final borderPaint = Paint()
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 2
+      ..color = const Color(0xFFC69A42);
+    final arrowPaint = Paint()
+      ..style = PaintingStyle.fill
+      ..color = const Color(0xFF2B4774);
+
+    final body = RRect.fromRectAndRadius(
+      rect.deflate(3),
+      const Radius.circular(16),
+    );
+    canvas.drawRRect(body.shift(const Offset(1, 2)), shadowPaint);
+    canvas.drawRRect(body, bodyPaint);
+    canvas.drawRRect(body, borderPaint);
+
+    final centerX = size.width * 0.5;
+    final centerY = size.height * 0.5;
+    final arrow = Path();
+    if (direction < 0) {
+      arrow
+        ..moveTo(centerX + 8, centerY - 13)
+        ..lineTo(centerX - 9, centerY)
+        ..lineTo(centerX + 8, centerY + 13);
+    } else {
+      arrow
+        ..moveTo(centerX - 8, centerY - 13)
+        ..lineTo(centerX + 9, centerY)
+        ..lineTo(centerX - 8, centerY + 13);
+    }
+    arrow.close();
+    canvas.drawPath(arrow, arrowPaint);
+  }
+
+  @override
+  bool shouldRepaint(covariant _PageButtonPainter oldDelegate) {
+    return oldDelegate.direction != direction;
   }
 }
 
@@ -674,11 +785,10 @@ String _pageHint(CollectionCategory category) {
 }
 
 class _TabSpec {
-  const _TabSpec(this.category, this.label, this.asset);
+  const _TabSpec(this.category, this.label);
 
   final CollectionCategory category;
   final String label;
-  final String asset;
 }
 
 class _CollectionCardData {
