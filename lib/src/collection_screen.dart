@@ -68,49 +68,25 @@ class _CollectionScreenState extends State<CollectionScreen> {
       color: const Color(0xFF11151E),
       child: LayoutBuilder(
         builder: (context, constraints) {
-          const albumAspectRatio = 941 / 1672;
-          const maxHorizontalOverscan = 1.08;
-          var width = min(
-            constraints.maxWidth,
-            constraints.maxHeight * albumAspectRatio,
-          );
-          var height = width / albumAspectRatio;
-
-          if (height < constraints.maxHeight) {
-            width = min(
-              constraints.maxHeight * albumAspectRatio,
-              constraints.maxWidth * maxHorizontalOverscan,
-            );
-            height = width / albumAspectRatio;
-          }
-
-          return ClipRect(
-            child: Center(
-              child: OverflowBox(
-                maxWidth: width,
-                maxHeight: height,
-                child: SizedBox(
-                  width: width,
-                  height: height,
-                  child: Stack(
-                    fit: StackFit.expand,
-                    children: [
-                      Image.asset(collectionAlbumAsset, fit: BoxFit.fill),
-                      _AlbumOverlay(
-                        category: _category,
-                        pageIndex: _pageIndex,
-                        pageCount: _pageCount,
-                        itemsPerPage: _itemsPerPage,
-                        onCategorySelected: _selectCategory,
-                        onPreviousPage: () => _turnPage(-1),
-                        onNextPage: () => _turnPage(1),
-                        onReplayOpeningStory: widget.onReplayOpeningStory,
-                      ),
-                    ],
-                  ),
-                ),
+          return Stack(
+            fit: StackFit.expand,
+            children: [
+              Image.asset(
+                collectionAlbumAsset,
+                fit: BoxFit.cover,
+                alignment: Alignment.topCenter,
               ),
-            ),
+              _AlbumOverlay(
+                category: _category,
+                pageIndex: _pageIndex,
+                pageCount: _pageCount,
+                itemsPerPage: _itemsPerPage,
+                onCategorySelected: _selectCategory,
+                onPreviousPage: () => _turnPage(-1),
+                onNextPage: () => _turnPage(1),
+                onReplayOpeningStory: widget.onReplayOpeningStory,
+              ),
+            ],
           );
         },
       ),
