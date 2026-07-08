@@ -1,16 +1,21 @@
-import 'package:flutter/material.dart';
+﻿import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mini_nanhe/main.dart';
 import 'package:mini_nanhe/src/character_reaction.dart';
 import 'package:mini_nanhe/src/game_audio_controller.dart';
+import 'package:mini_nanhe/src/home_screen.dart';
 import 'package:mini_nanhe/src/opening_story_screen.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-MiniNanheApp _testApp({bool? forcePortraitShell}) {
+MiniNanheApp _testApp({
+  bool? forcePortraitShell,
+  MiniNanheDebugState? debugInitialState,
+}) {
   return MiniNanheApp(
     audioController: GameAudioController.disabled(),
     forcePortraitShell: forcePortraitShell,
+    debugInitialState: debugInitialState,
   );
 }
 
@@ -32,13 +37,16 @@ Future<void> _waitForEnterButton(WidgetTester tester) async {
   fail('Loading screen did not finish preloading within the test timeout.');
 }
 
-Future<void> _pumpLoadedApp(WidgetTester tester) async {
+Future<void> _pumpLoadedApp(
+  WidgetTester tester, {
+  MiniNanheDebugState? debugInitialState,
+}) async {
   _mockOpeningStorySeen();
   tester.view.physicalSize = const Size(430, 900);
   tester.view.devicePixelRatio = 1;
   addTearDown(tester.view.resetPhysicalSize);
   addTearDown(tester.view.resetDevicePixelRatio);
-  await tester.pumpWidget(_testApp());
+  await tester.pumpWidget(_testApp(debugInitialState: debugInitialState));
   await _waitForEnterButton(tester);
   await tester.tap(find.byKey(const Key('enter-game-button')));
   await tester.pumpAndSettle();
@@ -88,7 +96,11 @@ void main() {
     tester,
   ) async {
     _mockOpeningStorySeen();
-    await tester.pumpWidget(_testApp());
+    await tester.pumpWidget(
+      _testApp(
+        debugInitialState: const MiniNanheDebugState(totalDaysTogether: 3),
+      ),
+    );
 
     expect(find.text('正在加载……'), findsOneWidget);
     expect(find.text('迷你南河'), findsWidgets);
@@ -112,7 +124,11 @@ void main() {
     addTearDown(tester.view.resetPhysicalSize);
     addTearDown(tester.view.resetDevicePixelRatio);
 
-    await tester.pumpWidget(_testApp());
+    await tester.pumpWidget(
+      _testApp(
+        debugInitialState: const MiniNanheDebugState(totalDaysTogether: 3),
+      ),
+    );
     await _waitForEnterButton(tester);
     await tester.tap(find.byKey(const Key('enter-game-button')));
     await tester.pumpAndSettle();
@@ -127,7 +143,7 @@ void main() {
     }
 
     expect(find.byKey(const Key('opening-story-tap-area')), findsNothing);
-    expect(find.byKey(const Key('background-next-button')), findsOneWidget);
+    expect(find.byKey(const Key('background-next-button')), findsNothing);
 
     final preferences = await SharedPreferences.getInstance();
     expect(preferences.getBool(openingStorySeenPreferenceKey), isTrue);
@@ -147,14 +163,15 @@ void main() {
     expect(find.text('回忆'), findsNothing);
     expect(find.text('迷你南河'), findsOneWidget);
     expect(find.text('想和他做什么？'), findsNothing);
-    expect(find.text('聊天'), findsOneWidget);
-    expect(find.text('抚摸'), findsOneWidget);
-    expect(find.text('观察'), findsOneWidget);
-    expect(find.text('散步'), findsOneWidget);
-    expect(find.text('喂食'), findsOneWidget);
-    expect(find.text('殴打'), findsOneWidget);
-    expect(find.text('玩耍'), findsOneWidget);
-    expect(find.text('睡觉'), findsOneWidget);
+    expect(find.byKey(const Key('chat-button')), findsOneWidget);
+    expect(find.byKey(const Key('pet-button')), findsOneWidget);
+    expect(find.byKey(const Key('observe-button')), findsOneWidget);
+    expect(find.byKey(const Key('daily-rest-button')), findsOneWidget);
+    expect(find.byKey(const Key('play-button')), findsNothing);
+    expect(find.byKey(const Key('walk-button')), findsNothing);
+    expect(find.byKey(const Key('feed-button')), findsNothing);
+    expect(find.byKey(const Key('hit-button')), findsNothing);
+    expect(find.byKey(const Key('sleep-button')), findsNothing);
     expect(find.text('迷你期 · 第 1 天'), findsOneWidget);
     expect(find.text('冬 | 第1年 · 1月1日 | 06:00 | 晴'), findsOneWidget);
     expect(find.text('好感 Lv.1'), findsOneWidget);
@@ -209,10 +226,23 @@ void main() {
   testWidgets('background arrows cycle through unlocked yard homes', (
     tester,
   ) async {
-    await _pumpLoadedApp(tester);
+    await _pumpLoadedApp(
+      tester,
+      debugInitialState: const MiniNanheDebugState(
+        doghouseUnlocked: true,
+        luxuryUnlocked: true,
+      ),
+    );
 
     expect(find.byKey(const Key('background-previous-button')), findsOneWidget);
     expect(find.byKey(const Key('background-next-button')), findsOneWidget);
+    expect(
+      _currentBackgroundAsset(tester),
+      'assets/images/backgrounds/yard_luxury_winter_day.webp',
+    );
+
+    await tester.tap(find.byKey(const Key('background-next-button')));
+    await tester.pumpAndSettle();
     expect(
       _currentBackgroundAsset(tester),
       'assets/images/backgrounds/yard_box_winter_day.webp',
@@ -225,19 +255,36 @@ void main() {
       'assets/images/backgrounds/yard_doghouse_winter_day.webp',
     );
 
-    await tester.tap(find.byKey(const Key('background-next-button')));
-    await tester.pumpAndSettle();
-    expect(
-      _currentBackgroundAsset(tester),
-      'assets/images/backgrounds/yard_luxury_winter_day.webp',
-    );
-
     await tester.tap(find.byKey(const Key('background-previous-button')));
     await tester.pumpAndSettle();
     expect(
       _currentBackgroundAsset(tester),
-      'assets/images/backgrounds/yard_doghouse_winter_day.webp',
+      'assets/images/backgrounds/yard_box_winter_day.webp',
     );
+  });
+
+  testWidgets('mini period starts with limited actions', (tester) async {
+    await _pumpLoadedApp(tester);
+
+    expect(find.byKey(const Key('chat-button')), findsOneWidget);
+    expect(find.byKey(const Key('pet-button')), findsOneWidget);
+    expect(find.byKey(const Key('observe-button')), findsOneWidget);
+    expect(find.byKey(const Key('daily-rest-button')), findsOneWidget);
+    expect(find.byKey(const Key('feed-button')), findsNothing);
+    expect(find.byKey(const Key('hit-button')), findsNothing);
+    expect(find.byKey(const Key('action-page-down')), findsNothing);
+  });
+
+  testWidgets('mini period unlocks feeding and hit by time and day', (
+    tester,
+  ) async {
+    await _pumpLoadedApp(
+      tester,
+      debugInitialState: const MiniNanheDebugState(totalDaysTogether: 3),
+    );
+
+    expect(find.byKey(const Key('feed-button')), findsOneWidget);
+    expect(find.byKey(const Key('hit-button')), findsOneWidget);
   });
 
   testWidgets('new placeholder destinations open from the bottom navigation', (
@@ -301,9 +348,15 @@ void main() {
 
     await tester.tap(find.byKey(const Key('collection-tab-装饰')));
     await tester.pumpAndSettle();
-    expect(find.text('破纸箱'), findsOneWidget);
-    expect(find.text('普通狗窝'), findsOneWidget);
-    expect(find.text('豪华狗窝'), findsOneWidget);
+    expect(find.byKey(const Key('collection-card-yard-box')), findsOneWidget);
+    expect(
+      find.byKey(const Key('collection-card-yard-doghouse')),
+      findsOneWidget,
+    );
+    expect(
+      find.byKey(const Key('collection-card-yard-luxury')),
+      findsOneWidget,
+    );
     expect(find.byKey(const Key('collection-page-next')), findsOneWidget);
   });
 
@@ -314,7 +367,11 @@ void main() {
     addTearDown(tester.view.resetPhysicalSize);
     addTearDown(tester.view.resetDevicePixelRatio);
 
-    await tester.pumpWidget(_testApp());
+    await tester.pumpWidget(
+      _testApp(
+        debugInitialState: const MiniNanheDebugState(totalDaysTogether: 3),
+      ),
+    );
     await _waitForEnterButton(tester);
     await tester.tap(find.byKey(const Key('enter-game-button')));
     await tester.pumpAndSettle();
@@ -416,7 +473,7 @@ void main() {
       200,
       scrollable: find.byType(Scrollable).first,
     );
-    expect(find.text('版本 0.2.8'), findsOneWidget);
+    expect(find.text('版本 0.2.9'), findsOneWidget);
   });
 
   testWidgets('short screens preserve the character stage and can scroll', (
@@ -428,7 +485,11 @@ void main() {
     addTearDown(tester.view.resetPhysicalSize);
     addTearDown(tester.view.resetDevicePixelRatio);
 
-    await tester.pumpWidget(_testApp());
+    await tester.pumpWidget(
+      _testApp(
+        debugInitialState: const MiniNanheDebugState(totalDaysTogether: 3),
+      ),
+    );
     await _waitForEnterButton(tester);
     await tester.tap(find.byKey(const Key('enter-game-button')));
     await tester.pumpAndSettle();
@@ -436,14 +497,6 @@ void main() {
     expect(find.byKey(const Key('companion-scroll-view')), findsOneWidget);
     expect(tester.takeException(), isNull);
 
-    await tester.scrollUntilVisible(
-      find.byKey(const Key('hit-button')),
-      250,
-      scrollable: find.descendant(
-        of: find.byKey(const Key('companion-scroll-view')),
-        matching: find.byType(Scrollable),
-      ),
-    );
     expect(find.byKey(const Key('hit-button')), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
@@ -451,7 +504,10 @@ void main() {
   testWidgets('hit test interaction lowers affection and sets negative mood', (
     tester,
   ) async {
-    await _pumpLoadedApp(tester);
+    await _pumpLoadedApp(
+      tester,
+      debugInitialState: const MiniNanheDebugState(totalDaysTogether: 3),
+    );
 
     await tester.tap(find.byKey(const Key('hit-button')));
     await tester.pump(const Duration(milliseconds: 200));
@@ -463,7 +519,10 @@ void main() {
   });
 
   testWidgets('hit lowers affection by five after gains', (tester) async {
-    await _pumpLoadedApp(tester);
+    await _pumpLoadedApp(
+      tester,
+      debugInitialState: const MiniNanheDebugState(totalDaysTogether: 3),
+    );
 
     for (var i = 0; i < 2; i += 1) {
       await tester.tap(find.byKey(const Key('pet-button')));
@@ -482,7 +541,10 @@ void main() {
   testWidgets('injured chat prioritizes hurt reactions over pressure', (
     tester,
   ) async {
-    await _pumpLoadedApp(tester);
+    await _pumpLoadedApp(
+      tester,
+      debugInitialState: const MiniNanheDebugState(totalDaysTogether: 3),
+    );
 
     for (var i = 0; i < 2; i += 1) {
       await tester.tap(find.byKey(const Key('hit-button')));
@@ -499,7 +561,14 @@ void main() {
   testWidgets('injured and wary Nanhe refuses active interactions', (
     tester,
   ) async {
-    await _pumpLoadedApp(tester);
+    await _pumpLoadedApp(
+      tester,
+      debugInitialState: const MiniNanheDebugState(
+        totalDaysTogether: 3,
+        affectionLevel: 2,
+        affectionProgress: 50,
+      ),
+    );
 
     for (var i = 0; i < 2; i += 1) {
       await tester.tap(find.byKey(const Key('hit-button')));
@@ -520,7 +589,10 @@ void main() {
   testWidgets('training page restores energy and shows training actions', (
     tester,
   ) async {
-    await _pumpLoadedApp(tester);
+    await _pumpLoadedApp(
+      tester,
+      debugInitialState: const MiniNanheDebugState(doghouseUnlocked: true),
+    );
 
     await tester.tap(find.byKey(const Key('pet-button')));
     await tester.pump(const Duration(milliseconds: 200));
@@ -578,16 +650,17 @@ void main() {
     expect(find.textContaining('腿软'), findsOneWidget);
   });
 
-  testWidgets('sleep before night shows a hint without advancing time', (
-    tester,
-  ) async {
+  testWidgets('daily rest replaces sleep before night', (tester) async {
     await _pumpLoadedApp(tester);
 
-    await tester.tap(find.byKey(const Key('sleep-button')));
+    expect(find.byKey(const Key('sleep-button')), findsNothing);
+    expect(find.byKey(const Key('daily-rest-button')), findsOneWidget);
+
+    await tester.tap(find.byKey(const Key('daily-rest-button')));
     await tester.pump(const Duration(milliseconds: 200));
 
-    expect(find.text('还没到睡觉的时候。'), findsOneWidget);
-    expect(find.text('冬 | 第1年 · 1月1日 | 06:00 | 晴'), findsOneWidget);
+    expect(find.text('还没到睡觉的时候。'), findsNothing);
+    expect(find.text('冬 | 第1年 · 1月1日 | 06:30 | 晴'), findsOneWidget);
   });
 
   testWidgets('sleep after exhaustion resolves after reading sleep text', (

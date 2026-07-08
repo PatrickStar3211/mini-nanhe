@@ -46,6 +46,8 @@ class ReactionContext {
       hasLowTrust &&
       hasLowAffection &&
       (hasHighPressure || isInjured || isSick);
+
+  bool get isEarlyWary => hasLowTrust && hasLowAffection;
 }
 
 List<CharacterReaction>? _activityBlock(ReactionContext context) {
@@ -72,12 +74,13 @@ List<CharacterReaction> selectContextualReactions(
       if (context.isSick && context.isWary) return sickActivityReactions;
       if (context.hasHighPressure) return highPressureChatReactions;
       if (context.isTired) return tiredChatReactions;
-      if (context.hasLowTrust) return lowTrustChatReactions;
+      if (context.isEarlyWary) return lowTrustChatReactions;
       return dialogueReactions;
     case ReactionAction.pet:
       final caution = _careCaution(context);
       if (caution != null) return caution;
       if (context.isTired) return tiredPetReactions;
+      if (context.isEarlyWary) return lowTrustPetReactions;
       if (context.hasHighAffection && context.hasHighTrust) {
         return highBondPetReactions;
       }
@@ -86,6 +89,7 @@ List<CharacterReaction> selectContextualReactions(
       if (context.isInjured) return injuredObserveReactions;
       if (context.isSick) return sickObserveReactions;
       if (context.hasHighPressure) return highPressureObserveReactions;
+      if (context.isEarlyWary) return lowTrustObserveReactions;
       return observeReactions;
     case ReactionAction.play:
       final block = _activityBlock(context);
@@ -104,10 +108,12 @@ List<CharacterReaction> selectContextualReactions(
       final caution = _careCaution(context);
       if (caution != null) return caution;
       if (context.hasHighPressure) return highPressureFeedReactions;
+      if (context.isEarlyWary) return lowTrustFeedReactions;
       return feedReactions;
     case ReactionAction.rest:
       if (context.hasHighPressure) return highPressureRestReactions;
       if (context.isLateNight) return lateRestReactions;
+      if (context.isEarlyWary) return lowTrustRestReactions;
       return [restReaction];
     case ReactionAction.study:
       final block = _activityBlock(context);

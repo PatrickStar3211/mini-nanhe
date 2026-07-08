@@ -4,6 +4,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
 import 'src/game_audio_controller.dart';
+import 'src/home_screen.dart';
 import 'src/loading_screen.dart';
 import 'src/theme.dart';
 
@@ -16,10 +17,12 @@ class MiniNanheApp extends StatelessWidget {
     super.key,
     this.audioController,
     this.forcePortraitShell,
+    this.debugInitialState,
   });
 
   final GameAudioController? audioController;
   final bool? forcePortraitShell;
+  final MiniNanheDebugState? debugInitialState;
 
   @override
   Widget build(BuildContext context) {
@@ -33,7 +36,10 @@ class MiniNanheApp extends StatelessWidget {
         if (!usePortraitShell) return child ?? const SizedBox.shrink();
         return _PortraitWebShell(child: child ?? const SizedBox.shrink());
       },
-      home: LoadingScreen(audioController: audioController),
+      home: LoadingScreen(
+        audioController: audioController,
+        debugInitialState: debugInitialState,
+      ),
     );
   }
 }

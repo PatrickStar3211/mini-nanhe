@@ -210,7 +210,19 @@ void main() {
     }
   });
 
-  test('low trust alone is not treated as post-harm wary state', () {
+  test('low trust alone uses early caution without post-harm blocks', () {
+    expect(
+      selectContextualReactions(ReactionAction.chat, _lowTrustOnly),
+      same(lowTrustChatReactions),
+    );
+    expect(
+      selectContextualReactions(ReactionAction.pet, _lowTrustOnly),
+      same(lowTrustPetReactions),
+    );
+    expect(
+      selectContextualReactions(ReactionAction.observe, _lowTrustOnly),
+      same(lowTrustObserveReactions),
+    );
     expect(
       selectContextualReactions(ReactionAction.play, _lowTrustOnly),
       same(playReactions),
@@ -218,6 +230,14 @@ void main() {
     expect(
       selectContextualReactions(ReactionAction.walk, _lowTrustOnly),
       same(lowTrustWalkReactions),
+    );
+    expect(
+      selectContextualReactions(ReactionAction.feed, _lowTrustOnly),
+      same(lowTrustFeedReactions),
+    );
+    expect(
+      selectContextualReactions(ReactionAction.rest, _lowTrustOnly),
+      same(lowTrustRestReactions),
     );
   });
 

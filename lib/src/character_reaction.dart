@@ -402,6 +402,21 @@ const highPressureObserveReactions = <CharacterReaction>[
   ),
 ];
 
+const lowTrustObserveReactions = <CharacterReaction>[
+  CharacterReaction(
+    emotion: NanheEmotion.calm,
+    nanheSpeech: '南河……',
+    meaning: '他看了你一眼，又很快移開視線。',
+    voice: NanheVoice.calmSingle,
+  ),
+  CharacterReaction(
+    emotion: NanheEmotion.curious,
+    nanheSpeech: '南河？',
+    meaning: '別一直看我。',
+    voice: NanheVoice.curiousSingle,
+  ),
+];
+
 const injuredActivityReactions = <CharacterReaction>[
   CharacterReaction(
     emotion: NanheEmotion.sad,
@@ -528,6 +543,21 @@ const highPressureFeedReactions = <CharacterReaction>[
   ),
 ];
 
+const lowTrustFeedReactions = <CharacterReaction>[
+  CharacterReaction(
+    emotion: NanheEmotion.curious,
+    nanheSpeech: '南河？',
+    meaning: '……可以吃嗎？',
+    voice: NanheVoice.curiousSingle,
+  ),
+  CharacterReaction(
+    emotion: NanheEmotion.calm,
+    nanheSpeech: '南河……',
+    meaning: '他等你退開後，才慢慢靠近。',
+    voice: NanheVoice.calmSingle,
+  ),
+];
+
 const highPressureRestReactions = <CharacterReaction>[
   CharacterReaction(
     emotion: NanheEmotion.sleepy,
@@ -543,6 +573,21 @@ const lateRestReactions = <CharacterReaction>[
     nanheSpeech: '南河～',
     meaning: '就休息一下下。',
     voice: NanheVoice.sleepySingle,
+  ),
+];
+
+const lowTrustRestReactions = <CharacterReaction>[
+  CharacterReaction(
+    emotion: NanheEmotion.sleepy,
+    nanheSpeech: '南河……',
+    meaning: '先不要靠太近。',
+    voice: NanheVoice.sleepySingle,
+  ),
+  CharacterReaction(
+    emotion: NanheEmotion.calm,
+    nanheSpeech: '南河。',
+    meaning: '他縮在紙箱裡，安靜了一會兒。',
+    voice: NanheVoice.calmSingle,
   ),
 ];
 

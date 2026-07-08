@@ -24,15 +24,44 @@ const _midnightMinute = 24 * 60;
 const _earliestWakeMinute = 6 * 60;
 const _sleepDurationMinutes = 8 * 60;
 const _endurancePerMaxEnergy = 4;
+const _feedUnlockMinute = 12 * 60;
+const _daySevenSickMinute = 16 * 60;
 
 enum YardHomeTier { box, doghouse, luxury }
 
 enum WeatherCondition { sunny, rainy, snowy }
 
+class MiniNanheDebugState {
+  const MiniNanheDebugState({
+    this.totalDaysTogether,
+    this.minuteOfDay,
+    this.affectionLevel,
+    this.affectionProgress,
+    this.trustLevel,
+    this.trustProgress,
+    this.doghouseUnlocked,
+    this.luxuryUnlocked,
+  });
+
+  final int? totalDaysTogether;
+  final int? minuteOfDay;
+  final int? affectionLevel;
+  final int? affectionProgress;
+  final int? trustLevel;
+  final int? trustProgress;
+  final bool? doghouseUnlocked;
+  final bool? luxuryUnlocked;
+}
+
 class HomeScreen extends StatefulWidget {
-  const HomeScreen({super.key, required this.audioController});
+  const HomeScreen({
+    super.key,
+    required this.audioController,
+    this.debugInitialState,
+  });
 
   final GameAudioController audioController;
+  final MiniNanheDebugState? debugInitialState;
 
   @override
   State<HomeScreen> createState() => _HomeScreenState();
@@ -62,7 +91,19 @@ class _HomeScreenState extends State<HomeScreen> {
   int _actionPage = 0;
   bool _sleepPending = false;
   YardHomeTier _yardHomeTier = YardHomeTier.box;
-  final WeatherCondition _weatherCondition = WeatherCondition.sunny;
+  bool _hasBeenHit = false;
+  bool _feedEventTriggered = false;
+  bool _firstHitEventTriggered = false;
+  bool _daySevenSicknessTriggered = false;
+  bool _doghouseUnlockPending = false;
+  bool _doghouseUnlocked = false;
+  bool _luxuryUnlockPending = false;
+  bool _luxuryUnlocked = false;
+  // TODO: Wire these to the future feeding and sickness story choices.
+  // ignore: prefer_final_fields
+  bool _feedEventResolvedCorrectly = false;
+  // ignore: prefer_final_fields
+  bool _sicknessEventResolvedCorrectly = false;
   int _strength = 1;
   int _intelligence = 1;
   int _charm = 1;
@@ -83,6 +124,28 @@ class _HomeScreenState extends State<HomeScreen> {
   double _voiceVolumeBeforeMute = 0.9;
   BgmTrack _selectedBgm = BgmTrack.cozyNanhe2;
 
+  @override
+  void initState() {
+    super.initState();
+    final debug = widget.debugInitialState;
+    if (debug == null) return;
+    _totalDaysTogether = debug.totalDaysTogether ?? _totalDaysTogether;
+    _minuteOfDay = debug.minuteOfDay ?? _minuteOfDay;
+    _affectionLevel = debug.affectionLevel ?? _affectionLevel;
+    _affectionProgress = debug.affectionProgress ?? _affectionProgress;
+    _trustLevel = debug.trustLevel ?? _trustLevel;
+    _trustProgress = debug.trustProgress ?? _trustProgress;
+    _doghouseUnlocked = debug.doghouseUnlocked ?? _doghouseUnlocked;
+    _luxuryUnlocked = debug.luxuryUnlocked ?? _luxuryUnlocked;
+    if (_luxuryUnlocked) {
+      _doghouseUnlocked = true;
+      _yardHomeTier = YardHomeTier.luxury;
+    } else if (_doghouseUnlocked) {
+      _yardHomeTier = YardHomeTier.doghouse;
+    }
+    _applyTimedEvents();
+  }
+
   bool get _isExhausted => _energy <= 0;
   bool get _isMidnight => _minuteOfDay >= _midnightMinute;
   bool get _isForcedSleep => _isExhausted || _isMidnight;
@@ -99,6 +162,38 @@ class _HomeScreenState extends State<HomeScreen> {
   bool get _isSick => _cleanliness <= 20 || _healthValue < 30;
   bool get _isInjured => _injury >= 10;
   bool get _isLateNight => _minuteOfDay >= 20 * 60;
+  bool get _hasUnlockedAllDailyActions => _affectionLevel >= 2;
+  bool get _hasUnlockedFeed =>
+      _hasUnlockedAllDailyActions ||
+      _totalDaysTogether > 1 ||
+      _minuteOfDay >= _feedUnlockMinute;
+  bool get _hasUnlockedHit =>
+      _hasUnlockedAllDailyActions || _totalDaysTogether >= 3;
+  bool get _hasUnlockedTrainingPage => _doghouseUnlocked;
+  bool get _canTriggerDoghouseUnlock =>
+      !_doghouseUnlocked && _affectionLevel >= 5 && _trustLevel >= 2;
+  bool get _canTriggerLuxuryUnlock =>
+      !_luxuryUnlocked &&
+      _affectionLevel >= 8 &&
+      _trustLevel >= 4 &&
+      !_hasBeenHit &&
+      _feedEventResolvedCorrectly &&
+      _sicknessEventResolvedCorrectly &&
+      _totalDaysTogether > 25;
+  bool get _canShowEvolutionButton =>
+      _luxuryUnlocked && _totalDaysTogether > 60;
+  bool get _isDaySevenRain =>
+      _totalDaysTogether == 7 && _minuteOfDay >= _earliestWakeMinute;
+  List<YardHomeTier> get _unlockedYardHomes => [
+    YardHomeTier.box,
+    if (_doghouseUnlocked) YardHomeTier.doghouse,
+    if (_luxuryUnlocked) YardHomeTier.luxury,
+  ];
+  Set<String> get _unlockedDecorationIds => {
+    'yard-box',
+    if (_doghouseUnlocked) 'yard-doghouse',
+    if (_luxuryUnlocked) 'yard-luxury',
+  };
   int get _maxEnergy {
     final enduranceBonus =
         (_endurance - _minStatValue) ~/ _endurancePerMaxEnergy;
@@ -131,10 +226,13 @@ class _HomeScreenState extends State<HomeScreen> {
       _seasonAssetKey == 'winter' || _seasonAssetKey == 'spring';
 
   WeatherCondition get _visibleWeatherCondition {
-    if (_weatherCondition == WeatherCondition.snowy && !_canShowSnowWeather) {
+    final weatherCondition = _isDaySevenRain
+        ? WeatherCondition.rainy
+        : WeatherCondition.sunny;
+    if (weatherCondition == WeatherCondition.snowy && !_canShowSnowWeather) {
       return WeatherCondition.rainy;
     }
-    return _weatherCondition;
+    return weatherCondition;
   }
 
   String get _weatherLabel {
@@ -154,7 +252,8 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   void _changeYardHome(int direction) {
-    final unlockedHomes = YardHomeTier.values;
+    final unlockedHomes = _unlockedYardHomes;
+    if (unlockedHomes.length < 2) return;
     final currentIndex = unlockedHomes.indexOf(_yardHomeTier);
     final nextIndex =
         (currentIndex + direction + unlockedHomes.length) %
@@ -378,6 +477,8 @@ class _HomeScreenState extends State<HomeScreen> {
       _confidence = _clampPercent(_confidence + confidenceDelta);
       _gentleness = _clampPercent(_gentleness + gentlenessDelta);
       if (advancesTime) _advanceMinutes(_minutesPerInteraction);
+      _applyTimedEvents();
+      _queueProgressionUnlocks();
       _reaction = reaction;
       _isReacting = true;
     });
@@ -420,6 +521,11 @@ class _HomeScreenState extends State<HomeScreen> {
         : _hasLowTrust
         ? lowBondHitReactions
         : hitReactions;
+    _hasBeenHit = true;
+    if (!_firstHitEventTriggered) {
+      _firstHitEventTriggered = true;
+      // TODO: Insert the first-hit story event here.
+    }
     _applyAction(
       reactions,
       energyDelta: -1,
@@ -447,6 +553,44 @@ class _HomeScreenState extends State<HomeScreen> {
 
   void _advanceMinutes(int minutes) {
     _minuteOfDay = (_minuteOfDay + minutes).clamp(0, _midnightMinute);
+  }
+
+  void _queueProgressionUnlocks() {
+    if (_canTriggerDoghouseUnlock) {
+      _doghouseUnlockPending = true;
+    }
+    if (_canTriggerLuxuryUnlock) {
+      _luxuryUnlockPending = true;
+    }
+  }
+
+  void _applyTimedEvents() {
+    if (!_daySevenSicknessTriggered &&
+        _totalDaysTogether == 7 &&
+        _minuteOfDay >= _daySevenSickMinute) {
+      _daySevenSicknessTriggered = true;
+      _healthValue = min(_healthValue, 25);
+      _pressure = _clampPercent(_pressure + 12);
+      // TODO: Insert the day-7 sickness story event here.
+    }
+  }
+
+  void _applyNextDayUnlocks() {
+    if (_doghouseUnlockPending) {
+      _doghouseUnlockPending = false;
+      _doghouseUnlocked = true;
+      _yardHomeTier = YardHomeTier.doghouse;
+      // TODO: Insert the normal doghouse and training-page unlock event here.
+    }
+    if (_luxuryUnlockPending) {
+      _luxuryUnlockPending = false;
+      _luxuryUnlocked = true;
+      _yardHomeTier = YardHomeTier.luxury;
+      // TODO: Insert the luxury doghouse unlock event here.
+    }
+    if (!_unlockedYardHomes.contains(_yardHomeTier)) {
+      _yardHomeTier = _unlockedYardHomes.last;
+    }
   }
 
   void _requestSleep() {
@@ -479,6 +623,7 @@ class _HomeScreenState extends State<HomeScreen> {
       final sleptFromExhaustion = _isExhausted;
       _advanceOneDay();
       _totalDaysTogether += 1;
+      _applyNextDayUnlocks();
       _minuteOfDay = wakeMinute;
       _energy = _maxEnergy;
       _pressure = _clampPercent(_pressure - 4);
@@ -490,6 +635,8 @@ class _HomeScreenState extends State<HomeScreen> {
       _reaction = wakeUpReaction;
       _sleepPending = false;
       _isReacting = false;
+      _applyTimedEvents();
+      _queueProgressionUnlocks();
     });
     widget.audioController.playVoice(wakeUpReaction.voice);
   }
@@ -560,6 +707,10 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   void _feed() {
+    if (!_feedEventTriggered) {
+      _feedEventTriggered = true;
+      // TODO: Insert the first feeding story event here.
+    }
     _applyAction(
       _contextualResponses(ReactionAction.feed),
       energyDelta: -1,
@@ -678,7 +829,9 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   void _setActionPage(int page) {
-    setState(() => _actionPage = page);
+    setState(() {
+      _actionPage = _hasUnlockedTrainingPage ? page.clamp(0, 1) : 0;
+    });
   }
 
   void _selectDestination(int index) {
@@ -797,6 +950,7 @@ class _HomeScreenState extends State<HomeScreen> {
         pageKey: Key('battle-page'),
       ),
       4 => CollectionScreen(
+        unlockedDecorationIds: _unlockedDecorationIds,
         onReplayOpeningStory: _replayOpeningStory,
         onPageTurn: widget.audioController.playPageTurn,
       ),
@@ -823,6 +977,7 @@ class _HomeScreenState extends State<HomeScreen> {
         weatherLabel: _weatherLabel,
         weatherCondition: _visibleWeatherCondition,
         backgroundAsset: _yardBackgroundAsset,
+        canSwitchBackground: _unlockedYardHomes.length > 1,
         reaction: _reaction,
         isReacting: _isReacting,
         emotionLabel: _emotionLabel,
@@ -830,6 +985,11 @@ class _HomeScreenState extends State<HomeScreen> {
         isForcedSleep: _isActionLocked,
         isSleepPending: _sleepPending,
         canSleep: _canSleepByTime,
+        hasUnlockedAllDailyActions: _hasUnlockedAllDailyActions,
+        hasUnlockedFeed: _hasUnlockedFeed,
+        hasUnlockedHit: _hasUnlockedHit,
+        hasUnlockedTrainingPage: _hasUnlockedTrainingPage,
+        canShowEvolutionButton: _canShowEvolutionButton,
         actionPage: _actionPage,
         affectionLevel: _affectionLevel,
         affectionProgress: _affectionProgress,
@@ -990,6 +1150,7 @@ class _CompanionPage extends StatelessWidget {
     required this.weatherLabel,
     required this.weatherCondition,
     required this.backgroundAsset,
+    required this.canSwitchBackground,
     required this.reaction,
     required this.isReacting,
     required this.emotionLabel,
@@ -997,6 +1158,11 @@ class _CompanionPage extends StatelessWidget {
     required this.isForcedSleep,
     required this.isSleepPending,
     required this.canSleep,
+    required this.hasUnlockedAllDailyActions,
+    required this.hasUnlockedFeed,
+    required this.hasUnlockedHit,
+    required this.hasUnlockedTrainingPage,
+    required this.canShowEvolutionButton,
     required this.actionPage,
     required this.affectionLevel,
     required this.affectionProgress,
@@ -1038,6 +1204,7 @@ class _CompanionPage extends StatelessWidget {
   final String weatherLabel;
   final WeatherCondition weatherCondition;
   final String backgroundAsset;
+  final bool canSwitchBackground;
   final CharacterReaction? reaction;
   final bool isReacting;
   final String emotionLabel;
@@ -1045,6 +1212,11 @@ class _CompanionPage extends StatelessWidget {
   final bool isForcedSleep;
   final bool isSleepPending;
   final bool canSleep;
+  final bool hasUnlockedAllDailyActions;
+  final bool hasUnlockedFeed;
+  final bool hasUnlockedHit;
+  final bool hasUnlockedTrainingPage;
+  final bool canShowEvolutionButton;
   final int actionPage;
   final int affectionLevel;
   final int affectionProgress;
@@ -1097,6 +1269,8 @@ class _CompanionPage extends StatelessWidget {
 
             final stage = _CharacterStage(
               backgroundAsset: backgroundAsset,
+              canSwitchBackground: canSwitchBackground,
+              canShowEvolutionButton: canShowEvolutionButton,
               weatherCondition: weatherCondition,
               reaction: reaction,
               isReacting: isReacting,
@@ -1119,6 +1293,10 @@ class _CompanionPage extends StatelessWidget {
               isForcedSleep: isForcedSleep,
               isSleepPending: isSleepPending,
               canSleep: canSleep,
+              hasUnlockedAllDailyActions: hasUnlockedAllDailyActions,
+              hasUnlockedFeed: hasUnlockedFeed,
+              hasUnlockedHit: hasUnlockedHit,
+              hasUnlockedTrainingPage: hasUnlockedTrainingPage,
               actionPage: actionPage,
               onPageChanged: onPageChanged,
               onChat: onChat,
@@ -1271,6 +1449,8 @@ class _CalendarCard extends StatelessWidget {
 class _CharacterStage extends StatelessWidget {
   const _CharacterStage({
     required this.backgroundAsset,
+    required this.canSwitchBackground,
+    required this.canShowEvolutionButton,
     required this.weatherCondition,
     required this.reaction,
     required this.isReacting,
@@ -1291,6 +1471,8 @@ class _CharacterStage extends StatelessWidget {
   });
 
   final String backgroundAsset;
+  final bool canSwitchBackground;
+  final bool canShowEvolutionButton;
   final WeatherCondition weatherCondition;
   final CharacterReaction? reaction;
   final bool isReacting;
@@ -1392,12 +1574,27 @@ class _CharacterStage extends StatelessWidget {
             ),
           ),
           Positioned(top: 12, right: 14, child: _MoodChip(label: emotionLabel)),
-          Positioned.fill(
-            child: _BackgroundSwitchControls(
-              onPrevious: onPreviousBackground,
-              onNext: onNextBackground,
+          if (canShowEvolutionButton)
+            Positioned(
+              left: 0,
+              right: 0,
+              bottom: 104,
+              child: Center(
+                child: FilledButton.tonalIcon(
+                  key: const Key('evolution-button'),
+                  onPressed: null,
+                  icon: const Icon(Icons.auto_awesome_rounded),
+                  label: const Text('進化'),
+                ),
+              ),
             ),
-          ),
+          if (canSwitchBackground)
+            Positioned.fill(
+              child: _BackgroundSwitchControls(
+                onPrevious: onPreviousBackground,
+                onNext: onNextBackground,
+              ),
+            ),
           if (reaction != null)
             Positioned(
               left: 18,
@@ -2070,6 +2267,10 @@ class _ActionPanel extends StatelessWidget {
     required this.isForcedSleep,
     required this.isSleepPending,
     required this.canSleep,
+    required this.hasUnlockedAllDailyActions,
+    required this.hasUnlockedFeed,
+    required this.hasUnlockedHit,
+    required this.hasUnlockedTrainingPage,
     required this.actionPage,
     required this.onPageChanged,
     required this.onChat,
@@ -2093,6 +2294,10 @@ class _ActionPanel extends StatelessWidget {
   final bool isForcedSleep;
   final bool isSleepPending;
   final bool canSleep;
+  final bool hasUnlockedAllDailyActions;
+  final bool hasUnlockedFeed;
+  final bool hasUnlockedHit;
+  final bool hasUnlockedTrainingPage;
   final int actionPage;
   final ValueChanged<int> onPageChanged;
   final VoidCallback onChat;
@@ -2145,7 +2350,8 @@ class _ActionPanel extends StatelessWidget {
       );
     }
 
-    final page = actionPage == 0 ? _dailyPage() : _trainingPage();
+    final effectivePage = hasUnlockedTrainingPage ? actionPage : 0;
+    final page = effectivePage == 0 ? _dailyPage() : _trainingPage();
 
     return Row(
       crossAxisAlignment: CrossAxisAlignment.center,
@@ -2157,19 +2363,19 @@ class _ActionPanel extends StatelessWidget {
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              if (actionPage > 0)
+              if (hasUnlockedTrainingPage && effectivePage > 0)
                 IconButton.filledTonal(
                   key: const Key('action-page-up'),
                   tooltip: '上一页',
-                  onPressed: () => onPageChanged(actionPage - 1),
+                  onPressed: () => onPageChanged(effectivePage - 1),
                   icon: const Icon(Icons.keyboard_arrow_up_rounded),
                 ),
               const SizedBox(height: 6),
-              if (actionPage < 1)
+              if (hasUnlockedTrainingPage && effectivePage < 1)
                 IconButton.filledTonal(
                   key: const Key('action-page-down'),
                   tooltip: '下一页',
-                  onPressed: () => onPageChanged(actionPage + 1),
+                  onPressed: () => onPageChanged(effectivePage + 1),
                   icon: const Icon(Icons.keyboard_arrow_down_rounded),
                 ),
             ],
@@ -2180,61 +2386,72 @@ class _ActionPanel extends StatelessWidget {
   }
 
   Widget _dailyPage() {
+    final restOrSleepButton = canSleep
+        ? _ActionButton(
+            key: const Key('sleep-button'),
+            label: '睡覺',
+            emphasized: true,
+            onPressed: onSleep,
+          )
+        : _ActionButton(
+            key: const Key('daily-rest-button'),
+            label: '休息',
+            onPressed: onRest,
+          );
+    final primaryActions = <Widget>[
+      _ActionButton(
+        key: const Key('chat-button'),
+        label: '聊天',
+        emphasized: true,
+        onPressed: onChat,
+      ),
+      _ActionButton(
+        key: const Key('pet-button'),
+        label: '撫摸',
+        onPressed: onPet,
+      ),
+      _ActionButton(
+        key: const Key('observe-button'),
+        label: '觀察',
+        onPressed: onObserve,
+      ),
+      restOrSleepButton,
+    ];
+    final unlockedExtraActions = <Widget>[
+      if (hasUnlockedAllDailyActions)
+        _ActionButton(
+          key: const Key('play-button'),
+          label: '玩耍',
+          onPressed: onPlay,
+        ),
+      if (hasUnlockedAllDailyActions)
+        _ActionButton(
+          key: const Key('walk-button'),
+          label: '散步',
+          onPressed: onWalk,
+        ),
+      if (hasUnlockedFeed)
+        _ActionButton(
+          key: const Key('feed-button'),
+          label: '餵食',
+          onPressed: onFeed,
+        ),
+      if (hasUnlockedHit)
+        _ActionButton(
+          key: const Key('hit-button'),
+          label: '毆打',
+          destructive: true,
+          onPressed: onHit,
+        ),
+    ];
+
     return Column(
       children: [
-        _ActionButtonRow(
-          children: [
-            _ActionButton(
-              key: const Key('chat-button'),
-              label: '聊天',
-              emphasized: true,
-              onPressed: onChat,
-            ),
-            _ActionButton(
-              key: const Key('pet-button'),
-              label: '抚摸',
-              onPressed: onPet,
-            ),
-            _ActionButton(
-              key: const Key('observe-button'),
-              label: '观察',
-              onPressed: onObserve,
-            ),
-            _ActionButton(
-              key: const Key('play-button'),
-              label: '玩耍',
-              onPressed: onPlay,
-            ),
-          ],
-        ),
-        const SizedBox(height: 8),
-        _ActionButtonRow(
-          children: [
-            _ActionButton(
-              key: const Key('walk-button'),
-              label: '散步',
-              onPressed: onWalk,
-            ),
-            _ActionButton(
-              key: const Key('feed-button'),
-              label: '喂食',
-              onPressed: onFeed,
-            ),
-            _ActionButton(
-              key: const Key('hit-button'),
-              label: '殴打',
-              destructive: true,
-              onPressed: onHit,
-            ),
-            _ActionButton(
-              key: const Key('sleep-button'),
-              label: '睡觉',
-              emphasized: canSleep,
-              disabledLook: !canSleep,
-              onPressed: onSleep,
-            ),
-          ],
-        ),
+        _ActionButtonRow(children: primaryActions),
+        if (unlockedExtraActions.isNotEmpty) ...[
+          const SizedBox(height: 8),
+          _ActionButtonRow(children: unlockedExtraActions),
+        ],
       ],
     );
   }
@@ -2322,31 +2539,16 @@ class _ActionButton extends StatelessWidget {
     this.onPressed,
     this.emphasized = false,
     this.destructive = false,
-    this.disabledLook = false,
   });
 
   final String label;
   final VoidCallback? onPressed;
   final bool emphasized;
   final bool destructive;
-  final bool disabledLook;
 
   @override
   Widget build(BuildContext context) {
     final child = Text(label, maxLines: 1, overflow: TextOverflow.ellipsis);
-
-    if (disabledLook) {
-      return FilledButton.tonal(
-        onPressed: onPressed,
-        style: FilledButton.styleFrom(
-          foregroundColor: const Color(0xFF8C96A3),
-          backgroundColor: const Color(0xFFF0F3F6),
-          minimumSize: const Size(0, 42),
-          padding: const EdgeInsets.symmetric(horizontal: 6),
-        ),
-        child: child,
-      );
-    }
 
     if (destructive) {
       return FilledButton.tonal(

@@ -10,10 +10,12 @@ enum CollectionCategory { memory, achievement, decoration }
 class CollectionScreen extends StatefulWidget {
   const CollectionScreen({
     super.key,
+    required this.unlockedDecorationIds,
     required this.onReplayOpeningStory,
     required this.onPageTurn,
   });
 
+  final Set<String> unlockedDecorationIds;
   final VoidCallback onReplayOpeningStory;
   final VoidCallback onPageTurn;
 
@@ -78,6 +80,7 @@ class _CollectionScreenState extends State<CollectionScreen> {
               ),
               _AlbumOverlay(
                 category: _category,
+                unlockedDecorationIds: widget.unlockedDecorationIds,
                 pageIndex: _pageIndex,
                 pageCount: _pageCount,
                 itemsPerPage: _itemsPerPage,
@@ -97,6 +100,7 @@ class _CollectionScreenState extends State<CollectionScreen> {
 class _AlbumOverlay extends StatelessWidget {
   const _AlbumOverlay({
     required this.category,
+    required this.unlockedDecorationIds,
     required this.pageIndex,
     required this.pageCount,
     required this.itemsPerPage,
@@ -107,6 +111,7 @@ class _AlbumOverlay extends StatelessWidget {
   });
 
   final CollectionCategory category;
+  final Set<String> unlockedDecorationIds;
   final int pageIndex;
   final int pageCount;
   final int itemsPerPage;
@@ -168,7 +173,11 @@ class _AlbumOverlay extends StatelessWidget {
     final allCards = switch (category) {
       CollectionCategory.memory => _memoryEntries,
       CollectionCategory.achievement => _achievementEntries,
-      CollectionCategory.decoration => _decorationEntries,
+      CollectionCategory.decoration => _decorationEntries.map((entry) {
+        return entry.copyWith(
+          unlocked: unlockedDecorationIds.contains(entry.id),
+        );
+      }).toList(),
     };
     final start = pageIndex * itemsPerPage;
     return allCards.skip(start).take(itemsPerPage).toList();
@@ -800,6 +809,18 @@ class _CollectionCardData {
   final IconData icon;
   final Color accent;
   final String? imageAsset;
+
+  _CollectionCardData copyWith({bool? unlocked}) {
+    return _CollectionCardData(
+      id: id,
+      title: title,
+      description: description,
+      unlocked: unlocked ?? this.unlocked,
+      icon: icon,
+      accent: accent,
+      imageAsset: imageAsset,
+    );
+  }
 }
 
 const _memoryEntries = <_CollectionCardData>[

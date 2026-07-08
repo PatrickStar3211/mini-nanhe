@@ -7,9 +7,14 @@ import 'home_screen.dart';
 import 'opening_story_screen.dart';
 
 class LoadingScreen extends StatefulWidget {
-  const LoadingScreen({super.key, this.audioController});
+  const LoadingScreen({
+    super.key,
+    this.audioController,
+    this.debugInitialState,
+  });
 
   final GameAudioController? audioController;
+  final MiniNanheDebugState? debugInitialState;
 
   @override
   State<LoadingScreen> createState() => _LoadingScreenState();
@@ -61,7 +66,10 @@ class _LoadingScreenState extends State<LoadingScreen> {
 
     _audioController.playFromUserGesture();
     setState(() => _entering = true);
-    final homeScreen = HomeScreen(audioController: _audioController);
+    final homeScreen = HomeScreen(
+      audioController: _audioController,
+      debugInitialState: widget.debugInitialState,
+    );
     await Navigator.of(context).pushReplacement(
       PageRouteBuilder<void>(
         pageBuilder: (_, animation, secondaryAnimation) {
