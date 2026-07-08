@@ -1,4 +1,4 @@
-﻿import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mini_nanhe/main.dart';
@@ -287,6 +287,39 @@ void main() {
     expect(find.byKey(const Key('hit-button')), findsOneWidget);
   });
 
+  testWidgets(
+    'feeding at noon keeps early wary reactions before affection lv2',
+    (tester) async {
+      await _pumpLoadedApp(
+        tester,
+        debugInitialState: const MiniNanheDebugState(minuteOfDay: 12 * 60),
+      );
+
+      await tester.tap(find.byKey(const Key('feed-button')));
+      await tester.pump(const Duration(milliseconds: 200));
+
+      expect(_anyTextContaining({'可以吃', '才慢慢靠近'}), findsWidgets);
+      expect(find.textContaining('好吃'), findsNothing);
+      expect(find.textContaining('想再吃一点'), findsNothing);
+    },
+  );
+
+  testWidgets('health can show sickness and fatigue together', (tester) async {
+    await _pumpLoadedApp(
+      tester,
+      debugInitialState: const MiniNanheDebugState(
+        energy: 0,
+        healthValue: 25,
+        exhaustionCount: 2,
+      ),
+    );
+
+    await tester.tap(find.text('状态'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('生病、疲劳'), findsOneWidget);
+  });
+
   testWidgets('new placeholder destinations open from the bottom navigation', (
     tester,
   ) async {
@@ -474,6 +507,48 @@ void main() {
       scrollable: find.byType(Scrollable).first,
     );
     expect(find.text('版本 0.2.9'), findsOneWidget);
+  });
+
+  testWidgets('settings debug tools jump time and tune relationship values', (
+    tester,
+  ) async {
+    await _pumpLoadedApp(tester);
+
+    await tester.tap(find.text('设置'));
+    await tester.pumpAndSettle();
+    await tester.scrollUntilVisible(
+      find.byKey(const Key('debug-tools-panel')),
+      240,
+      scrollable: find.byType(Scrollable).first,
+    );
+    expect(find.byKey(const Key('debug-tools-panel')), findsOneWidget);
+
+    await tester.ensureVisible(find.byKey(const Key('debug-preset-第7天 16:00')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('debug-preset-第7天 16:00')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('陪伴'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('迷你期 · 第 7 天'), findsOneWidget);
+    expect(find.text('冬 | 第1年 · 1月7日 | 16:00 | 雨'), findsOneWidget);
+
+    await tester.tap(find.text('设置'));
+    await tester.pumpAndSettle();
+    await tester.scrollUntilVisible(
+      find.byKey(const Key('debug-tools-panel')),
+      240,
+      scrollable: find.byType(Scrollable).first,
+    );
+    await tester.ensureVisible(find.byKey(const Key('debug-affection-lv2')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('debug-affection-lv2')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('陪伴'));
+    await tester.pumpAndSettle();
+
+    expect(find.byKey(const Key('play-button')), findsOneWidget);
+    expect(find.byKey(const Key('walk-button')), findsOneWidget);
   });
 
   testWidgets('short screens preserve the character stage and can scroll', (

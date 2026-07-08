@@ -39,6 +39,11 @@ class MiniNanheDebugState {
     this.affectionProgress,
     this.trustLevel,
     this.trustProgress,
+    this.energy,
+    this.healthValue,
+    this.exhaustionCount,
+    this.injury,
+    this.cleanliness,
     this.doghouseUnlocked,
     this.luxuryUnlocked,
   });
@@ -49,6 +54,11 @@ class MiniNanheDebugState {
   final int? affectionProgress;
   final int? trustLevel;
   final int? trustProgress;
+  final int? energy;
+  final int? healthValue;
+  final int? exhaustionCount;
+  final int? injury;
+  final int? cleanliness;
   final bool? doghouseUnlocked;
   final bool? luxuryUnlocked;
 }
@@ -135,6 +145,11 @@ class _HomeScreenState extends State<HomeScreen> {
     _affectionProgress = debug.affectionProgress ?? _affectionProgress;
     _trustLevel = debug.trustLevel ?? _trustLevel;
     _trustProgress = debug.trustProgress ?? _trustProgress;
+    _energy = debug.energy ?? _energy;
+    _healthValue = debug.healthValue ?? _healthValue;
+    _exhaustionCount = debug.exhaustionCount ?? _exhaustionCount;
+    _injury = debug.injury ?? _injury;
+    _cleanliness = debug.cleanliness ?? _cleanliness;
     _doghouseUnlocked = debug.doghouseUnlocked ?? _doghouseUnlocked;
     _luxuryUnlocked = debug.luxuryUnlocked ?? _luxuryUnlocked;
     if (_luxuryUnlocked) {
@@ -157,10 +172,11 @@ class _HomeScreenState extends State<HomeScreen> {
   bool get _hasHighTrust => _trustLevel >= 2 || _trustProgress >= 70;
   bool get _hasHighAffection =>
       _affectionLevel >= 2 || _affectionProgress >= 50;
-  bool get _hasLowAffection => _affectionLevel == 1 && _affectionProgress < 20;
+  bool get _hasLowAffection => _affectionLevel < 2;
   bool get _isDirty => _cleanliness <= 35;
   bool get _isSick => _cleanliness <= 20 || _healthValue < 30;
   bool get _isInjured => _injury >= 10;
+  bool get _isFatigued => _isExhausted || _exhaustionCount >= 2;
   bool get _isLateNight => _minuteOfDay >= 20 * 60;
   bool get _hasUnlockedAllDailyActions => _affectionLevel >= 2;
   bool get _hasUnlockedFeed =>
@@ -277,9 +293,7 @@ class _HomeScreenState extends State<HomeScreen> {
     if (emotion != null) return emotion;
     if (_isExhausted) return NanheEmotion.sleepy;
     if (_pressure >= 80) return NanheEmotion.frustrated;
-    if (_healthLabel == '受伤' || _healthLabel == '生病') {
-      return NanheEmotion.sad;
-    }
+    if (_isInjured || _isSick) return NanheEmotion.sad;
     if (_affectionLevel == 1 &&
         _affectionProgress == 0 &&
         _trustProgress == 0) {
@@ -309,14 +323,21 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   String get _healthLabel {
-    if (_injury >= 10) return '受伤';
-    if (_isExhausted || _exhaustionCount >= 2) return '疲劳';
-    if (_cleanliness <= 20) return '生病';
-    if (_healthValue >= 90) return '非常健康';
-    if (_healthValue >= 70) return '健康';
-    if (_healthValue >= 50) return '亚健康';
-    if (_healthValue >= 30) return '不健康';
-    return '生病';
+    return _healthLabels.join('、');
+  }
+
+  List<String> get _healthLabels {
+    final labels = <String>[];
+    if (_isInjured) labels.add('受伤');
+    if (_isSick) labels.add('生病');
+    if (_isFatigued) labels.add('疲劳');
+    if (labels.isNotEmpty) return labels;
+
+    if (_healthValue >= 90) return ['非常健康'];
+    if (_healthValue >= 70) return ['健康'];
+    if (_healthValue >= 50) return ['亚健康'];
+    if (_healthValue >= 30) return ['不健康'];
+    return ['生病'];
   }
 
   String get _personalityLabel {
@@ -879,6 +900,57 @@ class _HomeScreenState extends State<HomeScreen> {
     widget.audioController.setVoiceVolume(value);
   }
 
+  void _setDebugTimeline({
+    required int totalDaysTogether,
+    required int minute,
+  }) {
+    setState(() {
+      _setCalendarFromTotalDays(totalDaysTogether);
+      _minuteOfDay = minute.clamp(0, _midnightMinute);
+      _applyTimedEvents();
+      _queueProgressionUnlocks();
+    });
+  }
+
+  void _setDebugAffectionLevel(int value) {
+    setState(() {
+      _affectionLevel = _clampStat(value);
+      _affectionProgress = _affectionProgress.clamp(0, 99);
+      _queueProgressionUnlocks();
+    });
+  }
+
+  void _setDebugAffectionProgress(int value) {
+    setState(() {
+      _affectionProgress = value.clamp(0, 99);
+      _queueProgressionUnlocks();
+    });
+  }
+
+  void _setDebugTrustLevel(int value) {
+    setState(() {
+      _trustLevel = _clampStat(value);
+      _trustProgress = _trustProgress.clamp(0, 99);
+      _queueProgressionUnlocks();
+    });
+  }
+
+  void _setDebugTrustProgress(int value) {
+    setState(() {
+      _trustProgress = value.clamp(0, 99);
+      _queueProgressionUnlocks();
+    });
+  }
+
+  void _setCalendarFromTotalDays(int totalDaysTogether) {
+    final clampedDays = totalDaysTogether.clamp(1, _maxStatValue);
+    final zeroBasedDay = clampedDays - 1;
+    _totalDaysTogether = clampedDays;
+    _year = (zeroBasedDay ~/ 360) + 1;
+    _month = ((zeroBasedDay % 360) ~/ 30) + 1;
+    _day = (zeroBasedDay % 30) + 1;
+  }
+
   void _toggleMusicMute() {
     setState(() {
       if (_musicVolume > 0) {
@@ -959,6 +1031,12 @@ class _HomeScreenState extends State<HomeScreen> {
         musicVolume: _musicVolume,
         soundEffectVolume: _soundEffectVolume,
         voiceVolume: _voiceVolume,
+        totalDaysTogether: _totalDaysTogether,
+        minuteOfDay: _minuteOfDay,
+        affectionLevel: _affectionLevel,
+        affectionProgress: _affectionProgress,
+        trustLevel: _trustLevel,
+        trustProgress: _trustProgress,
         onMusicChanged: _setMusicVolume,
         onSoundEffectChanged: _setSoundEffectVolume,
         onVoiceChanged: _setVoiceVolume,
@@ -966,6 +1044,11 @@ class _HomeScreenState extends State<HomeScreen> {
         onSoundEffectMuteToggle: _toggleSoundEffectMute,
         onVoiceMuteToggle: _toggleVoiceMute,
         onBgmChanged: _changeBgm,
+        onDebugTimelineChanged: _setDebugTimeline,
+        onDebugAffectionLevelChanged: _setDebugAffectionLevel,
+        onDebugAffectionProgressChanged: _setDebugAffectionProgress,
+        onDebugTrustLevelChanged: _setDebugTrustLevel,
+        onDebugTrustProgressChanged: _setDebugTrustProgress,
       ),
       _ => _CompanionPage(
         totalDaysTogether: _totalDaysTogether,
@@ -2591,6 +2674,12 @@ class _SettingsPage extends StatelessWidget {
     required this.musicVolume,
     required this.soundEffectVolume,
     required this.voiceVolume,
+    required this.totalDaysTogether,
+    required this.minuteOfDay,
+    required this.affectionLevel,
+    required this.affectionProgress,
+    required this.trustLevel,
+    required this.trustProgress,
     required this.onMusicChanged,
     required this.onSoundEffectChanged,
     required this.onVoiceChanged,
@@ -2598,12 +2687,23 @@ class _SettingsPage extends StatelessWidget {
     required this.onSoundEffectMuteToggle,
     required this.onVoiceMuteToggle,
     required this.onBgmChanged,
+    required this.onDebugTimelineChanged,
+    required this.onDebugAffectionLevelChanged,
+    required this.onDebugAffectionProgressChanged,
+    required this.onDebugTrustLevelChanged,
+    required this.onDebugTrustProgressChanged,
   });
 
   final BgmTrack selectedBgm;
   final double musicVolume;
   final double soundEffectVolume;
   final double voiceVolume;
+  final int totalDaysTogether;
+  final int minuteOfDay;
+  final int affectionLevel;
+  final int affectionProgress;
+  final int trustLevel;
+  final int trustProgress;
   final ValueChanged<double> onMusicChanged;
   final ValueChanged<double> onSoundEffectChanged;
   final ValueChanged<double> onVoiceChanged;
@@ -2611,6 +2711,12 @@ class _SettingsPage extends StatelessWidget {
   final VoidCallback onSoundEffectMuteToggle;
   final VoidCallback onVoiceMuteToggle;
   final ValueChanged<BgmTrack> onBgmChanged;
+  final void Function({required int totalDaysTogether, required int minute})
+  onDebugTimelineChanged;
+  final ValueChanged<int> onDebugAffectionLevelChanged;
+  final ValueChanged<int> onDebugAffectionProgressChanged;
+  final ValueChanged<int> onDebugTrustLevelChanged;
+  final ValueChanged<int> onDebugTrustProgressChanged;
 
   @override
   Widget build(BuildContext context) {
@@ -2700,6 +2806,20 @@ class _SettingsPage extends StatelessWidget {
             title: Text('本机存档'),
             subtitle: Text('将在 EPIC 7 实作'),
           ),
+          const SizedBox(height: 8),
+          _DebugToolsPanel(
+            totalDaysTogether: totalDaysTogether,
+            minuteOfDay: minuteOfDay,
+            affectionLevel: affectionLevel,
+            affectionProgress: affectionProgress,
+            trustLevel: trustLevel,
+            trustProgress: trustProgress,
+            onTimelineChanged: onDebugTimelineChanged,
+            onAffectionLevelChanged: onDebugAffectionLevelChanged,
+            onAffectionProgressChanged: onDebugAffectionProgressChanged,
+            onTrustLevelChanged: onDebugTrustLevelChanged,
+            onTrustProgressChanged: onDebugTrustProgressChanged,
+          ),
           const SizedBox(height: 24),
           const Center(
             child: Text(
@@ -2713,6 +2833,271 @@ class _SettingsPage extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 8),
+        ],
+      ),
+    );
+  }
+}
+
+class _DebugToolsPanel extends StatelessWidget {
+  const _DebugToolsPanel({
+    required this.totalDaysTogether,
+    required this.minuteOfDay,
+    required this.affectionLevel,
+    required this.affectionProgress,
+    required this.trustLevel,
+    required this.trustProgress,
+    required this.onTimelineChanged,
+    required this.onAffectionLevelChanged,
+    required this.onAffectionProgressChanged,
+    required this.onTrustLevelChanged,
+    required this.onTrustProgressChanged,
+  });
+
+  final int totalDaysTogether;
+  final int minuteOfDay;
+  final int affectionLevel;
+  final int affectionProgress;
+  final int trustLevel;
+  final int trustProgress;
+  final void Function({required int totalDaysTogether, required int minute})
+  onTimelineChanged;
+  final ValueChanged<int> onAffectionLevelChanged;
+  final ValueChanged<int> onAffectionProgressChanged;
+  final ValueChanged<int> onTrustLevelChanged;
+  final ValueChanged<int> onTrustProgressChanged;
+
+  static const _presets = [
+    _DebugTimePreset('第1天 06:00', 1, 6 * 60),
+    _DebugTimePreset('第1天 12:00', 1, 12 * 60),
+    _DebugTimePreset('第1天 22:00', 1, 22 * 60),
+    _DebugTimePreset('第3天 06:00', 3, 6 * 60),
+    _DebugTimePreset('第7天 06:00', 7, 6 * 60),
+    _DebugTimePreset('第7天 16:00', 7, 16 * 60),
+    _DebugTimePreset('第26天 06:00', 26, 6 * 60),
+    _DebugTimePreset('第61天 06:00', 61, 6 * 60),
+  ];
+
+  String get _timeLabel {
+    final normalizedMinute = minuteOfDay % _midnightMinute;
+    final hour = normalizedMinute ~/ 60;
+    final minute = normalizedMinute % 60;
+    return '${hour.toString().padLeft(2, '0')}:'
+        '${minute.toString().padLeft(2, '0')}';
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      key: const Key('debug-tools-panel'),
+      padding: const EdgeInsets.fromLTRB(16, 16, 16, 14),
+      decoration: BoxDecoration(
+        color: const Color(0xFFFFFBF1),
+        borderRadius: BorderRadius.circular(24),
+        border: Border.all(color: const Color(0xFFE3C98A)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Row(
+            children: [
+              const Icon(Icons.construction_rounded, color: gold),
+              const SizedBox(width: 8),
+              Text('测试工具', style: Theme.of(context).textTheme.titleMedium),
+            ],
+          ),
+          const SizedBox(height: 4),
+          Text(
+            '用于快速检查迷你期节点，不影响之后正式存档设计。',
+            style: Theme.of(context).textTheme.bodySmall,
+          ),
+          const SizedBox(height: 12),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              for (final preset in _presets)
+                ActionChip(
+                  key: Key('debug-preset-${preset.label}'),
+                  label: Text(preset.label),
+                  avatar: const Icon(Icons.bolt_rounded, size: 16),
+                  onPressed: () => onTimelineChanged(
+                    totalDaysTogether: preset.day,
+                    minute: preset.minute,
+                  ),
+                ),
+            ],
+          ),
+          const SizedBox(height: 14),
+          _DebugIntSlider(
+            key: const Key('debug-day-slider'),
+            label: '在一起天数',
+            valueLabel: '第 $totalDaysTogether 天',
+            value: totalDaysTogether,
+            min: 1,
+            max: 90,
+            onChanged: (value) => onTimelineChanged(
+              totalDaysTogether: value,
+              minute: minuteOfDay,
+            ),
+          ),
+          _DebugIntSlider(
+            key: const Key('debug-time-slider'),
+            label: '时间',
+            valueLabel: _timeLabel,
+            value: minuteOfDay,
+            min: 0,
+            max: _midnightMinute,
+            divisions: 48,
+            onChanged: (value) => onTimelineChanged(
+              totalDaysTogether: totalDaysTogether,
+              minute: value,
+            ),
+          ),
+          const Divider(height: 20),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              ActionChip(
+                key: const Key('debug-affection-lv2'),
+                label: const Text('好感 Lv2'),
+                onPressed: () {
+                  onAffectionLevelChanged(2);
+                  onAffectionProgressChanged(0);
+                },
+              ),
+              ActionChip(
+                key: const Key('debug-affection-lv5'),
+                label: const Text('好感 Lv5'),
+                onPressed: () {
+                  onAffectionLevelChanged(5);
+                  onAffectionProgressChanged(0);
+                },
+              ),
+              ActionChip(
+                key: const Key('debug-trust-lv2'),
+                label: const Text('信任 Lv2'),
+                onPressed: () {
+                  onTrustLevelChanged(2);
+                  onTrustProgressChanged(0);
+                },
+              ),
+              ActionChip(
+                key: const Key('debug-trust-lv4'),
+                label: const Text('信任 Lv4'),
+                onPressed: () {
+                  onTrustLevelChanged(4);
+                  onTrustProgressChanged(0);
+                },
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          _DebugIntSlider(
+            key: const Key('debug-affection-level-slider'),
+            label: '好感等级',
+            valueLabel: 'Lv.$affectionLevel',
+            value: affectionLevel,
+            min: 1,
+            max: 10,
+            onChanged: onAffectionLevelChanged,
+          ),
+          _DebugIntSlider(
+            key: const Key('debug-affection-progress-slider'),
+            label: '好感进度',
+            valueLabel: '$affectionProgress/100',
+            value: affectionProgress,
+            min: 0,
+            max: 99,
+            onChanged: onAffectionProgressChanged,
+          ),
+          _DebugIntSlider(
+            key: const Key('debug-trust-level-slider'),
+            label: '信任等级',
+            valueLabel: 'Lv.$trustLevel',
+            value: trustLevel,
+            min: 1,
+            max: 10,
+            onChanged: onTrustLevelChanged,
+          ),
+          _DebugIntSlider(
+            key: const Key('debug-trust-progress-slider'),
+            label: '信任进度',
+            valueLabel: '$trustProgress/100',
+            value: trustProgress,
+            min: 0,
+            max: 99,
+            onChanged: onTrustProgressChanged,
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _DebugTimePreset {
+  const _DebugTimePreset(this.label, this.day, this.minute);
+
+  final String label;
+  final int day;
+  final int minute;
+}
+
+class _DebugIntSlider extends StatelessWidget {
+  const _DebugIntSlider({
+    super.key,
+    required this.label,
+    required this.valueLabel,
+    required this.value,
+    required this.min,
+    required this.max,
+    required this.onChanged,
+    this.divisions,
+  });
+
+  final String label;
+  final String valueLabel;
+  final int value;
+  final int min;
+  final int max;
+  final ValueChanged<int> onChanged;
+  final int? divisions;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(top: 8),
+      child: Column(
+        children: [
+          Row(
+            children: [
+              Expanded(
+                child: Text(
+                  label,
+                  style: const TextStyle(
+                    color: ink,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ),
+              Text(
+                valueLabel,
+                style: const TextStyle(
+                  color: mutedInk,
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+            ],
+          ),
+          Slider(
+            value: value.clamp(min, max).toDouble(),
+            min: min.toDouble(),
+            max: max.toDouble(),
+            divisions: divisions ?? max - min,
+            label: valueLabel,
+            onChanged: (next) => onChanged(next.round()),
+          ),
         ],
       ),
     );
