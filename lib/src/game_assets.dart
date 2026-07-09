@@ -23,11 +23,28 @@ const openingStoryPage2Asset =
     'assets/images/story/opening/opening_page_2.webp';
 const openingStoryPage3Asset =
     'assets/images/story/opening/opening_page_3.webp';
+const feedingStoryPage1Asset = 'assets/images/story/feeding/feeding_page_1.png';
+const feedingStoryPage2CurryAsset =
+    'assets/images/story/feeding/feeding_page_2.png';
+const feedingStoryPage2VegetablesAsset =
+    'assets/images/story/feeding/feeding_page_2_vegetables.png';
+const feedingChoiceVegetablesAsset =
+    'assets/images/story/feeding/feeding_choice_vegetables.png';
+const feedingChoiceCurryAsset =
+    'assets/images/story/feeding/feeding_choice_curry.png';
 
 const openingStoryPageAssets = <String>[
   openingStoryPage1Asset,
   openingStoryPage2Asset,
   openingStoryPage3Asset,
+];
+
+const feedingStoryAssets = <String>[
+  feedingStoryPage1Asset,
+  feedingStoryPage2CurryAsset,
+  feedingStoryPage2VegetablesAsset,
+  feedingChoiceVegetablesAsset,
+  feedingChoiceCurryAsset,
 ];
 
 String yardBackgroundAsset({
@@ -53,4 +70,5 @@ const startupPreloadAssets = <String>[
   miniNanheFrustratedAsset,
   collectionAlbumAsset,
   ...openingStoryPageAssets,
+  ...feedingStoryAssets,
 ];

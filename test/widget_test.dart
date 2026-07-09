@@ -292,7 +292,10 @@ void main() {
     (tester) async {
       await _pumpLoadedApp(
         tester,
-        debugInitialState: const MiniNanheDebugState(minuteOfDay: 12 * 60),
+        debugInitialState: const MiniNanheDebugState(
+          minuteOfDay: 12 * 60,
+          feedEventTriggered: true,
+        ),
       );
 
       await tester.tap(find.byKey(const Key('feed-button')));
@@ -303,6 +306,85 @@ void main() {
       expect(find.textContaining('想再吃一点'), findsNothing);
     },
   );
+
+  testWidgets('first feeding asks the player to choose food', (tester) async {
+    await _pumpLoadedApp(
+      tester,
+      debugInitialState: const MiniNanheDebugState(minuteOfDay: 12 * 60),
+    );
+
+    await tester.tap(find.byKey(const Key('feed-button')));
+    await tester.pumpAndSettle();
+
+    expect(find.byKey(const Key('feeding-story-tap-area')), findsOneWidget);
+    expect(
+      find.byKey(const Key('feeding-story-vegetables-choice')),
+      findsNothing,
+    );
+
+    await tester.tap(find.byKey(const Key('feeding-story-tap-area')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('feeding-story-tap-area')));
+    await tester.pumpAndSettle();
+
+    expect(
+      find.byKey(const Key('feeding-story-vegetables-choice')),
+      findsOneWidget,
+    );
+    expect(find.byKey(const Key('feeding-story-curry-choice')), findsOneWidget);
+  });
+
+  testWidgets('first feeding vegetable choice is accepted but not loved', (
+    tester,
+  ) async {
+    await _pumpLoadedApp(
+      tester,
+      debugInitialState: const MiniNanheDebugState(minuteOfDay: 12 * 60),
+    );
+
+    await tester.tap(find.byKey(const Key('feed-button')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('feeding-story-tap-area')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('feeding-story-tap-area')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('feeding-story-vegetables-choice')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('feeding-story-tap-area')));
+    await tester.pumpAndSettle();
+
+    expect(find.byKey(const Key('vegetable-bowl')), findsOneWidget);
+    expect(find.textContaining('肚子饿'), findsOneWidget);
+    expect(find.textContaining('好吃'), findsNothing);
+
+    await tester.tap(find.byKey(const Key('reaction-bubble')));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const Key('vegetable-bowl')), findsNothing);
+    expect(find.byKey(const Key('feed-button')), findsOneWidget);
+  });
+
+  testWidgets('first feeding curry choice treats Nanhe as eating together', (
+    tester,
+  ) async {
+    await _pumpLoadedApp(
+      tester,
+      debugInitialState: const MiniNanheDebugState(minuteOfDay: 12 * 60),
+    );
+
+    await tester.tap(find.byKey(const Key('feed-button')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('feeding-story-tap-area')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('feeding-story-tap-area')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('feeding-story-curry-choice')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('feeding-story-tap-area')));
+    await tester.pumpAndSettle();
+
+    expect(find.byKey(const Key('curry-bowl')), findsOneWidget);
+    expect(find.textContaining('从来没吃过这么好吃的'), findsOneWidget);
+  });
 
   testWidgets('health can show sickness and fatigue together', (tester) async {
     await _pumpLoadedApp(

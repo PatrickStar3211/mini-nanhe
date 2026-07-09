@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'app_version.dart';
 import 'character_reaction.dart';
 import 'collection_screen.dart';
+import 'feeding_story_screen.dart';
 import 'game_audio_controller.dart';
 import 'game_assets.dart';
 import 'opening_story_screen.dart';
@@ -44,6 +45,9 @@ class MiniNanheDebugState {
     this.exhaustionCount,
     this.injury,
     this.cleanliness,
+    this.feedEventTriggered,
+    this.feedEventResolvedCorrectly,
+    this.sicknessEventResolvedCorrectly,
     this.doghouseUnlocked,
     this.luxuryUnlocked,
   });
@@ -59,6 +63,9 @@ class MiniNanheDebugState {
   final int? exhaustionCount;
   final int? injury;
   final int? cleanliness;
+  final bool? feedEventTriggered;
+  final bool? feedEventResolvedCorrectly;
+  final bool? sicknessEventResolvedCorrectly;
   final bool? doghouseUnlocked;
   final bool? luxuryUnlocked;
 }
@@ -103,6 +110,7 @@ class _HomeScreenState extends State<HomeScreen> {
   YardHomeTier _yardHomeTier = YardHomeTier.box;
   bool _hasBeenHit = false;
   bool _feedEventTriggered = false;
+  FeedingStoryChoice? _activeFeedingChoice;
   bool _firstHitEventTriggered = false;
   bool _daySevenSicknessTriggered = false;
   bool _doghouseUnlockPending = false;
@@ -150,6 +158,11 @@ class _HomeScreenState extends State<HomeScreen> {
     _exhaustionCount = debug.exhaustionCount ?? _exhaustionCount;
     _injury = debug.injury ?? _injury;
     _cleanliness = debug.cleanliness ?? _cleanliness;
+    _feedEventTriggered = debug.feedEventTriggered ?? _feedEventTriggered;
+    _feedEventResolvedCorrectly =
+        debug.feedEventResolvedCorrectly ?? _feedEventResolvedCorrectly;
+    _sicknessEventResolvedCorrectly =
+        debug.sicknessEventResolvedCorrectly ?? _sicknessEventResolvedCorrectly;
     _doghouseUnlocked = debug.doghouseUnlocked ?? _doghouseUnlocked;
     _luxuryUnlocked = debug.luxuryUnlocked ?? _luxuryUnlocked;
     if (_luxuryUnlocked) {
@@ -164,7 +177,6 @@ class _HomeScreenState extends State<HomeScreen> {
   bool get _isExhausted => _energy <= 0;
   bool get _isMidnight => _minuteOfDay >= _midnightMinute;
   bool get _isForcedSleep => _isExhausted || _isMidnight;
-  bool get _isActionLocked => _isForcedSleep || _sleepPending;
   bool get _canSleepByTime => _minuteOfDay >= _sleepAvailableMinute;
   bool get _isTired => _energy <= max(1, (_maxEnergy * 0.35).ceil());
   bool get _hasHighPressure => _pressure >= 70;
@@ -729,8 +741,27 @@ class _HomeScreenState extends State<HomeScreen> {
 
   void _feed() {
     if (!_feedEventTriggered) {
-      _feedEventTriggered = true;
-      // TODO: Insert the first feeding story event here.
+      setState(() {
+        _feedEventTriggered = true;
+        _reaction = null;
+      });
+      Navigator.of(context).push(
+        PageRouteBuilder<void>(
+          pageBuilder: (_, animation, secondaryAnimation) {
+            return FeedingStoryScreen(
+              onFinished: (storyContext, choice) {
+                Navigator.of(storyContext).pop();
+                _resolveFirstFeedingEvent(choice);
+              },
+            );
+          },
+          transitionDuration: const Duration(milliseconds: 450),
+          transitionsBuilder: (_, animation, secondaryAnimation, child) {
+            return FadeTransition(opacity: animation, child: child);
+          },
+        ),
+      );
+      return;
     }
     _applyAction(
       _contextualResponses(ReactionAction.feed),
@@ -741,6 +772,44 @@ class _HomeScreenState extends State<HomeScreen> {
       healthDelta: 1,
       gentlenessDelta: 1,
     );
+  }
+
+  void _resolveFirstFeedingEvent(FeedingStoryChoice choice) {
+    final isCorrectChoice = choice == FeedingStoryChoice.curry;
+    final reaction = isCorrectChoice
+        ? const CharacterReaction(
+            emotion: NanheEmotion.curious,
+            nanheSpeech: '南河……南河。',
+            meaning: '从来没吃过这么好吃的！',
+            voice: NanheVoice.curiousDouble,
+          )
+        : const CharacterReaction(
+            emotion: NanheEmotion.calm,
+            nanheSpeech: '南河……',
+            meaning: '肚子饿。先吃一点。',
+            voice: NanheVoice.calmSingle,
+          );
+
+    setState(() {
+      _activeFeedingChoice = choice;
+      _feedEventResolvedCorrectly = isCorrectChoice;
+      _changeAffection(isCorrectChoice ? 2 : 1);
+      _changeTrust(isCorrectChoice ? 2 : 0);
+      _pressure = _clampPercent(_pressure + (isCorrectChoice ? -2 : 2));
+      _healthValue = _clampPercent(_healthValue + (isCorrectChoice ? 2 : 0));
+      _gentleness = _clampPercent(_gentleness + 1);
+      _energy = (_energy - 1).clamp(0, _maxEnergy);
+      _advanceMinutes(_minutesPerInteraction);
+      _applyTimedEvents();
+      _queueProgressionUnlocks();
+      _reaction = reaction;
+      _isReacting = true;
+    });
+    widget.audioController.playVoice(reaction.voice);
+
+    Future<void>.delayed(const Duration(milliseconds: 170), () {
+      if (mounted) setState(() => _isReacting = false);
+    });
   }
 
   void _rest() {
@@ -846,7 +915,12 @@ class _HomeScreenState extends State<HomeScreen> {
       _completeSleepUntilTomorrow();
       return;
     }
-    setState(() => _reaction = null);
+    setState(() {
+      _reaction = null;
+      if (_activeFeedingChoice != null) {
+        _activeFeedingChoice = null;
+      }
+    });
   }
 
   void _setActionPage(int page) {
@@ -1065,8 +1139,9 @@ class _HomeScreenState extends State<HomeScreen> {
         isReacting: _isReacting,
         emotionLabel: _emotionLabel,
         characterAsset: _characterAsset,
-        isForcedSleep: _isActionLocked,
+        isForcedSleep: _isForcedSleep,
         isSleepPending: _sleepPending,
+        feedingChoice: _activeFeedingChoice,
         canSleep: _canSleepByTime,
         hasUnlockedAllDailyActions: _hasUnlockedAllDailyActions,
         hasUnlockedFeed: _hasUnlockedFeed,
@@ -1240,6 +1315,7 @@ class _CompanionPage extends StatelessWidget {
     required this.characterAsset,
     required this.isForcedSleep,
     required this.isSleepPending,
+    required this.feedingChoice,
     required this.canSleep,
     required this.hasUnlockedAllDailyActions,
     required this.hasUnlockedFeed,
@@ -1294,6 +1370,7 @@ class _CompanionPage extends StatelessWidget {
   final String characterAsset;
   final bool isForcedSleep;
   final bool isSleepPending;
+  final FeedingStoryChoice? feedingChoice;
   final bool canSleep;
   final bool hasUnlockedAllDailyActions;
   final bool hasUnlockedFeed;
@@ -1367,6 +1444,7 @@ class _CompanionPage extends StatelessWidget {
               maxEnergy: maxEnergy,
               pressure: pressure,
               cleanliness: cleanliness,
+              feedingChoice: feedingChoice,
               onTap: onCharacterTap,
               onReadDialogue: onReadDialogue,
               onPreviousBackground: onPreviousBackground,
@@ -1547,6 +1625,7 @@ class _CharacterStage extends StatelessWidget {
     required this.maxEnergy,
     required this.pressure,
     required this.cleanliness,
+    required this.feedingChoice,
     required this.onTap,
     required this.onReadDialogue,
     required this.onPreviousBackground,
@@ -1569,6 +1648,7 @@ class _CharacterStage extends StatelessWidget {
   final int maxEnergy;
   final int pressure;
   final int cleanliness;
+  final FeedingStoryChoice? feedingChoice;
   final VoidCallback onTap;
   final VoidCallback onReadDialogue;
   final VoidCallback onPreviousBackground;
@@ -1642,6 +1722,13 @@ class _CharacterStage extends StatelessWidget {
               },
             ),
           ),
+          if (feedingChoice != null)
+            Positioned(
+              left: 0,
+              right: 0,
+              bottom: 108,
+              child: Center(child: _FoodBowl(choice: feedingChoice!)),
+            ),
           Positioned(
             top: 12,
             left: 12,
@@ -1761,6 +1848,128 @@ class _BackgroundSwitchButton extends StatelessWidget {
           iconSize: 28,
           splashRadius: 24,
           onPressed: onPressed,
+        ),
+      ),
+    );
+  }
+}
+
+class _FoodBowl extends StatelessWidget {
+  const _FoodBowl({required this.choice});
+
+  final FeedingStoryChoice choice;
+
+  @override
+  Widget build(BuildContext context) {
+    final isCurry = choice == FeedingStoryChoice.curry;
+    return DecoratedBox(
+      key: Key(isCurry ? 'curry-bowl' : 'vegetable-bowl'),
+      decoration: BoxDecoration(
+        color: Colors.white.withValues(alpha: 0.86),
+        borderRadius: BorderRadius.circular(999),
+        border: Border.all(color: const Color(0xFFD7B76E), width: 1.5),
+        boxShadow: const [
+          BoxShadow(
+            color: Color(0x339B7B4B),
+            blurRadius: 14,
+            offset: Offset(0, 6),
+          ),
+        ],
+      ),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(
+              isCurry ? Icons.rice_bowl_rounded : Icons.eco_rounded,
+              color: isCurry
+                  ? const Color(0xFFB46B25)
+                  : const Color(0xFF4F8C45),
+              size: 22,
+            ),
+            const SizedBox(width: 6),
+            Text(
+              isCurry ? '咖喱饭' : '青菜',
+              style: const TextStyle(
+                color: ink,
+                fontWeight: FontWeight.w800,
+                fontSize: 13,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class FeedingChoicePanel extends StatelessWidget {
+  const FeedingChoicePanel({super.key, required this.onSelected});
+
+  final ValueChanged<FeedingStoryChoice> onSelected;
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      key: const Key('feeding-event-choice-panel'),
+      color: Colors.transparent,
+      child: Container(
+        padding: const EdgeInsets.fromLTRB(16, 14, 16, 16),
+        decoration: BoxDecoration(
+          color: const Color(0xEFFFFFFF),
+          borderRadius: BorderRadius.circular(22),
+          border: Border.all(color: const Color(0xFFD8E9FB)),
+          boxShadow: const [
+            BoxShadow(
+              color: Color(0x1A3155C6),
+              blurRadius: 16,
+              offset: Offset(0, 6),
+            ),
+          ],
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            const Text(
+              '迷你南河的肚子叫了一下。',
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                color: ink,
+                fontSize: 15,
+                fontWeight: FontWeight.w800,
+              ),
+            ),
+            const SizedBox(height: 4),
+            const Text(
+              '给他吃什么？',
+              textAlign: TextAlign.center,
+              style: TextStyle(color: mutedInk, fontWeight: FontWeight.w600),
+            ),
+            const SizedBox(height: 12),
+            Row(
+              children: [
+                Expanded(
+                  child: OutlinedButton.icon(
+                    key: const Key('feed-vegetables-choice'),
+                    onPressed: () => onSelected(FeedingStoryChoice.vegetables),
+                    icon: const Icon(Icons.eco_rounded),
+                    label: const Text('随便给点青菜'),
+                  ),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: FilledButton.icon(
+                    key: const Key('feed-curry-choice'),
+                    onPressed: () => onSelected(FeedingStoryChoice.curry),
+                    icon: const Icon(Icons.rice_bowl_rounded),
+                    label: const Text('吃一样的咖喱饭'),
+                  ),
+                ),
+              ],
+            ),
+          ],
         ),
       ),
     );
@@ -2098,6 +2307,7 @@ class _ReactionBubble extends StatelessWidget {
         key: ValueKey(reaction),
         color: Colors.transparent,
         child: InkWell(
+          key: const Key('reaction-bubble'),
           borderRadius: BorderRadius.circular(22),
           onTap: onTap,
           child: Container(
