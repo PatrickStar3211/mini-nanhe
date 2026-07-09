@@ -113,7 +113,6 @@ class _HomeScreenState extends State<HomeScreen> {
   bool _hasBeenHit = false;
   bool _feedEventTriggered = false;
   bool _feedEventCompleted = false;
-  FeedingStoryChoice? _activeFeedingChoice;
   bool _firstHitEventTriggered = false;
   bool _daySevenSicknessTriggered = false;
   bool _doghouseUnlockPending = false;
@@ -807,7 +806,6 @@ class _HomeScreenState extends State<HomeScreen> {
           );
 
     setState(() {
-      _activeFeedingChoice = choice;
       _feedEventCompleted = true;
       _feedEventResolvedCorrectly = isCorrectChoice;
       _changeAffection(isCorrectChoice ? 2 : 1);
@@ -934,9 +932,6 @@ class _HomeScreenState extends State<HomeScreen> {
     }
     setState(() {
       _reaction = null;
-      if (_activeFeedingChoice != null) {
-        _activeFeedingChoice = null;
-      }
     });
   }
 
@@ -1179,7 +1174,6 @@ class _HomeScreenState extends State<HomeScreen> {
         characterAsset: _characterAsset,
         isForcedSleep: _isForcedSleep,
         isSleepPending: _sleepPending,
-        feedingChoice: _activeFeedingChoice,
         canSleep: _canSleepByTime,
         hasUnlockedAllDailyActions: _hasUnlockedAllDailyActions,
         hasUnlockedFeed: _hasUnlockedFeed,
@@ -1353,7 +1347,6 @@ class _CompanionPage extends StatelessWidget {
     required this.characterAsset,
     required this.isForcedSleep,
     required this.isSleepPending,
-    required this.feedingChoice,
     required this.canSleep,
     required this.hasUnlockedAllDailyActions,
     required this.hasUnlockedFeed,
@@ -1408,7 +1401,6 @@ class _CompanionPage extends StatelessWidget {
   final String characterAsset;
   final bool isForcedSleep;
   final bool isSleepPending;
-  final FeedingStoryChoice? feedingChoice;
   final bool canSleep;
   final bool hasUnlockedAllDailyActions;
   final bool hasUnlockedFeed;
@@ -1482,7 +1474,6 @@ class _CompanionPage extends StatelessWidget {
               maxEnergy: maxEnergy,
               pressure: pressure,
               cleanliness: cleanliness,
-              feedingChoice: feedingChoice,
               onTap: onCharacterTap,
               onReadDialogue: onReadDialogue,
               onPreviousBackground: onPreviousBackground,
@@ -1663,7 +1654,6 @@ class _CharacterStage extends StatelessWidget {
     required this.maxEnergy,
     required this.pressure,
     required this.cleanliness,
-    required this.feedingChoice,
     required this.onTap,
     required this.onReadDialogue,
     required this.onPreviousBackground,
@@ -1686,7 +1676,6 @@ class _CharacterStage extends StatelessWidget {
   final int maxEnergy;
   final int pressure;
   final int cleanliness;
-  final FeedingStoryChoice? feedingChoice;
   final VoidCallback onTap;
   final VoidCallback onReadDialogue;
   final VoidCallback onPreviousBackground;
@@ -1760,13 +1749,6 @@ class _CharacterStage extends StatelessWidget {
               },
             ),
           ),
-          if (feedingChoice != null)
-            Positioned(
-              left: 0,
-              right: 0,
-              bottom: 108,
-              child: Center(child: _FoodBowl(choice: feedingChoice!)),
-            ),
           Positioned(
             top: 12,
             left: 12,
@@ -1892,8 +1874,8 @@ class _BackgroundSwitchButton extends StatelessWidget {
   }
 }
 
-class _FoodBowl extends StatelessWidget {
-  const _FoodBowl({required this.choice});
+class FoodBowl extends StatelessWidget {
+  const FoodBowl({super.key, required this.choice});
 
   final FeedingStoryChoice choice;
 

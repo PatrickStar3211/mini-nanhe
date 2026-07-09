@@ -353,13 +353,11 @@ void main() {
     await tester.tap(find.byKey(const Key('feeding-story-tap-area')));
     await tester.pumpAndSettle();
 
-    expect(find.byKey(const Key('vegetable-bowl')), findsOneWidget);
     expect(find.textContaining('肚子饿'), findsOneWidget);
     expect(find.textContaining('好吃'), findsNothing);
 
     await tester.tap(find.byKey(const Key('reaction-bubble')));
     await tester.pumpAndSettle();
-    expect(find.byKey(const Key('vegetable-bowl')), findsNothing);
     expect(find.byKey(const Key('feed-button')), findsOneWidget);
   });
 
@@ -382,7 +380,6 @@ void main() {
     await tester.tap(find.byKey(const Key('feeding-story-tap-area')));
     await tester.pumpAndSettle();
 
-    expect(find.byKey(const Key('curry-bowl')), findsOneWidget);
     expect(find.textContaining('从来没吃过这么好吃的'), findsOneWidget);
   });
 

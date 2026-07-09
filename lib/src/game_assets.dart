@@ -23,15 +23,18 @@ const openingStoryPage2Asset =
     'assets/images/story/opening/opening_page_2.webp';
 const openingStoryPage3Asset =
     'assets/images/story/opening/opening_page_3.webp';
-const feedingStoryPage1Asset = 'assets/images/story/feeding/feeding_page_1.png';
+const feedingStoryPage1Asset =
+    'assets/images/story/feeding/feeding_page_1.webp';
 const feedingStoryPage2CurryAsset =
-    'assets/images/story/feeding/feeding_page_2.png';
+    'assets/images/story/feeding/feeding_page_2.webp';
 const feedingStoryPage2VegetablesAsset =
-    'assets/images/story/feeding/feeding_page_2_vegetables.png';
+    'assets/images/story/feeding/feeding_page_2_vegetables.webp';
 const feedingChoiceVegetablesAsset =
-    'assets/images/story/feeding/feeding_choice_vegetables.png';
+    'assets/images/story/feeding/feeding_choice_vegetables.webp';
 const feedingChoiceCurryAsset =
-    'assets/images/story/feeding/feeding_choice_curry.png';
+    'assets/images/story/feeding/feeding_choice_curry.webp';
+const curryFavoriteAchievementAsset =
+    'assets/images/collection/achievement_curry_favorite.webp';
 
 const openingStoryPageAssets = <String>[
   openingStoryPage1Asset,
@@ -45,6 +48,7 @@ const feedingStoryAssets = <String>[
   feedingStoryPage2VegetablesAsset,
   feedingChoiceVegetablesAsset,
   feedingChoiceCurryAsset,
+  curryFavoriteAchievementAsset,
 ];
 
 String yardBackgroundAsset({

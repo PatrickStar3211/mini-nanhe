@@ -154,14 +154,18 @@ class _ChoiceOverlay extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Align(
-      alignment: const Alignment(0.16, -0.49),
-      child: FractionallySizedBox(
-        widthFactor: 0.58,
-        heightFactor: 0.18,
-        child: Row(
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final scaleX = constraints.maxWidth / 941;
+        final scaleY = constraints.maxHeight / 1672;
+
+        return Stack(
           children: [
-            Expanded(
+            Positioned(
+              left: 250 * scaleX,
+              top: 280 * scaleY,
+              width: 225 * scaleX,
+              height: 290 * scaleY,
               child: _ChoiceImageButton(
                 key: const Key('feeding-story-vegetables-choice'),
                 asset: feedingChoiceVegetablesAsset,
@@ -169,8 +173,11 @@ class _ChoiceOverlay extends StatelessWidget {
                 onTap: () => onChoiceSelected(FeedingStoryChoice.vegetables),
               ),
             ),
-            const SizedBox(width: 28),
-            Expanded(
+            Positioned(
+              left: 555 * scaleX,
+              top: 280 * scaleY,
+              width: 230 * scaleX,
+              height: 290 * scaleY,
               child: _ChoiceImageButton(
                 key: const Key('feeding-story-curry-choice'),
                 asset: feedingChoiceCurryAsset,
@@ -179,8 +186,8 @@ class _ChoiceOverlay extends StatelessWidget {
               ),
             ),
           ],
-        ),
-      ),
+        );
+      },
     );
   }
 }
@@ -207,20 +214,7 @@ class _ChoiceImageButton extends StatelessWidget {
         child: InkWell(
           borderRadius: BorderRadius.circular(12),
           onTap: onTap,
-          child: AnimatedContainer(
-            duration: const Duration(milliseconds: 120),
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(12),
-              boxShadow: const [
-                BoxShadow(
-                  color: Color(0x66000000),
-                  blurRadius: 10,
-                  offset: Offset(0, 4),
-                ),
-              ],
-            ),
-            child: Image.asset(asset, fit: BoxFit.contain),
-          ),
+          child: Image.asset(asset, fit: BoxFit.fill),
         ),
       ),
     );

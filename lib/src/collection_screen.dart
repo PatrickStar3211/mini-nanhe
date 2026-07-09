@@ -590,16 +590,12 @@ class _CardImage extends StatelessWidget {
             colorBlendMode: locked ? BlendMode.srcATop : null,
           )
         else
-          data.id == 'curry-favorite'
-              ? _CurryAchievementIcon(locked: locked)
-              : DecoratedBox(
-                  decoration: BoxDecoration(
-                    color: locked
-                        ? const Color(0xFFE6E1D8)
-                        : const Color(0xFFEAF2FF),
-                  ),
-                  child: Icon(data.icon, color: data.accent, size: 30),
-                ),
+          DecoratedBox(
+            decoration: BoxDecoration(
+              color: locked ? const Color(0xFFE6E1D8) : const Color(0xFFEAF2FF),
+            ),
+            child: Icon(data.icon, color: data.accent, size: 30),
+          ),
         if (locked)
           const DecoratedBox(
             decoration: BoxDecoration(color: Color(0x88EFEAE0)),
@@ -662,8 +658,8 @@ class _CardText extends StatelessWidget {
   }
 }
 
-class _CurryAchievementIcon extends StatelessWidget {
-  const _CurryAchievementIcon({required this.locked});
+class CurryAchievementIcon extends StatelessWidget {
+  const CurryAchievementIcon({super.key, required this.locked});
 
   final bool locked;
 
@@ -947,6 +943,7 @@ const _achievementEntries = <_CollectionCardData>[
     unlocked: true,
     icon: Icons.water_drop_rounded,
     accent: deepBlue,
+    imageAsset: miniNanheCalmAsset,
   ),
   _CollectionCardData(
     id: 'curry-favorite',
@@ -955,6 +952,7 @@ const _achievementEntries = <_CollectionCardData>[
     unlocked: false,
     icon: Icons.rice_bowl_rounded,
     accent: Color(0xFFE978A2),
+    imageAsset: curryFavoriteAchievementAsset,
   ),
   _CollectionCardData(
     id: 'first-morning',
