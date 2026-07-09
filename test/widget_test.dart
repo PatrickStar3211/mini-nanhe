@@ -475,6 +475,55 @@ void main() {
     expect(find.byKey(const Key('collection-page-next')), findsOneWidget);
   });
 
+  testWidgets('collection records first feeding memory and curry achievement', (
+    tester,
+  ) async {
+    await _pumpLoadedApp(
+      tester,
+      debugInitialState: const MiniNanheDebugState(
+        feedEventTriggered: true,
+        feedEventCompleted: true,
+        feedEventResolvedCorrectly: true,
+      ),
+    );
+
+    await tester.tap(find.text('收藏'));
+    await tester.pumpAndSettle();
+
+    expect(
+      find.byKey(const Key('collection-card-first-feeding-memory')),
+      findsOneWidget,
+    );
+    await tester.tap(
+      find.byKey(const Key('collection-card-first-feeding-memory')),
+    );
+    await tester.pumpAndSettle();
+    expect(find.byKey(const Key('feeding-story-tap-area')), findsOneWidget);
+    await tester.tap(find.byKey(const Key('feeding-story-tap-area')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('feeding-story-tap-area')));
+    await tester.pumpAndSettle();
+    expect(
+      find.byKey(const Key('feeding-story-vegetables-choice')),
+      findsOneWidget,
+    );
+    expect(find.byKey(const Key('feeding-story-curry-choice')), findsOneWidget);
+    await tester.tap(find.byKey(const Key('feeding-story-curry-choice')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('feeding-story-tap-area')));
+    await tester.pumpAndSettle();
+
+    expect(find.byKey(const Key('collection-page')), findsOneWidget);
+
+    await tester.tap(find.byKey(const Key('collection-tab-成就')));
+    await tester.pumpAndSettle();
+    expect(
+      find.byKey(const Key('collection-card-curry-favorite')),
+      findsOneWidget,
+    );
+    expect(find.text('最愛吃咖喱飯！'), findsOneWidget);
+  });
+
   testWidgets('collection page fits compact mobile dimensions', (tester) async {
     _mockOpeningStorySeen();
     tester.view.physicalSize = const Size(390, 844);
@@ -588,7 +637,7 @@ void main() {
       200,
       scrollable: find.byType(Scrollable).first,
     );
-    expect(find.text('版本 0.2.9'), findsOneWidget);
+    expect(find.text('版本 0.2.10'), findsOneWidget);
   });
 
   testWidgets('settings debug tools jump time and tune relationship values', (

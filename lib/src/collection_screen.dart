@@ -10,13 +10,19 @@ enum CollectionCategory { memory, achievement, decoration }
 class CollectionScreen extends StatefulWidget {
   const CollectionScreen({
     super.key,
+    required this.unlockedMemoryIds,
+    required this.unlockedAchievementIds,
     required this.unlockedDecorationIds,
     required this.onReplayOpeningStory,
+    required this.onReplayFeedingStory,
     required this.onPageTurn,
   });
 
+  final Set<String> unlockedMemoryIds;
+  final Set<String> unlockedAchievementIds;
   final Set<String> unlockedDecorationIds;
   final VoidCallback onReplayOpeningStory;
+  final VoidCallback onReplayFeedingStory;
   final VoidCallback onPageTurn;
 
   @override
@@ -80,6 +86,8 @@ class _CollectionScreenState extends State<CollectionScreen> {
               ),
               _AlbumOverlay(
                 category: _category,
+                unlockedMemoryIds: widget.unlockedMemoryIds,
+                unlockedAchievementIds: widget.unlockedAchievementIds,
                 unlockedDecorationIds: widget.unlockedDecorationIds,
                 pageIndex: _pageIndex,
                 pageCount: _pageCount,
@@ -88,6 +96,7 @@ class _CollectionScreenState extends State<CollectionScreen> {
                 onPreviousPage: () => _turnPage(-1),
                 onNextPage: () => _turnPage(1),
                 onReplayOpeningStory: widget.onReplayOpeningStory,
+                onReplayFeedingStory: widget.onReplayFeedingStory,
               ),
             ],
           );
@@ -100,6 +109,8 @@ class _CollectionScreenState extends State<CollectionScreen> {
 class _AlbumOverlay extends StatelessWidget {
   const _AlbumOverlay({
     required this.category,
+    required this.unlockedMemoryIds,
+    required this.unlockedAchievementIds,
     required this.unlockedDecorationIds,
     required this.pageIndex,
     required this.pageCount,
@@ -108,9 +119,12 @@ class _AlbumOverlay extends StatelessWidget {
     required this.onPreviousPage,
     required this.onNextPage,
     required this.onReplayOpeningStory,
+    required this.onReplayFeedingStory,
   });
 
   final CollectionCategory category;
+  final Set<String> unlockedMemoryIds;
+  final Set<String> unlockedAchievementIds;
   final Set<String> unlockedDecorationIds;
   final int pageIndex;
   final int pageCount;
@@ -119,6 +133,7 @@ class _AlbumOverlay extends StatelessWidget {
   final VoidCallback onPreviousPage;
   final VoidCallback onNextPage;
   final VoidCallback onReplayOpeningStory;
+  final VoidCallback onReplayFeedingStory;
 
   @override
   Widget build(BuildContext context) {
@@ -151,6 +166,7 @@ class _AlbumOverlay extends StatelessWidget {
                 pageCount: pageCount,
                 cards: cards,
                 onReplayOpeningStory: onReplayOpeningStory,
+                onReplayFeedingStory: onReplayFeedingStory,
               ),
             ),
             Positioned(
@@ -179,8 +195,29 @@ class _AlbumOverlay extends StatelessWidget {
         );
       }).toList(),
     };
+    final resolvedCards = switch (category) {
+      CollectionCategory.memory =>
+        allCards
+            .map(
+              (entry) => entry.copyWith(
+                unlocked:
+                    entry.unlocked || unlockedMemoryIds.contains(entry.id),
+              ),
+            )
+            .toList(),
+      CollectionCategory.achievement =>
+        allCards
+            .map(
+              (entry) => entry.copyWith(
+                unlocked:
+                    entry.unlocked || unlockedAchievementIds.contains(entry.id),
+              ),
+            )
+            .toList(),
+      CollectionCategory.decoration => allCards,
+    };
     final start = pageIndex * itemsPerPage;
-    return allCards.skip(start).take(itemsPerPage).toList();
+    return resolvedCards.skip(start).take(itemsPerPage).toList();
   }
 }
 
@@ -350,6 +387,7 @@ class _AlbumContent extends StatelessWidget {
     required this.pageCount,
     required this.cards,
     required this.onReplayOpeningStory,
+    required this.onReplayFeedingStory,
   });
 
   final CollectionCategory category;
@@ -357,6 +395,7 @@ class _AlbumContent extends StatelessWidget {
   final int pageCount;
   final List<_CollectionCardData> cards;
   final VoidCallback onReplayOpeningStory;
+  final VoidCallback onReplayFeedingStory;
 
   @override
   Widget build(BuildContext context) {
@@ -426,9 +465,11 @@ class _AlbumContent extends StatelessWidget {
                     return _CollectionCard(
                       data: card,
                       compact: isAchievement,
-                      onTap: card.id == 'opening-memory'
-                          ? onReplayOpeningStory
-                          : null,
+                      onTap: switch (card.id) {
+                        'opening-memory' => onReplayOpeningStory,
+                        'first-feeding-memory' => onReplayFeedingStory,
+                        _ => null,
+                      },
                     );
                   },
                 ),
@@ -549,12 +590,16 @@ class _CardImage extends StatelessWidget {
             colorBlendMode: locked ? BlendMode.srcATop : null,
           )
         else
-          DecoratedBox(
-            decoration: BoxDecoration(
-              color: locked ? const Color(0xFFE6E1D8) : const Color(0xFFEAF2FF),
-            ),
-            child: Icon(data.icon, color: data.accent, size: 30),
-          ),
+          data.id == 'curry-favorite'
+              ? _CurryAchievementIcon(locked: locked)
+              : DecoratedBox(
+                  decoration: BoxDecoration(
+                    color: locked
+                        ? const Color(0xFFE6E1D8)
+                        : const Color(0xFFEAF2FF),
+                  ),
+                  child: Icon(data.icon, color: data.accent, size: 30),
+                ),
         if (locked)
           const DecoratedBox(
             decoration: BoxDecoration(color: Color(0x88EFEAE0)),
@@ -609,6 +654,48 @@ class _CardText extends StatelessWidget {
               fontSize: 11,
               height: 1.22,
               fontWeight: FontWeight.w700,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _CurryAchievementIcon extends StatelessWidget {
+  const _CurryAchievementIcon({required this.locked});
+
+  final bool locked;
+
+  @override
+  Widget build(BuildContext context) {
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: locked ? const Color(0xFFE6E1D8) : const Color(0xFFFFF4D9),
+      ),
+      child: Stack(
+        fit: StackFit.expand,
+        children: [
+          Align(
+            alignment: const Alignment(-0.28, 0.16),
+            child: FractionallySizedBox(
+              widthFactor: 0.58,
+              heightFactor: 0.72,
+              child: Image.asset(miniNanheCalmAsset, fit: BoxFit.contain),
+            ),
+          ),
+          const Positioned(
+            right: 16,
+            top: 16,
+            child: Icon(Icons.favorite_rounded, color: Color(0xFFE978A2)),
+          ),
+          const Positioned(
+            right: 14,
+            bottom: 12,
+            child: Icon(
+              Icons.rice_bowl_rounded,
+              color: Color(0xFFB46B25),
+              size: 32,
             ),
           ),
         ],
@@ -834,6 +921,15 @@ const _memoryEntries = <_CollectionCardData>[
     imageAsset: openingStoryPage1Asset,
   ),
   _CollectionCardData(
+    id: 'first-feeding-memory',
+    title: '第一次餵食',
+    description: '迷你南河的肚子叫了起来。',
+    unlocked: false,
+    icon: Icons.rice_bowl_rounded,
+    accent: gold,
+    imageAsset: feedingStoryPage1Asset,
+  ),
+  _CollectionCardData(
     id: 'future-memory-1',
     title: '未开放',
     description: '后续迷你期剧情会记录在这里。',
@@ -851,6 +947,14 @@ const _achievementEntries = <_CollectionCardData>[
     unlocked: true,
     icon: Icons.water_drop_rounded,
     accent: deepBlue,
+  ),
+  _CollectionCardData(
+    id: 'curry-favorite',
+    title: '最愛吃咖喱飯！',
+    description: '第一次餵食時，選擇和自己一樣的咖喱飯。',
+    unlocked: false,
+    icon: Icons.rice_bowl_rounded,
+    accent: Color(0xFFE978A2),
   ),
   _CollectionCardData(
     id: 'first-morning',

@@ -46,6 +46,7 @@ class MiniNanheDebugState {
     this.injury,
     this.cleanliness,
     this.feedEventTriggered,
+    this.feedEventCompleted,
     this.feedEventResolvedCorrectly,
     this.sicknessEventResolvedCorrectly,
     this.doghouseUnlocked,
@@ -64,6 +65,7 @@ class MiniNanheDebugState {
   final int? injury;
   final int? cleanliness;
   final bool? feedEventTriggered;
+  final bool? feedEventCompleted;
   final bool? feedEventResolvedCorrectly;
   final bool? sicknessEventResolvedCorrectly;
   final bool? doghouseUnlocked;
@@ -110,6 +112,7 @@ class _HomeScreenState extends State<HomeScreen> {
   YardHomeTier _yardHomeTier = YardHomeTier.box;
   bool _hasBeenHit = false;
   bool _feedEventTriggered = false;
+  bool _feedEventCompleted = false;
   FeedingStoryChoice? _activeFeedingChoice;
   bool _firstHitEventTriggered = false;
   bool _daySevenSicknessTriggered = false;
@@ -159,8 +162,13 @@ class _HomeScreenState extends State<HomeScreen> {
     _injury = debug.injury ?? _injury;
     _cleanliness = debug.cleanliness ?? _cleanliness;
     _feedEventTriggered = debug.feedEventTriggered ?? _feedEventTriggered;
+    _feedEventCompleted = debug.feedEventCompleted ?? _feedEventCompleted;
     _feedEventResolvedCorrectly =
         debug.feedEventResolvedCorrectly ?? _feedEventResolvedCorrectly;
+    if (_feedEventResolvedCorrectly) {
+      _feedEventCompleted = true;
+      _feedEventTriggered = true;
+    }
     _sicknessEventResolvedCorrectly =
         debug.sicknessEventResolvedCorrectly ?? _sicknessEventResolvedCorrectly;
     _doghouseUnlocked = debug.doghouseUnlocked ?? _doghouseUnlocked;
@@ -221,6 +229,14 @@ class _HomeScreenState extends State<HomeScreen> {
     'yard-box',
     if (_doghouseUnlocked) 'yard-doghouse',
     if (_luxuryUnlocked) 'yard-luxury',
+  };
+  Set<String> get _unlockedMemoryIds => {
+    'opening-memory',
+    if (_feedEventCompleted) 'first-feeding-memory',
+  };
+  Set<String> get _unlockedAchievementIds => {
+    'rainy-day',
+    if (_feedEventResolvedCorrectly) 'curry-favorite',
   };
   int get _maxEnergy {
     final enduranceBonus =
@@ -792,6 +808,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
     setState(() {
       _activeFeedingChoice = choice;
+      _feedEventCompleted = true;
       _feedEventResolvedCorrectly = isCorrectChoice;
       _changeAffection(isCorrectChoice ? 2 : 1);
       _changeTrust(isCorrectChoice ? 2 : 0);
@@ -950,6 +967,24 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
+  void _replayFeedingStory() {
+    widget.audioController.playPageTurn();
+    Navigator.of(context).push(
+      PageRouteBuilder<void>(
+        pageBuilder: (_, animation, secondaryAnimation) {
+          return FeedingStoryScreen(
+            onFinished: (storyContext, choice) =>
+                Navigator.of(storyContext).pop(),
+          );
+        },
+        transitionDuration: const Duration(milliseconds: 450),
+        transitionsBuilder: (_, animation, secondaryAnimation, child) {
+          return FadeTransition(opacity: animation, child: child);
+        },
+      ),
+    );
+  }
+
   void _setMusicVolume(double value) {
     setState(() {
       _musicVolume = value;
@@ -1096,8 +1131,11 @@ class _HomeScreenState extends State<HomeScreen> {
         pageKey: Key('battle-page'),
       ),
       4 => CollectionScreen(
+        unlockedMemoryIds: _unlockedMemoryIds,
+        unlockedAchievementIds: _unlockedAchievementIds,
         unlockedDecorationIds: _unlockedDecorationIds,
         onReplayOpeningStory: _replayOpeningStory,
+        onReplayFeedingStory: _replayFeedingStory,
         onPageTurn: widget.audioController.playPageTurn,
       ),
       5 => _SettingsPage(
