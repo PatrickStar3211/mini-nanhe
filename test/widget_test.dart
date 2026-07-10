@@ -280,7 +280,7 @@ void main() {
   ) async {
     await _pumpLoadedApp(
       tester,
-      debugInitialState: const MiniNanheDebugState(totalDaysTogether: 3),
+      debugInitialState: const MiniNanheDebugState(totalDaysTogether: 61),
     );
 
     expect(find.byKey(const Key('feed-button')), findsOneWidget);
@@ -709,7 +709,7 @@ void main() {
   ) async {
     await _pumpLoadedApp(
       tester,
-      debugInitialState: const MiniNanheDebugState(totalDaysTogether: 3),
+      debugInitialState: const MiniNanheDebugState(totalDaysTogether: 61),
     );
 
     await tester.tap(find.byKey(const Key('hit-button')));
@@ -724,7 +724,7 @@ void main() {
   testWidgets('hit lowers affection by five after gains', (tester) async {
     await _pumpLoadedApp(
       tester,
-      debugInitialState: const MiniNanheDebugState(totalDaysTogether: 3),
+      debugInitialState: const MiniNanheDebugState(totalDaysTogether: 61),
     );
 
     for (var i = 0; i < 2; i += 1) {
@@ -741,12 +741,47 @@ void main() {
     expect(find.text('1/100'), findsOneWidget);
   });
 
+  testWidgets('first early hit asks for confirmation and plays story', (
+    tester,
+  ) async {
+    await _pumpLoadedApp(
+      tester,
+      debugInitialState: const MiniNanheDebugState(
+        totalDaysTogether: 3,
+        affectionProgress: 12,
+        trustProgress: 12,
+      ),
+    );
+
+    await tester.tap(find.byKey(const Key('hit-button')));
+    await tester.pumpAndSettle();
+
+    expect(find.byKey(const Key('first-hit-confirm-button')), findsOneWidget);
+
+    await tester.tap(find.byKey(const Key('first-hit-confirm-button')));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const Key('abuse-story-tap-area')), findsOneWidget);
+
+    for (var i = 0; i < 3; i += 1) {
+      await tester.tap(find.byKey(const Key('abuse-story-tap-area')));
+      await tester.pumpAndSettle();
+    }
+
+    expect(find.byKey(const Key('abuse-story-tap-area')), findsNothing);
+    expect(find.text('24/25'), findsOneWidget);
+    expect(find.text('0/100'), findsWidgets);
+
+    await tester.tap(find.byKey(const Key('pet-button')));
+    await tester.pump(const Duration(milliseconds: 200));
+    expect(find.text('0/100'), findsWidgets);
+  });
+
   testWidgets('injured chat prioritizes hurt reactions over pressure', (
     tester,
   ) async {
     await _pumpLoadedApp(
       tester,
-      debugInitialState: const MiniNanheDebugState(totalDaysTogether: 3),
+      debugInitialState: const MiniNanheDebugState(totalDaysTogether: 61),
     );
 
     for (var i = 0; i < 2; i += 1) {
@@ -767,7 +802,7 @@ void main() {
     await _pumpLoadedApp(
       tester,
       debugInitialState: const MiniNanheDebugState(
-        totalDaysTogether: 3,
+        totalDaysTogether: 61,
         affectionLevel: 2,
         affectionProgress: 50,
       ),

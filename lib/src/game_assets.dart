@@ -16,6 +16,7 @@ const miniNanheSadAsset = 'assets/images/nanhe_emotions/mini_nanhe_sad.png';
 const miniNanheAngryAsset = 'assets/images/nanhe_emotions/mini_nanhe_angry.png';
 const miniNanheFrustratedAsset =
     'assets/images/nanhe_emotions/mini_nanhe_frustrated.png';
+const miniNanheDeadAsset = 'assets/images/nanhe_emotions/mini_nanhe_dead.png';
 const collectionAlbumAsset = 'assets/images/collection/collection_album.webp';
 const openingStoryPage1Asset =
     'assets/images/story/opening/opening_page_1.webp';
@@ -35,6 +36,9 @@ const feedingChoiceCurryAsset =
     'assets/images/story/feeding/feeding_choice_curry.webp';
 const curryFavoriteAchievementAsset =
     'assets/images/collection/achievement_curry_favorite.webp';
+const abuseStoryPage1Asset = 'assets/images/story/abuse/abuse_page_1.png';
+const roadsideOneAchievementAsset =
+    'assets/images/collection/achievement_roadside_one.png';
 
 const openingStoryPageAssets = <String>[
   openingStoryPage1Asset,
@@ -49,6 +53,11 @@ const feedingStoryAssets = <String>[
   feedingChoiceVegetablesAsset,
   feedingChoiceCurryAsset,
   curryFavoriteAchievementAsset,
+];
+
+const abuseStoryAssets = <String>[
+  abuseStoryPage1Asset,
+  roadsideOneAchievementAsset,
 ];
 
 String yardBackgroundAsset({
@@ -72,7 +81,9 @@ const startupPreloadAssets = <String>[
   miniNanheSadAsset,
   miniNanheAngryAsset,
   miniNanheFrustratedAsset,
+  miniNanheDeadAsset,
   collectionAlbumAsset,
   ...openingStoryPageAssets,
   ...feedingStoryAssets,
+  ...abuseStoryAssets,
 ];

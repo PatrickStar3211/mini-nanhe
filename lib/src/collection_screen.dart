@@ -955,6 +955,15 @@ const _achievementEntries = <_CollectionCardData>[
     imageAsset: curryFavoriteAchievementAsset,
   ),
   _CollectionCardData(
+    id: 'roadside-one',
+    title: '路邊一條',
+    description: '毆打迷你南河的次數達到了無法挽回的程度。',
+    unlocked: false,
+    icon: Icons.warning_amber_rounded,
+    accent: Color(0xFF5C667A),
+    imageAsset: roadsideOneAchievementAsset,
+  ),
+  _CollectionCardData(
     id: 'first-morning',
     title: '第一个早晨',
     description: '迎来和南河一起生活的第二天。',

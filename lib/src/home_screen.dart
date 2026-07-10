@@ -2,6 +2,7 @@ import 'dart:math';
 
 import 'package:flutter/material.dart';
 
+import 'abuse_story_screen.dart';
 import 'app_version.dart';
 import 'character_reaction.dart';
 import 'collection_screen.dart';
@@ -19,6 +20,7 @@ const _affectionGainPerInteraction = 3;
 const _affectionGainPerQuietInteraction = 1;
 const _affectionLossPerHit = 5;
 const _trustLossPerHit = 10;
+const _deathHitThreshold = 50;
 const _minutesPerInteraction = 30;
 const _sleepAvailableMinute = 22 * 60;
 const _midnightMinute = 24 * 60;
@@ -111,6 +113,11 @@ class _HomeScreenState extends State<HomeScreen> {
   bool _sleepPending = false;
   YardHomeTier _yardHomeTier = YardHomeTier.box;
   bool _hasBeenHit = false;
+  int _hitCount = 0;
+  bool _bondLockedByPreEvolutionHit = false;
+  bool _deathPending = false;
+  bool _deathEndingReached = false;
+  bool _sickEvolutionEndingReached = false;
   bool _feedEventTriggered = false;
   bool _feedEventCompleted = false;
   bool _firstHitEventTriggered = false;
@@ -124,6 +131,9 @@ class _HomeScreenState extends State<HomeScreen> {
   bool _feedEventResolvedCorrectly = false;
   // ignore: prefer_final_fields
   bool _sicknessEventResolvedCorrectly = false;
+  final Set<String> _permanentMemoryIds = {'opening-memory'};
+  final Set<String> _permanentAchievementIds = {'rainy-day'};
+  final Set<String> _permanentDecorationIds = {'yard-box'};
   int _strength = 1;
   int _intelligence = 1;
   int _charm = 1;
@@ -216,7 +226,15 @@ class _HomeScreenState extends State<HomeScreen> {
       _sicknessEventResolvedCorrectly &&
       _totalDaysTogether > 25;
   bool get _canShowEvolutionButton =>
-      _luxuryUnlocked && _totalDaysTogether > 60;
+      _totalDaysTogether > 60 && (_luxuryUnlocked || _hasSickEvolutionRoute);
+  bool get _isPreEvolutionPeriod => _totalDaysTogether <= 60;
+  bool get _isBondLocked =>
+      _bondLockedByPreEvolutionHit && _isPreEvolutionPeriod;
+  bool get _hasSickEvolutionRoute =>
+      _bondLockedByPreEvolutionHit ||
+      (_feedEventCompleted && !_feedEventResolvedCorrectly);
+  bool get _isEndingReached =>
+      _deathEndingReached || _sickEvolutionEndingReached;
   bool get _isDaySevenRain =>
       _totalDaysTogether == 7 && _minuteOfDay >= _earliestWakeMinute;
   List<YardHomeTier> get _unlockedYardHomes => [
@@ -225,17 +243,22 @@ class _HomeScreenState extends State<HomeScreen> {
     if (_luxuryUnlocked) YardHomeTier.luxury,
   ];
   Set<String> get _unlockedDecorationIds => {
+    ..._permanentDecorationIds,
     'yard-box',
     if (_doghouseUnlocked) 'yard-doghouse',
     if (_luxuryUnlocked) 'yard-luxury',
   };
   Set<String> get _unlockedMemoryIds => {
+    ..._permanentMemoryIds,
     'opening-memory',
     if (_feedEventCompleted) 'first-feeding-memory',
   };
   Set<String> get _unlockedAchievementIds => {
+    ..._permanentAchievementIds,
     'rainy-day',
     if (_feedEventResolvedCorrectly) 'curry-favorite',
+    if (_hitCount >= _deathHitThreshold || _deathPending || _deathEndingReached)
+      'roadside-one',
   };
   int get _maxEnergy {
     final enduranceBonus =
@@ -396,6 +419,8 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   String get _characterAsset {
+    if (_deathEndingReached) return miniNanheDeadAsset;
+    if (_sickEvolutionEndingReached) return miniNanheSadAsset;
     return switch (_currentEmotion) {
       NanheEmotion.happy => miniNanheHappyAsset,
       NanheEmotion.affectionate => miniNanheAffectionateAsset,
@@ -413,6 +438,7 @@ class _HomeScreenState extends State<HomeScreen> {
   int _clampPercent(int value) => value.clamp(0, 100);
 
   void _changeAffection(int amount) {
+    if (_isBondLocked && amount > 0) return;
     _affectionProgress += amount;
     while (_affectionProgress >= 100) {
       _affectionLevel = _clampStat(_affectionLevel + 1);
@@ -429,6 +455,7 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   void _changeTrust(int amount) {
+    if (_isBondLocked && amount > 0) return;
     _trustProgress += amount;
     while (_trustProgress >= 100) {
       _trustLevel = _clampStat(_trustLevel + 1);
@@ -551,8 +578,63 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
+  Future<void> _handleHitPressed() async {
+    if (_sleepPending || _isEndingReached) return;
+
+    if (!_firstHitEventTriggered && _isPreEvolutionPeriod) {
+      final confirmed = await _confirmFirstHit();
+      if (!confirmed || !mounted) return;
+      setState(() {
+        _firstHitEventTriggered = true;
+        _reaction = null;
+      });
+      await Navigator.of(context).push(
+        PageRouteBuilder<void>(
+          pageBuilder: (_, animation, secondaryAnimation) {
+            return AbuseStoryScreen(
+              onFinished: (storyContext) => Navigator.of(storyContext).pop(),
+            );
+          },
+          transitionDuration: const Duration(milliseconds: 450),
+          transitionsBuilder: (_, animation, secondaryAnimation, child) {
+            return FadeTransition(opacity: animation, child: child);
+          },
+        ),
+      );
+      if (!mounted) return;
+    }
+
+    widget.audioController.playHitInteraction();
+    _showHitReaction();
+  }
+
+  Future<bool> _confirmFirstHit() async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          title: const Text('確定要毆打迷你南河嗎？'),
+          content: const Text('這可能會影響後續養成與結局。第 60 天前第一次毆打後，好感與信任會歸零並暫時無法增加。'),
+          actions: [
+            TextButton(
+              key: const Key('first-hit-cancel-button'),
+              onPressed: () => Navigator.of(context).pop(false),
+              child: const Text('取消'),
+            ),
+            FilledButton(
+              key: const Key('first-hit-confirm-button'),
+              onPressed: () => Navigator.of(context).pop(true),
+              child: const Text('繼續'),
+            ),
+          ],
+        );
+      },
+    );
+    return confirmed ?? false;
+  }
+
   void _showHitReaction() {
-    if (_sleepPending) return;
+    if (_sleepPending || _isEndingReached) return;
 
     if (_isForcedSleep) {
       setState(() => _reaction = exhaustedReaction);
@@ -572,7 +654,6 @@ class _HomeScreenState extends State<HomeScreen> {
     _hasBeenHit = true;
     if (!_firstHitEventTriggered) {
       _firstHitEventTriggered = true;
-      // TODO: Insert the first-hit story event here.
     }
     _applyAction(
       reactions,
@@ -585,6 +666,36 @@ class _HomeScreenState extends State<HomeScreen> {
       rebellionDelta: 3,
       voiceDelay: const Duration(milliseconds: 180),
     );
+    setState(() {
+      _hitCount += 1;
+      if (_bondLockedByPreEvolutionHit || _isPreEvolutionPeriod) {
+        _bondLockedByPreEvolutionHit = true;
+        _affectionLevel = 1;
+        _affectionProgress = 0;
+        _trustLevel = 1;
+        _trustProgress = 0;
+      }
+      if (_hitCount >= _deathHitThreshold || _energy <= 0) {
+        _deathPending = true;
+        _permanentAchievementIds.add('roadside-one');
+      }
+    });
+  }
+
+  void _handleEvolution() {
+    if (_hasSickEvolutionRoute) {
+      setState(() {
+        _sickEvolutionEndingReached = true;
+        _reaction = const CharacterReaction(
+          emotion: NanheEmotion.sad,
+          nanheSpeech: 'å—æ²³â€¦â€¦',
+          meaning: 'è¿·ä½ å—æ²³çš„èº«ä½“æ²¡æœ‰èƒ½æ”¯æ’‘ä½è¿™æ¬¡è¿›åŒ–ã€‚',
+          voice: NanheVoice.sadDouble,
+        );
+        _isReacting = false;
+      });
+      widget.audioController.playVoice(NanheVoice.sadDouble);
+    }
   }
 
   void _advanceOneDay() {
@@ -624,16 +735,23 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   void _applyNextDayUnlocks() {
+    if (_deathPending) {
+      _deathPending = false;
+      _deathEndingReached = true;
+      _permanentAchievementIds.add('roadside-one');
+    }
     if (_doghouseUnlockPending) {
       _doghouseUnlockPending = false;
       _doghouseUnlocked = true;
       _yardHomeTier = YardHomeTier.doghouse;
+      _permanentDecorationIds.add('yard-doghouse');
       // TODO: Insert the normal doghouse and training-page unlock event here.
     }
     if (_luxuryUnlockPending) {
       _luxuryUnlockPending = false;
       _luxuryUnlocked = true;
       _yardHomeTier = YardHomeTier.luxury;
+      _permanentDecorationIds.add('yard-luxury');
       // TODO: Insert the luxury doghouse unlock event here.
     }
     if (!_unlockedYardHomes.contains(_yardHomeTier)) {
@@ -685,8 +803,14 @@ class _HomeScreenState extends State<HomeScreen> {
       _isReacting = false;
       _applyTimedEvents();
       _queueProgressionUnlocks();
+      if (_deathEndingReached) {
+        _reaction = null;
+        _isReacting = false;
+      }
     });
-    widget.audioController.playVoice(wakeUpReaction.voice);
+    if (!_deathEndingReached) {
+      widget.audioController.playVoice(wakeUpReaction.voice);
+    }
   }
 
   void _observe() {
@@ -808,6 +932,10 @@ class _HomeScreenState extends State<HomeScreen> {
     setState(() {
       _feedEventCompleted = true;
       _feedEventResolvedCorrectly = isCorrectChoice;
+      _permanentMemoryIds.add('first-feeding-memory');
+      if (isCorrectChoice) {
+        _permanentAchievementIds.add('curry-favorite');
+      }
       _changeAffection(isCorrectChoice ? 2 : 1);
       _changeTrust(isCorrectChoice ? 2 : 0);
       _pressure = _clampPercent(_pressure + (isCorrectChoice ? -2 : 2));
@@ -1091,6 +1219,74 @@ class _HomeScreenState extends State<HomeScreen> {
     widget.audioController.setVoiceVolume(_voiceVolume);
   }
 
+  Future<void> _resetRunAndReplayOpening() async {
+    setState(() {
+      _selectedDestination = 0;
+      _totalDaysTogether = 1;
+      _year = 1;
+      _month = 1;
+      _day = 1;
+      _minuteOfDay = 6 * 60;
+      _energy = _initialMaxEnergy;
+      _affectionLevel = 1;
+      _affectionProgress = 0;
+      _trustLevel = 1;
+      _trustProgress = 0;
+      _pressure = 0;
+      _cleanliness = 100;
+      _healthValue = 80;
+      _injury = 0;
+      _exhaustionCount = 0;
+      _actionPage = 0;
+      _sleepPending = false;
+      _yardHomeTier = YardHomeTier.box;
+      _hasBeenHit = false;
+      _hitCount = 0;
+      _bondLockedByPreEvolutionHit = false;
+      _deathPending = false;
+      _deathEndingReached = false;
+      _sickEvolutionEndingReached = false;
+      _feedEventTriggered = false;
+      _feedEventCompleted = false;
+      _firstHitEventTriggered = false;
+      _daySevenSicknessTriggered = false;
+      _doghouseUnlockPending = false;
+      _doghouseUnlocked = false;
+      _luxuryUnlockPending = false;
+      _luxuryUnlocked = false;
+      _feedEventResolvedCorrectly = false;
+      _sicknessEventResolvedCorrectly = false;
+      _strength = 1;
+      _intelligence = 1;
+      _charm = 1;
+      _art = 1;
+      _skill = 1;
+      _endurance = 1;
+      _curiosity = 0;
+      _selfDiscipline = 0;
+      _rebellion = 0;
+      _dependence = 0;
+      _confidence = 0;
+      _gentleness = 0;
+      _reaction = null;
+      _isReacting = false;
+    });
+
+    await Navigator.of(context).push(
+      PageRouteBuilder<void>(
+        pageBuilder: (_, animation, secondaryAnimation) {
+          return OpeningStoryScreen(
+            onFinished: (storyContext) => Navigator.of(storyContext).pop(),
+          );
+        },
+        transitionDuration: const Duration(milliseconds: 500),
+        transitionsBuilder: (_, animation, secondaryAnimation, child) {
+          return FadeTransition(opacity: animation, child: child);
+        },
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final page = switch (_selectedDestination) {
@@ -1172,6 +1368,7 @@ class _HomeScreenState extends State<HomeScreen> {
         isReacting: _isReacting,
         emotionLabel: _emotionLabel,
         characterAsset: _characterAsset,
+        isEndingReached: _isEndingReached,
         isForcedSleep: _isForcedSleep,
         isSleepPending: _sleepPending,
         canSleep: _canSleepByTime,
@@ -1190,6 +1387,8 @@ class _HomeScreenState extends State<HomeScreen> {
         pressure: _pressure,
         cleanliness: _cleanliness,
         onReadDialogue: _readDialogue,
+        onResetGame: _resetRunAndReplayOpening,
+        onEvolution: _handleEvolution,
         onPreviousBackground: () => _changeYardHome(-1),
         onNextBackground: () => _changeYardHome(1),
         onPageChanged: _setActionPage,
@@ -1254,8 +1453,7 @@ class _HomeScreenState extends State<HomeScreen> {
           _outing();
         },
         onHit: () {
-          widget.audioController.playHitInteraction();
-          _showHitReaction();
+          _handleHitPressed();
         },
         onSleep: () {
           widget.audioController.playRegularInteraction();
@@ -1345,6 +1543,7 @@ class _CompanionPage extends StatelessWidget {
     required this.isReacting,
     required this.emotionLabel,
     required this.characterAsset,
+    required this.isEndingReached,
     required this.isForcedSleep,
     required this.isSleepPending,
     required this.canSleep,
@@ -1363,6 +1562,8 @@ class _CompanionPage extends StatelessWidget {
     required this.pressure,
     required this.cleanliness,
     required this.onReadDialogue,
+    required this.onResetGame,
+    required this.onEvolution,
     required this.onPreviousBackground,
     required this.onNextBackground,
     required this.onPageChanged,
@@ -1399,6 +1600,7 @@ class _CompanionPage extends StatelessWidget {
   final bool isReacting;
   final String emotionLabel;
   final String characterAsset;
+  final bool isEndingReached;
   final bool isForcedSleep;
   final bool isSleepPending;
   final bool canSleep;
@@ -1417,6 +1619,8 @@ class _CompanionPage extends StatelessWidget {
   final int pressure;
   final int cleanliness;
   final VoidCallback onReadDialogue;
+  final VoidCallback onResetGame;
+  final VoidCallback onEvolution;
   final VoidCallback onPreviousBackground;
   final VoidCallback onNextBackground;
   final ValueChanged<int> onPageChanged;
@@ -1474,12 +1678,14 @@ class _CompanionPage extends StatelessWidget {
               maxEnergy: maxEnergy,
               pressure: pressure,
               cleanliness: cleanliness,
-              onTap: onCharacterTap,
+              onTap: isEndingReached ? null : onCharacterTap,
               onReadDialogue: onReadDialogue,
               onPreviousBackground: onPreviousBackground,
               onNextBackground: onNextBackground,
+              onEvolution: onEvolution,
             );
             final actions = _ActionPanel(
+              isEndingReached: isEndingReached,
               isForcedSleep: isForcedSleep,
               isSleepPending: isSleepPending,
               canSleep: canSleep,
@@ -1505,6 +1711,7 @@ class _CompanionPage extends StatelessWidget {
               onOuting: onOuting,
               onHit: onHit,
               onSleep: onSleep,
+              onResetGame: onResetGame,
             );
 
             if (needsScrolling) {
@@ -1658,6 +1865,7 @@ class _CharacterStage extends StatelessWidget {
     required this.onReadDialogue,
     required this.onPreviousBackground,
     required this.onNextBackground,
+    required this.onEvolution,
   });
 
   final String backgroundAsset;
@@ -1676,10 +1884,11 @@ class _CharacterStage extends StatelessWidget {
   final int maxEnergy;
   final int pressure;
   final int cleanliness;
-  final VoidCallback onTap;
+  final VoidCallback? onTap;
   final VoidCallback onReadDialogue;
   final VoidCallback onPreviousBackground;
   final VoidCallback onNextBackground;
+  final VoidCallback onEvolution;
 
   @override
   Widget build(BuildContext context) {
@@ -1772,7 +1981,7 @@ class _CharacterStage extends StatelessWidget {
               child: Center(
                 child: FilledButton.tonalIcon(
                   key: const Key('evolution-button'),
-                  onPressed: null,
+                  onPressed: onEvolution,
                   icon: const Icon(Icons.auto_awesome_rounded),
                   label: const Text('進化'),
                 ),
@@ -2577,6 +2786,7 @@ class _StatusValueRow extends StatelessWidget {
 
 class _ActionPanel extends StatelessWidget {
   const _ActionPanel({
+    required this.isEndingReached,
     required this.isForcedSleep,
     required this.isSleepPending,
     required this.canSleep,
@@ -2602,8 +2812,10 @@ class _ActionPanel extends StatelessWidget {
     required this.onOuting,
     required this.onHit,
     required this.onSleep,
+    required this.onResetGame,
   });
 
+  final bool isEndingReached;
   final bool isForcedSleep;
   final bool isSleepPending;
   final bool canSleep;
@@ -2629,9 +2841,24 @@ class _ActionPanel extends StatelessWidget {
   final VoidCallback onOuting;
   final VoidCallback onHit;
   final VoidCallback onSleep;
+  final VoidCallback onResetGame;
 
   @override
   Widget build(BuildContext context) {
+    if (isEndingReached) {
+      return Center(
+        child: SizedBox(
+          width: 220,
+          child: _ActionButton(
+            key: const Key('reset-game-button'),
+            label: '將大局逆轉吧！',
+            emphasized: true,
+            onPressed: onResetGame,
+          ),
+        ),
+      );
+    }
+
     if (isForcedSleep) {
       return Column(
         mainAxisSize: MainAxisSize.min,
