@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -45,9 +47,13 @@ class _LoadingScreenState extends State<LoadingScreen> {
     final preferences = await SharedPreferences.getInstance();
     final hasSeenOpeningStory =
         preferences.getBool(openingStorySeenPreferenceKey) ?? false;
+    final criticalAssets = <String>{
+      ...startupPreloadAssets,
+      if (!hasSeenOpeningStory) ...openingStoryPageAssets,
+    };
 
     await Future.wait([
-      ...startupPreloadAssets.map(
+      ...criticalAssets.map(
         (asset) => precacheImage(AssetImage(asset), context),
       ),
       _audioController.prepare(),
@@ -58,6 +64,16 @@ class _LoadingScreenState extends State<LoadingScreen> {
         _shouldShowOpeningStory = !hasSeenOpeningStory;
         _ready = true;
       });
+      unawaited(_preloadDeferredAssets(criticalAssets));
+    }
+  }
+
+  Future<void> _preloadDeferredAssets(Set<String> alreadyLoaded) async {
+    for (final asset in deferredPreloadAssets) {
+      if (!mounted || alreadyLoaded.contains(asset)) continue;
+      try {
+        await precacheImage(AssetImage(asset), context);
+      } catch (_) {}
     }
   }
 

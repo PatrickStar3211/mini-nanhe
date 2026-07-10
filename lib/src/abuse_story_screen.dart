@@ -102,12 +102,22 @@ class _PanelMask extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Align(
-      alignment: Alignment(0, -1.0 + ((2.0 / 3.0) * panelIndex)),
-      child: const FractionallySizedBox(
-        widthFactor: 1,
-        heightFactor: 1 / 3,
-        child: ColoredBox(color: Color(0xFF050A12)),
+    return Positioned.fill(
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final panelHeight = constraints.maxHeight / 3;
+          return Stack(
+            children: [
+              Positioned(
+                left: 0,
+                right: 0,
+                top: panelHeight * panelIndex,
+                height: panelHeight,
+                child: const ColoredBox(color: Color(0xFF050A12)),
+              ),
+            ],
+          );
+        },
       ),
     );
   }

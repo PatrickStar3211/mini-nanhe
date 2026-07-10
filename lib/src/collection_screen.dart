@@ -15,6 +15,7 @@ class CollectionScreen extends StatefulWidget {
     required this.unlockedDecorationIds,
     required this.onReplayOpeningStory,
     required this.onReplayFeedingStory,
+    required this.onReplayAbuseStory,
     required this.onPageTurn,
   });
 
@@ -23,6 +24,7 @@ class CollectionScreen extends StatefulWidget {
   final Set<String> unlockedDecorationIds;
   final VoidCallback onReplayOpeningStory;
   final VoidCallback onReplayFeedingStory;
+  final VoidCallback onReplayAbuseStory;
   final VoidCallback onPageTurn;
 
   @override
@@ -97,6 +99,7 @@ class _CollectionScreenState extends State<CollectionScreen> {
                 onNextPage: () => _turnPage(1),
                 onReplayOpeningStory: widget.onReplayOpeningStory,
                 onReplayFeedingStory: widget.onReplayFeedingStory,
+                onReplayAbuseStory: widget.onReplayAbuseStory,
               ),
             ],
           );
@@ -120,6 +123,7 @@ class _AlbumOverlay extends StatelessWidget {
     required this.onNextPage,
     required this.onReplayOpeningStory,
     required this.onReplayFeedingStory,
+    required this.onReplayAbuseStory,
   });
 
   final CollectionCategory category;
@@ -134,6 +138,7 @@ class _AlbumOverlay extends StatelessWidget {
   final VoidCallback onNextPage;
   final VoidCallback onReplayOpeningStory;
   final VoidCallback onReplayFeedingStory;
+  final VoidCallback onReplayAbuseStory;
 
   @override
   Widget build(BuildContext context) {
@@ -167,6 +172,7 @@ class _AlbumOverlay extends StatelessWidget {
                 cards: cards,
                 onReplayOpeningStory: onReplayOpeningStory,
                 onReplayFeedingStory: onReplayFeedingStory,
+                onReplayAbuseStory: onReplayAbuseStory,
               ),
             ),
             Positioned(
@@ -388,6 +394,7 @@ class _AlbumContent extends StatelessWidget {
     required this.cards,
     required this.onReplayOpeningStory,
     required this.onReplayFeedingStory,
+    required this.onReplayAbuseStory,
   });
 
   final CollectionCategory category;
@@ -396,6 +403,7 @@ class _AlbumContent extends StatelessWidget {
   final List<_CollectionCardData> cards;
   final VoidCallback onReplayOpeningStory;
   final VoidCallback onReplayFeedingStory;
+  final VoidCallback onReplayAbuseStory;
 
   @override
   Widget build(BuildContext context) {
@@ -450,25 +458,44 @@ class _AlbumContent extends StatelessWidget {
         Expanded(
           child: cards.isEmpty
               ? const _EmptyAlbumSlot()
-              : GridView.builder(
-                  physics: const NeverScrollableScrollPhysics(),
-                  padding: EdgeInsets.zero,
-                  itemCount: cards.length,
-                  gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-                    crossAxisCount: isAchievement ? 2 : 1,
-                    mainAxisSpacing: 10,
-                    crossAxisSpacing: 10,
-                    childAspectRatio: isAchievement ? 1.28 : 2.72,
-                  ),
-                  itemBuilder: (context, index) {
-                    final card = cards[index];
-                    return _CollectionCard(
-                      data: card,
-                      compact: isAchievement,
-                      onTap: switch (card.id) {
-                        'opening-memory' => onReplayOpeningStory,
-                        'first-feeding-memory' => onReplayFeedingStory,
-                        _ => null,
+              : LayoutBuilder(
+                  builder: (context, constraints) {
+                    const spacing = 10.0;
+                    final crossAxisCount = isAchievement ? 2 : 1;
+                    final rowCount = max(
+                      1,
+                      (cards.length / crossAxisCount).ceil(),
+                    );
+                    final itemWidth =
+                        (constraints.maxWidth -
+                            spacing * (crossAxisCount - 1)) /
+                        crossAxisCount;
+                    final itemHeight =
+                        (constraints.maxHeight - spacing * (rowCount - 1)) /
+                        rowCount;
+
+                    return GridView.builder(
+                      physics: const NeverScrollableScrollPhysics(),
+                      padding: EdgeInsets.zero,
+                      itemCount: cards.length,
+                      gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                        crossAxisCount: crossAxisCount,
+                        mainAxisSpacing: spacing,
+                        crossAxisSpacing: spacing,
+                        childAspectRatio: itemWidth / max(1.0, itemHeight),
+                      ),
+                      itemBuilder: (context, index) {
+                        final card = cards[index];
+                        return _CollectionCard(
+                          data: card,
+                          compact: isAchievement,
+                          onTap: switch (card.id) {
+                            'opening-memory' => onReplayOpeningStory,
+                            'first-feeding-memory' => onReplayFeedingStory,
+                            'first-abuse-memory' => onReplayAbuseStory,
+                            _ => null,
+                          },
+                        );
                       },
                     );
                   },
@@ -918,12 +945,21 @@ const _memoryEntries = <_CollectionCardData>[
   ),
   _CollectionCardData(
     id: 'first-feeding-memory',
-    title: '第一次餵食',
+    title: '第一次喂食',
     description: '迷你南河的肚子叫了起来。',
     unlocked: false,
     icon: Icons.rice_bowl_rounded,
     accent: gold,
     imageAsset: feedingStoryPage1Asset,
+  ),
+  _CollectionCardData(
+    id: 'first-abuse-memory',
+    title: '第一次殴打',
+    description: '那一天，迷你南河学会了害怕。',
+    unlocked: false,
+    icon: Icons.report_rounded,
+    accent: Color(0xFF5C667A),
+    imageAsset: abuseStoryPage1Asset,
   ),
   _CollectionCardData(
     id: 'future-memory-1',
@@ -947,8 +983,8 @@ const _achievementEntries = <_CollectionCardData>[
   ),
   _CollectionCardData(
     id: 'curry-favorite',
-    title: '最愛吃咖喱飯！',
-    description: '第一次餵食時，選擇和自己一樣的咖喱飯。',
+    title: '最爱吃咖喱饭！',
+    description: '第一次喂食时，选择和自己一样的咖喱饭。',
     unlocked: false,
     icon: Icons.rice_bowl_rounded,
     accent: Color(0xFFE978A2),
@@ -956,8 +992,8 @@ const _achievementEntries = <_CollectionCardData>[
   ),
   _CollectionCardData(
     id: 'roadside-one',
-    title: '路邊一條',
-    description: '毆打迷你南河的次數達到了無法挽回的程度。',
+    title: '路边一条',
+    description: '迷你南河被你一脚踢死了。',
     unlocked: false,
     icon: Icons.warning_amber_rounded,
     accent: Color(0xFF5C667A),

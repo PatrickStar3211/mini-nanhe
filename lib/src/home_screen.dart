@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:math';
 
 import 'package:flutter/material.dart';
@@ -252,6 +253,7 @@ class _HomeScreenState extends State<HomeScreen> {
     ..._permanentMemoryIds,
     'opening-memory',
     if (_feedEventCompleted) 'first-feeding-memory',
+    if (_firstHitEventTriggered) 'first-abuse-memory',
   };
   Set<String> get _unlockedAchievementIds => {
     ..._permanentAchievementIds,
@@ -586,8 +588,10 @@ class _HomeScreenState extends State<HomeScreen> {
       if (!confirmed || !mounted) return;
       setState(() {
         _firstHitEventTriggered = true;
+        _permanentMemoryIds.add('first-abuse-memory');
         _reaction = null;
       });
+      unawaited(_precacheStoryAssets(abuseStoryAssets));
       await Navigator.of(context).push(
         PageRouteBuilder<void>(
           pageBuilder: (_, animation, secondaryAnimation) {
@@ -613,8 +617,8 @@ class _HomeScreenState extends State<HomeScreen> {
       context: context,
       builder: (context) {
         return AlertDialog(
-          title: const Text('確定要毆打迷你南河嗎？'),
-          content: const Text('這可能會影響後續養成與結局。第 60 天前第一次毆打後，好感與信任會歸零並暫時無法增加。'),
+          title: const Text('你确定要殴打迷你南河吗？'),
+          content: const Text('你可能会失去迷你南河的好感和信任，影响后续的养成，并造成不可挽回的结局。'),
           actions: [
             TextButton(
               key: const Key('first-hit-cancel-button'),
@@ -624,7 +628,7 @@ class _HomeScreenState extends State<HomeScreen> {
             FilledButton(
               key: const Key('first-hit-confirm-button'),
               onPressed: () => Navigator.of(context).pop(true),
-              child: const Text('繼續'),
+              child: const Text('继续'),
             ),
           ],
         );
@@ -884,6 +888,7 @@ class _HomeScreenState extends State<HomeScreen> {
         _feedEventTriggered = true;
         _reaction = null;
       });
+      unawaited(_precacheStoryAssets(feedingStoryAssets));
       Navigator.of(context).push(
         PageRouteBuilder<void>(
           pageBuilder: (_, animation, secondaryAnimation) {
@@ -1075,6 +1080,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
   void _replayOpeningStory() {
     widget.audioController.playPageTurn();
+    unawaited(_precacheStoryAssets(openingStoryPageAssets));
     Navigator.of(context).push(
       PageRouteBuilder<void>(
         pageBuilder: (_, animation, secondaryAnimation) {
@@ -1092,6 +1098,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
   void _replayFeedingStory() {
     widget.audioController.playPageTurn();
+    unawaited(_precacheStoryAssets(feedingStoryAssets));
     Navigator.of(context).push(
       PageRouteBuilder<void>(
         pageBuilder: (_, animation, secondaryAnimation) {
@@ -1106,6 +1113,33 @@ class _HomeScreenState extends State<HomeScreen> {
         },
       ),
     );
+  }
+
+  void _replayAbuseStory() {
+    widget.audioController.playPageTurn();
+    unawaited(_precacheStoryAssets(abuseStoryAssets));
+    Navigator.of(context).push(
+      PageRouteBuilder<void>(
+        pageBuilder: (_, animation, secondaryAnimation) {
+          return AbuseStoryScreen(
+            onFinished: (storyContext) => Navigator.of(storyContext).pop(),
+          );
+        },
+        transitionDuration: const Duration(milliseconds: 450),
+        transitionsBuilder: (_, animation, secondaryAnimation, child) {
+          return FadeTransition(opacity: animation, child: child);
+        },
+      ),
+    );
+  }
+
+  Future<void> _precacheStoryAssets(List<String> assets) async {
+    for (final asset in assets) {
+      if (!mounted) return;
+      try {
+        await precacheImage(AssetImage(asset), context);
+      } catch (_) {}
+    }
   }
 
   void _setMusicVolume(double value) {
@@ -1327,6 +1361,7 @@ class _HomeScreenState extends State<HomeScreen> {
         unlockedDecorationIds: _unlockedDecorationIds,
         onReplayOpeningStory: _replayOpeningStory,
         onReplayFeedingStory: _replayFeedingStory,
+        onReplayAbuseStory: _replayAbuseStory,
         onPageTurn: widget.audioController.playPageTurn,
       ),
       5 => _SettingsPage(
@@ -1983,7 +2018,7 @@ class _CharacterStage extends StatelessWidget {
                   key: const Key('evolution-button'),
                   onPressed: onEvolution,
                   icon: const Icon(Icons.auto_awesome_rounded),
-                  label: const Text('進化'),
+                  label: const Text('进化'),
                 ),
               ),
             ),
@@ -2851,7 +2886,7 @@ class _ActionPanel extends StatelessWidget {
           width: 220,
           child: _ActionButton(
             key: const Key('reset-game-button'),
-            label: '將大局逆轉吧！',
+            label: '将大局逆转吧！',
             emphasized: true,
             onPressed: onResetGame,
           ),
@@ -2973,13 +3008,13 @@ class _ActionPanel extends StatelessWidget {
       if (hasUnlockedFeed)
         _ActionButton(
           key: const Key('feed-button'),
-          label: '餵食',
+          label: '喂食',
           onPressed: onFeed,
         ),
       if (hasUnlockedHit)
         _ActionButton(
           key: const Key('hit-button'),
-          label: '毆打',
+          label: '殴打',
           destructive: true,
           onPressed: onHit,
         ),

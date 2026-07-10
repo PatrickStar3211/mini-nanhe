@@ -71,10 +71,14 @@ String yardBackgroundAsset({
 const startupPreloadAssets = <String>[
   defaultGardenDoghouseAsset,
   loadingRainyBoxAsset,
-  miniNanheOriginalAsset,
-  miniNanheTransparentAsset,
   miniNanheCalmAsset,
   miniNanheHappyAsset,
+  collectionAlbumAsset,
+];
+
+const deferredPreloadAssets = <String>[
+  miniNanheOriginalAsset,
+  miniNanheTransparentAsset,
   miniNanheAffectionateAsset,
   miniNanheCuriousAsset,
   miniNanheSleepyAsset,
@@ -82,7 +86,6 @@ const startupPreloadAssets = <String>[
   miniNanheAngryAsset,
   miniNanheFrustratedAsset,
   miniNanheDeadAsset,
-  collectionAlbumAsset,
   ...openingStoryPageAssets,
   ...feedingStoryAssets,
   ...abuseStoryAssets,

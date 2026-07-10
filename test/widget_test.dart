@@ -518,7 +518,7 @@ void main() {
       find.byKey(const Key('collection-card-curry-favorite')),
       findsOneWidget,
     );
-    expect(find.text('最愛吃咖喱飯！'), findsOneWidget);
+    expect(find.text('最爱吃咖喱饭！'), findsOneWidget);
   });
 
   testWidgets('collection page fits compact mobile dimensions', (tester) async {
@@ -634,7 +634,7 @@ void main() {
       200,
       scrollable: find.byType(Scrollable).first,
     );
-    expect(find.text('版本 0.2.10'), findsOneWidget);
+    expect(find.text('版本 0.2.11'), findsOneWidget);
   });
 
   testWidgets('settings debug tools jump time and tune relationship values', (

@@ -4,6 +4,11 @@ import 'package:audioplayers/audioplayers.dart';
 
 import 'character_reaction.dart';
 
+const _buttonEffectAsset = 'audio/button.mp3';
+const _pageTurnEffectAsset = 'audio/turn_page.mp3';
+const _punchEffectAsset = 'audio/punch.mp3';
+const _slapEffectAsset = 'audio/slap.mp3';
+
 enum BgmTrack {
   cozyNanhe1('惬意南河1', 'audio/cozy_nanhe_1.mp3'),
   cozyNanhe2('惬意南河2', 'audio/cozy_nanhe_2.mp3'),
@@ -70,10 +75,10 @@ class GameAudioController {
       await voicePlayer.setAudioContext(_voiceAudioContext);
       await voicePlayer.setPlayerMode(PlayerMode.mediaPlayer);
       await voicePlayer.setReleaseMode(ReleaseMode.stop);
-      _regularSfxPool ??= await _createEffectPool('audio/button.mp3', 3);
-      _pageTurnSfxPool ??= await _createEffectPool('audio/turn_page.mp3', 2);
-      _punchSfxPool ??= await _createEffectPool('audio/punch.mp3', 2);
-      _slapSfxPool ??= await _createEffectPool('audio/slap.mp3', 2);
+      _regularSfxPool ??= await _createEffectPool(_buttonEffectAsset, 3);
+      _pageTurnSfxPool ??= await _createEffectPool(_pageTurnEffectAsset, 2);
+      _punchSfxPool ??= await _createEffectPool(_punchEffectAsset, 2);
+      _slapSfxPool ??= await _createEffectPool(_slapEffectAsset, 2);
       await AudioCache.instance.loadAll(
         NanheVoice.values.map((voice) => voice.assetPath).toList(),
       );
@@ -144,17 +149,21 @@ class GameAudioController {
 
   void playRegularInteraction() {
     if (!_enabled || soundEffectVolume == 0) return;
-    _playPooledSound(_regularSfxPool);
+    _playPooledSound(_regularSfxPool, fallbackAsset: _buttonEffectAsset);
   }
 
   void playPageTurn() {
     if (!_enabled || soundEffectVolume == 0) return;
-    _playPooledSound(_pageTurnSfxPool);
+    _playPooledSound(_pageTurnSfxPool, fallbackAsset: _pageTurnEffectAsset);
   }
 
   void playHitInteraction() {
     if (!_enabled || soundEffectVolume == 0) return;
-    _playPooledSound(_random.nextBool() ? _punchSfxPool : _slapSfxPool);
+    final usePunch = _random.nextBool();
+    _playPooledSound(
+      usePunch ? _punchSfxPool : _slapSfxPool,
+      fallbackAsset: usePunch ? _punchEffectAsset : _slapEffectAsset,
+    );
   }
 
   Future<AudioPool> _createEffectPool(String assetPath, int maxPlayers) {
@@ -167,15 +176,34 @@ class GameAudioController {
     );
   }
 
-  void _playPooledSound(AudioPool? pool) {
-    if (pool == null) return;
+  void _playPooledSound(AudioPool? pool, {String? fallbackAsset}) {
+    if (pool == null) {
+      if (fallbackAsset != null) _playOneShotEffect(fallbackAsset);
+      return;
+    }
     pool
         .start(volume: soundEffectVolume)
         .then((stop) {
           Future<void>.delayed(const Duration(seconds: 2), stop);
           _ensureBgmContinues();
         })
-        .catchError((_) {});
+        .catchError((_) {
+          if (fallbackAsset != null) _playOneShotEffect(fallbackAsset);
+        });
+  }
+
+  Future<void> _playOneShotEffect(String assetPath) async {
+    if (!_enabled || soundEffectVolume == 0) return;
+    final player = AudioPlayer();
+    try {
+      await player.setAudioContext(_effectAudioContext);
+      await player.setPlayerMode(PlayerMode.lowLatency);
+      await player.play(AssetSource(assetPath), volume: soundEffectVolume);
+      Future<void>.delayed(const Duration(seconds: 2), player.dispose);
+      _ensureBgmContinues();
+    } catch (_) {
+      await player.dispose();
+    }
   }
 
   void _ensureBgmContinues() {
