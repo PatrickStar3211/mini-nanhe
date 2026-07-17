@@ -879,6 +879,113 @@ void main() {
     expect(find.textContaining('想去外面'), findsNothing);
   });
 
+  testWidgets('doghouse unlock morning plays story and training dialog', (
+    tester,
+  ) async {
+    await _pumpLoadedApp(
+      tester,
+      debugInitialState: const MiniNanheDebugState(
+        minuteOfDay: 22 * 60,
+        affectionLevel: 5,
+        trustLevel: 2,
+      ),
+    );
+
+    await tester.tap(find.byKey(const Key('chat-button')));
+    await tester.pump(const Duration(milliseconds: 200));
+    await tester.tap(find.byKey(const Key('reaction-bubble')));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byKey(const Key('sleep-button')));
+    await tester.pump(const Duration(milliseconds: 200));
+    await tester.tap(find.byKey(const Key('reaction-bubble')));
+    await tester.pumpAndSettle();
+
+    expect(
+      find.byKey(const Key('doghouse-unlock-story-tap-area')),
+      findsOneWidget,
+    );
+    await tester.tap(find.byKey(const Key('doghouse-unlock-story-tap-area')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('doghouse-unlock-story-tap-area')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('doghouse-unlock-story-tap-area')));
+    await tester.pumpAndSettle();
+
+    expect(
+      find.byKey(const Key('training-unlock-confirm-button')),
+      findsOneWidget,
+    );
+    await tester.tap(find.byKey(const Key('training-unlock-confirm-button')));
+    await tester.pumpAndSettle();
+
+    expect(find.byKey(const Key('action-page-down')), findsOneWidget);
+    await tester.tap(find.byKey(const Key('action-page-down')));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const Key('study-button')), findsOneWidget);
+
+    await tester.tap(find.text('收藏'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('collection-page-next')));
+    await tester.pumpAndSettle();
+    expect(
+      find.byKey(const Key('collection-card-doghouse-unlock-memory')),
+      findsOneWidget,
+    );
+  });
+
+  testWidgets('luxury doghouse unlock plays story and raises bond', (
+    tester,
+  ) async {
+    await _pumpLoadedApp(
+      tester,
+      debugInitialState: const MiniNanheDebugState(
+        totalDaysTogether: 26,
+        minuteOfDay: 22 * 60,
+        affectionLevel: 8,
+        trustLevel: 4,
+        feedEventResolvedCorrectly: true,
+        sicknessEventResolvedCorrectly: true,
+        doghouseUnlocked: true,
+      ),
+    );
+
+    await tester.tap(find.byKey(const Key('chat-button')));
+    await tester.pump(const Duration(milliseconds: 200));
+    await tester.tap(find.byKey(const Key('reaction-bubble')));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byKey(const Key('sleep-button')));
+    await tester.pump(const Duration(milliseconds: 200));
+    await tester.tap(find.byKey(const Key('reaction-bubble')));
+    await tester.pumpAndSettle();
+
+    expect(
+      find.byKey(const Key('luxury-unlock-story-tap-area')),
+      findsOneWidget,
+    );
+    for (var tap = 0; tap < 5; tap += 1) {
+      await tester.tap(find.byKey(const Key('luxury-unlock-story-tap-area')));
+      await tester.pumpAndSettle();
+    }
+
+    expect(
+      _currentBackgroundAsset(tester),
+      'assets/images/backgrounds/yard_luxury_winter_day.webp',
+    );
+    expect(find.text('好感 Lv.9'), findsOneWidget);
+    expect(find.text('信任 Lv.5'), findsOneWidget);
+
+    await tester.tap(find.text('收藏'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('collection-page-next')));
+    await tester.pumpAndSettle();
+    expect(
+      find.byKey(const Key('collection-card-luxury-unlock-memory')),
+      findsOneWidget,
+    );
+  });
+
   testWidgets('training page restores energy and shows training actions', (
     tester,
   ) async {

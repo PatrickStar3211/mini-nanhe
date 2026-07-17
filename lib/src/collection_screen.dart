@@ -16,6 +16,8 @@ class CollectionScreen extends StatefulWidget {
     required this.onReplayOpeningStory,
     required this.onReplayFeedingStory,
     required this.onReplaySicknessStory,
+    required this.onReplayDoghouseUnlockStory,
+    required this.onReplayLuxuryUnlockStory,
     required this.onReplayAbuseStory,
     required this.onPageTurn,
   });
@@ -26,6 +28,8 @@ class CollectionScreen extends StatefulWidget {
   final VoidCallback onReplayOpeningStory;
   final VoidCallback onReplayFeedingStory;
   final VoidCallback onReplaySicknessStory;
+  final VoidCallback onReplayDoghouseUnlockStory;
+  final VoidCallback onReplayLuxuryUnlockStory;
   final VoidCallback onReplayAbuseStory;
   final VoidCallback onPageTurn;
 
@@ -102,6 +106,8 @@ class _CollectionScreenState extends State<CollectionScreen> {
                 onReplayOpeningStory: widget.onReplayOpeningStory,
                 onReplayFeedingStory: widget.onReplayFeedingStory,
                 onReplaySicknessStory: widget.onReplaySicknessStory,
+                onReplayDoghouseUnlockStory: widget.onReplayDoghouseUnlockStory,
+                onReplayLuxuryUnlockStory: widget.onReplayLuxuryUnlockStory,
                 onReplayAbuseStory: widget.onReplayAbuseStory,
               ),
             ],
@@ -127,6 +133,8 @@ class _AlbumOverlay extends StatelessWidget {
     required this.onReplayOpeningStory,
     required this.onReplayFeedingStory,
     required this.onReplaySicknessStory,
+    required this.onReplayDoghouseUnlockStory,
+    required this.onReplayLuxuryUnlockStory,
     required this.onReplayAbuseStory,
   });
 
@@ -143,6 +151,8 @@ class _AlbumOverlay extends StatelessWidget {
   final VoidCallback onReplayOpeningStory;
   final VoidCallback onReplayFeedingStory;
   final VoidCallback onReplaySicknessStory;
+  final VoidCallback onReplayDoghouseUnlockStory;
+  final VoidCallback onReplayLuxuryUnlockStory;
   final VoidCallback onReplayAbuseStory;
 
   @override
@@ -178,6 +188,8 @@ class _AlbumOverlay extends StatelessWidget {
                 onReplayOpeningStory: onReplayOpeningStory,
                 onReplayFeedingStory: onReplayFeedingStory,
                 onReplaySicknessStory: onReplaySicknessStory,
+                onReplayDoghouseUnlockStory: onReplayDoghouseUnlockStory,
+                onReplayLuxuryUnlockStory: onReplayLuxuryUnlockStory,
                 onReplayAbuseStory: onReplayAbuseStory,
               ),
             ),
@@ -401,6 +413,8 @@ class _AlbumContent extends StatelessWidget {
     required this.onReplayOpeningStory,
     required this.onReplayFeedingStory,
     required this.onReplaySicknessStory,
+    required this.onReplayDoghouseUnlockStory,
+    required this.onReplayLuxuryUnlockStory,
     required this.onReplayAbuseStory,
   });
 
@@ -411,6 +425,8 @@ class _AlbumContent extends StatelessWidget {
   final VoidCallback onReplayOpeningStory;
   final VoidCallback onReplayFeedingStory;
   final VoidCallback onReplaySicknessStory;
+  final VoidCallback onReplayDoghouseUnlockStory;
+  final VoidCallback onReplayLuxuryUnlockStory;
   final VoidCallback onReplayAbuseStory;
 
   @override
@@ -502,6 +518,9 @@ class _AlbumContent extends StatelessWidget {
                             'first-feeding-memory' => onReplayFeedingStory,
                             'day-seven-sickness-memory' =>
                               onReplaySicknessStory,
+                            'doghouse-unlock-memory' =>
+                              onReplayDoghouseUnlockStory,
+                            'luxury-unlock-memory' => onReplayLuxuryUnlockStory,
                             'first-abuse-memory' => onReplayAbuseStory,
                             _ => null,
                           },
@@ -970,6 +989,24 @@ const _memoryEntries = <_CollectionCardData>[
     icon: Icons.health_and_safety_rounded,
     accent: azure,
     imageAsset: sicknessStoryPage1Asset,
+  ),
+  _CollectionCardData(
+    id: 'doghouse-unlock-memory',
+    title: '新的小屋',
+    description: '迷你南河醒来时，发现自己有了新的住处。',
+    unlocked: false,
+    icon: Icons.home_work_rounded,
+    accent: gold,
+    imageAsset: doghouseUnlockStoryPage1Asset,
+  ),
+  _CollectionCardData(
+    id: 'luxury-unlock-memory',
+    title: '豪华小屋',
+    description: '迷你南河发现自己的家变得更加气派了。',
+    unlocked: false,
+    icon: Icons.castle_rounded,
+    accent: gold,
+    imageAsset: luxuryUnlockStoryPage2Asset,
   ),
   _CollectionCardData(
     id: 'first-abuse-memory',

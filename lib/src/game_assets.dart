@@ -44,6 +44,12 @@ const sicknessStoryPage2CareAsset =
     'assets/images/story/sickness/sickness_page_2_care.webp';
 const hotWaterAchievementAsset =
     'assets/images/collection/achievement_hot_water.webp';
+const doghouseUnlockStoryPage1Asset =
+    'assets/images/story/doghouse/doghouse_unlock_page_1.webp';
+const luxuryUnlockStoryPage1Asset =
+    'assets/images/story/luxury/luxury_unlock_page_1.webp';
+const luxuryUnlockStoryPage2Asset =
+    'assets/images/story/luxury/luxury_unlock_page_2.webp';
 const abuseStoryPage1Asset = 'assets/images/story/abuse/abuse_page_1.png';
 const roadsideOneAchievementAsset =
     'assets/images/collection/achievement_roadside_one.png';
@@ -68,6 +74,13 @@ const sicknessStoryAssets = <String>[
   sicknessStoryPage2HotWaterAsset,
   sicknessStoryPage2CareAsset,
   hotWaterAchievementAsset,
+];
+
+const doghouseUnlockStoryAssets = <String>[doghouseUnlockStoryPage1Asset];
+
+const luxuryUnlockStoryAssets = <String>[
+  luxuryUnlockStoryPage1Asset,
+  luxuryUnlockStoryPage2Asset,
 ];
 
 const abuseStoryAssets = <String>[
@@ -104,5 +117,7 @@ const deferredPreloadAssets = <String>[
   ...openingStoryPageAssets,
   ...feedingStoryAssets,
   ...sicknessStoryAssets,
+  ...doghouseUnlockStoryAssets,
+  ...luxuryUnlockStoryAssets,
   ...abuseStoryAssets,
 ];

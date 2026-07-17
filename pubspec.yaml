@@ -70,6 +70,8 @@ flutter:
     - assets/images/story/opening/
     - assets/images/story/feeding/
     - assets/images/story/sickness/
+    - assets/images/story/doghouse/
+    - assets/images/story/luxury/
     - assets/images/story/abuse/
     - assets/audio/
     - assets/audio/voice/

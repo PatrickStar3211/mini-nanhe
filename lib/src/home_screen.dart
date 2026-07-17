@@ -7,9 +7,11 @@ import 'abuse_story_screen.dart';
 import 'app_version.dart';
 import 'character_reaction.dart';
 import 'collection_screen.dart';
+import 'doghouse_unlock_story_screen.dart';
 import 'feeding_story_screen.dart';
 import 'game_audio_controller.dart';
 import 'game_assets.dart';
+import 'luxury_unlock_story_screen.dart';
 import 'opening_story_screen.dart';
 import 'reaction_rules.dart';
 import 'sickness_story_screen.dart';
@@ -128,13 +130,14 @@ class _HomeScreenState extends State<HomeScreen> {
   bool _sicknessStoryPending = false;
   bool _showingSicknessStory = false;
   bool _doghouseUnlockPending = false;
+  bool _doghouseUnlockStoryPending = false;
+  bool _showingDoghouseUnlockStory = false;
   bool _doghouseUnlocked = false;
   bool _luxuryUnlockPending = false;
+  bool _luxuryUnlockStoryPending = false;
+  bool _showingLuxuryUnlockStory = false;
   bool _luxuryUnlocked = false;
-  // TODO: Wire these to the future feeding and sickness story choices.
-  // ignore: prefer_final_fields
   bool _feedEventResolvedCorrectly = false;
-  // ignore: prefer_final_fields
   bool _sicknessEventResolvedCorrectly = false;
   final Set<String> _permanentMemoryIds = {'opening-memory'};
   final Set<String> _permanentAchievementIds = {'rainy-day'};
@@ -263,6 +266,8 @@ class _HomeScreenState extends State<HomeScreen> {
     'opening-memory',
     if (_feedEventCompleted) 'first-feeding-memory',
     if (_sicknessEventCompleted) 'day-seven-sickness-memory',
+    if (_doghouseUnlocked) 'doghouse-unlock-memory',
+    if (_luxuryUnlocked) 'luxury-unlock-memory',
     if (_firstHitEventTriggered) 'first-abuse-memory',
   };
   Set<String> get _unlockedAchievementIds => {
@@ -770,20 +775,48 @@ class _HomeScreenState extends State<HomeScreen> {
     if (_doghouseUnlockPending) {
       _doghouseUnlockPending = false;
       _doghouseUnlocked = true;
+      _doghouseUnlockStoryPending = true;
       _yardHomeTier = YardHomeTier.doghouse;
       _permanentDecorationIds.add('yard-doghouse');
-      // TODO: Insert the normal doghouse and training-page unlock event here.
+      _permanentMemoryIds.add('doghouse-unlock-memory');
+      _scheduleDoghouseUnlockStory();
     }
     if (_luxuryUnlockPending) {
       _luxuryUnlockPending = false;
       _luxuryUnlocked = true;
+      _luxuryUnlockStoryPending = true;
       _yardHomeTier = YardHomeTier.luxury;
       _permanentDecorationIds.add('yard-luxury');
-      // TODO: Insert the luxury doghouse unlock event here.
+      _permanentMemoryIds.add('luxury-unlock-memory');
+      _changeAffection(100);
+      _changeTrust(100);
+      _scheduleLuxuryUnlockStory();
     }
     if (!_unlockedYardHomes.contains(_yardHomeTier)) {
       _yardHomeTier = _unlockedYardHomes.last;
     }
+  }
+
+  void _scheduleDoghouseUnlockStory() {
+    if (!_doghouseUnlockStoryPending || _showingDoghouseUnlockStory) return;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted ||
+          !_doghouseUnlockStoryPending ||
+          _showingDoghouseUnlockStory) {
+        return;
+      }
+      _showDoghouseUnlockStory();
+    });
+  }
+
+  void _scheduleLuxuryUnlockStory() {
+    if (!_luxuryUnlockStoryPending || _showingLuxuryUnlockStory) return;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted || !_luxuryUnlockStoryPending || _showingLuxuryUnlockStory) {
+        return;
+      }
+      _showLuxuryUnlockStory();
+    });
   }
 
   void _requestSleep() {
@@ -1232,6 +1265,110 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
+  Future<void> _showDoghouseUnlockStory() async {
+    if (_showingDoghouseUnlockStory || !_doghouseUnlockStoryPending) return;
+    _showingDoghouseUnlockStory = true;
+    _doghouseUnlockStoryPending = false;
+
+    unawaited(_precacheStoryAssets(doghouseUnlockStoryAssets));
+    await Navigator.of(context).push(
+      PageRouteBuilder<void>(
+        pageBuilder: (_, animation, secondaryAnimation) {
+          return DoghouseUnlockStoryScreen(
+            onFinished: (storyContext) => Navigator.of(storyContext).pop(),
+          );
+        },
+        transitionDuration: const Duration(milliseconds: 450),
+        transitionsBuilder: (_, animation, secondaryAnimation, child) {
+          return FadeTransition(opacity: animation, child: child);
+        },
+      ),
+    );
+
+    if (!mounted) return;
+    _showingDoghouseUnlockStory = false;
+    await _showTrainingUnlockDialog();
+  }
+
+  Future<void> _showLuxuryUnlockStory() async {
+    if (_showingLuxuryUnlockStory || !_luxuryUnlockStoryPending) return;
+    _showingLuxuryUnlockStory = true;
+    _luxuryUnlockStoryPending = false;
+
+    unawaited(_precacheStoryAssets(luxuryUnlockStoryAssets));
+    await Navigator.of(context).push(
+      PageRouteBuilder<void>(
+        pageBuilder: (_, animation, secondaryAnimation) {
+          return LuxuryUnlockStoryScreen(
+            onFinished: (storyContext) => Navigator.of(storyContext).pop(),
+          );
+        },
+        transitionDuration: const Duration(milliseconds: 450),
+        transitionsBuilder: (_, animation, secondaryAnimation, child) {
+          return FadeTransition(opacity: animation, child: child);
+        },
+      ),
+    );
+
+    if (!mounted) return;
+    _showingLuxuryUnlockStory = false;
+  }
+
+  Future<void> _showTrainingUnlockDialog() async {
+    await showDialog<void>(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          title: const Text('训练页已解锁'),
+          content: const Text('迷你南河有了新的住处，现在可以开始进行训练了。'),
+          actions: [
+            FilledButton(
+              key: const Key('training-unlock-confirm-button'),
+              onPressed: () => Navigator.of(context).pop(),
+              child: const Text('知道了'),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  void _replayDoghouseUnlockStory() {
+    widget.audioController.playPageTurn();
+    unawaited(_precacheStoryAssets(doghouseUnlockStoryAssets));
+    Navigator.of(context).push(
+      PageRouteBuilder<void>(
+        pageBuilder: (_, animation, secondaryAnimation) {
+          return DoghouseUnlockStoryScreen(
+            onFinished: (storyContext) => Navigator.of(storyContext).pop(),
+          );
+        },
+        transitionDuration: const Duration(milliseconds: 450),
+        transitionsBuilder: (_, animation, secondaryAnimation, child) {
+          return FadeTransition(opacity: animation, child: child);
+        },
+      ),
+    );
+  }
+
+  void _replayLuxuryUnlockStory() {
+    widget.audioController.playPageTurn();
+    unawaited(_precacheStoryAssets(luxuryUnlockStoryAssets));
+    Navigator.of(context).push(
+      PageRouteBuilder<void>(
+        pageBuilder: (_, animation, secondaryAnimation) {
+          return LuxuryUnlockStoryScreen(
+            onFinished: (storyContext) => Navigator.of(storyContext).pop(),
+          );
+        },
+        transitionDuration: const Duration(milliseconds: 450),
+        transitionsBuilder: (_, animation, secondaryAnimation, child) {
+          return FadeTransition(opacity: animation, child: child);
+        },
+      ),
+    );
+  }
+
   void _replayAbuseStory() {
     widget.audioController.playPageTurn();
     unawaited(_precacheStoryAssets(abuseStoryAssets));
@@ -1405,8 +1542,12 @@ class _HomeScreenState extends State<HomeScreen> {
       _sicknessStoryPending = false;
       _showingSicknessStory = false;
       _doghouseUnlockPending = false;
+      _doghouseUnlockStoryPending = false;
+      _showingDoghouseUnlockStory = false;
       _doghouseUnlocked = false;
       _luxuryUnlockPending = false;
+      _luxuryUnlockStoryPending = false;
+      _showingLuxuryUnlockStory = false;
       _luxuryUnlocked = false;
       _feedEventResolvedCorrectly = false;
       _sicknessEventResolvedCorrectly = false;
@@ -1482,6 +1623,8 @@ class _HomeScreenState extends State<HomeScreen> {
         onReplayOpeningStory: _replayOpeningStory,
         onReplayFeedingStory: _replayFeedingStory,
         onReplaySicknessStory: _replaySicknessStory,
+        onReplayDoghouseUnlockStory: _replayDoghouseUnlockStory,
+        onReplayLuxuryUnlockStory: _replayLuxuryUnlockStory,
         onReplayAbuseStory: _replayAbuseStory,
         onPageTurn: widget.audioController.playPageTurn,
       ),
