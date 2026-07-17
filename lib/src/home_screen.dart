@@ -2078,8 +2078,11 @@ class _CharacterStage extends StatelessWidget {
           Positioned.fill(
             child: LayoutBuilder(
               builder: (context, constraints) {
-                final maxCharacterWidth = constraints.maxWidth * 0.5;
-                final maxCharacterHeight = constraints.maxHeight * 0.48;
+                final isDeadCharacter = characterAsset == miniNanheDeadAsset;
+                final maxCharacterWidth =
+                    constraints.maxWidth * (isDeadCharacter ? 0.6 : 0.5);
+                final maxCharacterHeight =
+                    constraints.maxHeight * (isDeadCharacter ? 0.56 : 0.48);
 
                 return Align(
                   alignment: const Alignment(0, 0.2),
