@@ -383,6 +383,61 @@ void main() {
     expect(find.textContaining('从来没吃过这么好吃的'), findsOneWidget);
   });
 
+  testWidgets('day seven sickness story resolves hot water choice', (
+    tester,
+  ) async {
+    await _pumpLoadedApp(
+      tester,
+      debugInitialState: const MiniNanheDebugState(
+        totalDaysTogether: 7,
+        minuteOfDay: 15 * 60 + 30,
+        healthValue: 80,
+      ),
+    );
+
+    await tester.tap(find.byKey(const Key('observe-button')));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const Key('sickness-story-tap-area')), findsOneWidget);
+
+    await tester.tap(find.byKey(const Key('sickness-story-tap-area')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('sickness-story-tap-area')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('sickness-story-tap-area')));
+    await tester.pumpAndSettle();
+
+    expect(
+      find.byKey(const Key('sickness-story-hot-water-choice')),
+      findsOneWidget,
+    );
+    expect(
+      find.byKey(const Key('sickness-story-attentive-care-choice')),
+      findsOneWidget,
+    );
+    await tester.tap(find.byKey(const Key('sickness-story-hot-water-choice')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('sickness-story-tap-area')));
+    await tester.pumpAndSettle();
+
+    expect(find.byKey(const Key('sickness-story-tap-area')), findsNothing);
+    expect(find.text('迷你期 · 第 8 天'), findsOneWidget);
+    expect(find.textContaining('06:00'), findsOneWidget);
+
+    await tester.tap(find.text('收藏'));
+    await tester.pumpAndSettle();
+    expect(
+      find.byKey(const Key('collection-card-day-seven-sickness-memory')),
+      findsOneWidget,
+    );
+
+    await tester.tap(find.byKey(const Key('collection-tab-成就')));
+    await tester.pumpAndSettle();
+    expect(
+      find.byKey(const Key('collection-card-hot-water-cure')),
+      findsOneWidget,
+    );
+  });
+
   testWidgets('health can show sickness and fatigue together', (tester) async {
     await _pumpLoadedApp(
       tester,
@@ -634,7 +689,7 @@ void main() {
       200,
       scrollable: find.byType(Scrollable).first,
     );
-    expect(find.text('版本 0.2.11'), findsOneWidget);
+    expect(find.text('版本 0.2.12'), findsOneWidget);
   });
 
   testWidgets('settings debug tools jump time and tune relationship values', (

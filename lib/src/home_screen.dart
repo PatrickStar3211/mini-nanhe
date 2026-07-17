@@ -12,6 +12,7 @@ import 'game_audio_controller.dart';
 import 'game_assets.dart';
 import 'opening_story_screen.dart';
 import 'reaction_rules.dart';
+import 'sickness_story_screen.dart';
 import 'theme.dart';
 
 const _initialMaxEnergy = 25;
@@ -123,6 +124,9 @@ class _HomeScreenState extends State<HomeScreen> {
   bool _feedEventCompleted = false;
   bool _firstHitEventTriggered = false;
   bool _daySevenSicknessTriggered = false;
+  bool _sicknessEventCompleted = false;
+  bool _sicknessStoryPending = false;
+  bool _showingSicknessStory = false;
   bool _doghouseUnlockPending = false;
   bool _doghouseUnlocked = false;
   bool _luxuryUnlockPending = false;
@@ -181,6 +185,10 @@ class _HomeScreenState extends State<HomeScreen> {
     }
     _sicknessEventResolvedCorrectly =
         debug.sicknessEventResolvedCorrectly ?? _sicknessEventResolvedCorrectly;
+    if (debug.sicknessEventResolvedCorrectly != null) {
+      _sicknessEventCompleted = true;
+      _daySevenSicknessTriggered = true;
+    }
     _doghouseUnlocked = debug.doghouseUnlocked ?? _doghouseUnlocked;
     _luxuryUnlocked = debug.luxuryUnlocked ?? _luxuryUnlocked;
     if (_luxuryUnlocked) {
@@ -189,7 +197,7 @@ class _HomeScreenState extends State<HomeScreen> {
     } else if (_doghouseUnlocked) {
       _yardHomeTier = YardHomeTier.doghouse;
     }
-    _applyTimedEvents();
+    _applyTimedEvents(showStory: false);
   }
 
   bool get _isExhausted => _energy <= 0;
@@ -233,7 +241,8 @@ class _HomeScreenState extends State<HomeScreen> {
       _bondLockedByPreEvolutionHit && _isPreEvolutionPeriod;
   bool get _hasSickEvolutionRoute =>
       _bondLockedByPreEvolutionHit ||
-      (_feedEventCompleted && !_feedEventResolvedCorrectly);
+      (_feedEventCompleted && !_feedEventResolvedCorrectly) ||
+      (_sicknessEventCompleted && !_sicknessEventResolvedCorrectly);
   bool get _isEndingReached =>
       _deathEndingReached || _sickEvolutionEndingReached;
   bool get _isDaySevenRain =>
@@ -253,12 +262,15 @@ class _HomeScreenState extends State<HomeScreen> {
     ..._permanentMemoryIds,
     'opening-memory',
     if (_feedEventCompleted) 'first-feeding-memory',
+    if (_sicknessEventCompleted) 'day-seven-sickness-memory',
     if (_firstHitEventTriggered) 'first-abuse-memory',
   };
   Set<String> get _unlockedAchievementIds => {
     ..._permanentAchievementIds,
     'rainy-day',
     if (_feedEventResolvedCorrectly) 'curry-favorite',
+    if (_sicknessEventCompleted && !_sicknessEventResolvedCorrectly)
+      'hot-water-cure',
     if (_hitCount >= _deathHitThreshold || _deathPending || _deathEndingReached)
       'roadside-one',
   };
@@ -727,15 +739,26 @@ class _HomeScreenState extends State<HomeScreen> {
     }
   }
 
-  void _applyTimedEvents() {
+  void _applyTimedEvents({bool showStory = true}) {
     if (!_daySevenSicknessTriggered &&
         _totalDaysTogether == 7 &&
         _minuteOfDay >= _daySevenSickMinute) {
       _daySevenSicknessTriggered = true;
+      _sicknessStoryPending = showStory;
       _healthValue = min(_healthValue, 25);
       _pressure = _clampPercent(_pressure + 12);
-      // TODO: Insert the day-7 sickness story event here.
+      _reaction = null;
+      _isReacting = false;
+      if (showStory) _scheduleSicknessStory();
     }
+  }
+
+  void _scheduleSicknessStory() {
+    if (!_sicknessStoryPending || _showingSicknessStory) return;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted || !_sicknessStoryPending || _showingSicknessStory) return;
+      _showSicknessStory();
+    });
   }
 
   void _applyNextDayUnlocks() {
@@ -960,6 +983,81 @@ class _HomeScreenState extends State<HomeScreen> {
     });
   }
 
+  Future<void> _showSicknessStory() async {
+    if (_showingSicknessStory || !_sicknessStoryPending) return;
+    _showingSicknessStory = true;
+    _sicknessStoryPending = false;
+
+    unawaited(_precacheStoryAssets(sicknessStoryAssets));
+    await Navigator.of(context).push(
+      PageRouteBuilder<void>(
+        pageBuilder: (_, animation, secondaryAnimation) {
+          return SicknessStoryScreen(
+            onFinished: (storyContext, choice) {
+              Navigator.of(storyContext).pop();
+              _resolveSicknessEvent(choice);
+            },
+          );
+        },
+        transitionDuration: const Duration(milliseconds: 450),
+        transitionsBuilder: (_, animation, secondaryAnimation, child) {
+          return FadeTransition(opacity: animation, child: child);
+        },
+      ),
+    );
+
+    if (mounted) _showingSicknessStory = false;
+  }
+
+  void _resolveSicknessEvent(SicknessStoryChoice choice) {
+    final isCorrectChoice = choice == SicknessStoryChoice.attentiveCare;
+    final reaction = isCorrectChoice
+        ? const CharacterReaction(
+            emotion: NanheEmotion.happy,
+            nanheSpeech: '南河……南河。',
+            meaning: '好像已经不难受了。',
+            voice: NanheVoice.affectionDouble,
+          )
+        : const CharacterReaction(
+            emotion: NanheEmotion.calm,
+            nanheSpeech: '南河……',
+            meaning: '烧退了，但是还有一点没精神。',
+            voice: NanheVoice.calmSingle,
+          );
+
+    setState(() {
+      _sicknessEventCompleted = true;
+      _sicknessEventResolvedCorrectly = isCorrectChoice;
+      _permanentMemoryIds.add('day-seven-sickness-memory');
+      if (!isCorrectChoice) {
+        _permanentAchievementIds.add('hot-water-cure');
+      }
+      if (isCorrectChoice) {
+        _changeAffection(100);
+        _changeTrust(100);
+      }
+      _advanceOneDay();
+      _totalDaysTogether += 1;
+      _applyNextDayUnlocks();
+      _minuteOfDay = _earliestWakeMinute;
+      _energy = _maxEnergy;
+      _healthValue = max(_healthValue, 80);
+      _cleanliness = max(_cleanliness, 55);
+      _injury = _clampPercent(_injury - 5);
+      _pressure = _clampPercent(_pressure + (isCorrectChoice ? -12 : 4));
+      _exhaustionCount = 0;
+      _sleepPending = false;
+      _reaction = reaction;
+      _isReacting = true;
+      _queueProgressionUnlocks();
+    });
+    widget.audioController.playVoice(reaction.voice);
+
+    Future<void>.delayed(const Duration(milliseconds: 170), () {
+      if (mounted) setState(() => _isReacting = false);
+    });
+  }
+
   void _rest() {
     if (_sleepPending) return;
 
@@ -1115,6 +1213,25 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
+  void _replaySicknessStory() {
+    widget.audioController.playPageTurn();
+    unawaited(_precacheStoryAssets(sicknessStoryAssets));
+    Navigator.of(context).push(
+      PageRouteBuilder<void>(
+        pageBuilder: (_, animation, secondaryAnimation) {
+          return SicknessStoryScreen(
+            onFinished: (storyContext, choice) =>
+                Navigator.of(storyContext).pop(),
+          );
+        },
+        transitionDuration: const Duration(milliseconds: 450),
+        transitionsBuilder: (_, animation, secondaryAnimation, child) {
+          return FadeTransition(opacity: animation, child: child);
+        },
+      ),
+    );
+  }
+
   void _replayAbuseStory() {
     widget.audioController.playPageTurn();
     unawaited(_precacheStoryAssets(abuseStoryAssets));
@@ -1173,7 +1290,7 @@ class _HomeScreenState extends State<HomeScreen> {
     setState(() {
       _setCalendarFromTotalDays(totalDaysTogether);
       _minuteOfDay = minute.clamp(0, _midnightMinute);
-      _applyTimedEvents();
+      _applyTimedEvents(showStory: false);
       _queueProgressionUnlocks();
     });
   }
@@ -1284,6 +1401,9 @@ class _HomeScreenState extends State<HomeScreen> {
       _feedEventCompleted = false;
       _firstHitEventTriggered = false;
       _daySevenSicknessTriggered = false;
+      _sicknessEventCompleted = false;
+      _sicknessStoryPending = false;
+      _showingSicknessStory = false;
       _doghouseUnlockPending = false;
       _doghouseUnlocked = false;
       _luxuryUnlockPending = false;
@@ -1361,6 +1481,7 @@ class _HomeScreenState extends State<HomeScreen> {
         unlockedDecorationIds: _unlockedDecorationIds,
         onReplayOpeningStory: _replayOpeningStory,
         onReplayFeedingStory: _replayFeedingStory,
+        onReplaySicknessStory: _replaySicknessStory,
         onReplayAbuseStory: _replayAbuseStory,
         onPageTurn: widget.audioController.playPageTurn,
       ),

@@ -36,6 +36,14 @@ const feedingChoiceCurryAsset =
     'assets/images/story/feeding/feeding_choice_curry.webp';
 const curryFavoriteAchievementAsset =
     'assets/images/collection/achievement_curry_favorite.webp';
+const sicknessStoryPage1Asset =
+    'assets/images/story/sickness/sickness_page_1.webp';
+const sicknessStoryPage2HotWaterAsset =
+    'assets/images/story/sickness/sickness_page_2_hot_water.webp';
+const sicknessStoryPage2CareAsset =
+    'assets/images/story/sickness/sickness_page_2_care.webp';
+const hotWaterAchievementAsset =
+    'assets/images/collection/achievement_hot_water.webp';
 const abuseStoryPage1Asset = 'assets/images/story/abuse/abuse_page_1.png';
 const roadsideOneAchievementAsset =
     'assets/images/collection/achievement_roadside_one.png';
@@ -53,6 +61,13 @@ const feedingStoryAssets = <String>[
   feedingChoiceVegetablesAsset,
   feedingChoiceCurryAsset,
   curryFavoriteAchievementAsset,
+];
+
+const sicknessStoryAssets = <String>[
+  sicknessStoryPage1Asset,
+  sicknessStoryPage2HotWaterAsset,
+  sicknessStoryPage2CareAsset,
+  hotWaterAchievementAsset,
 ];
 
 const abuseStoryAssets = <String>[
@@ -88,5 +103,6 @@ const deferredPreloadAssets = <String>[
   miniNanheDeadAsset,
   ...openingStoryPageAssets,
   ...feedingStoryAssets,
+  ...sicknessStoryAssets,
   ...abuseStoryAssets,
 ];

@@ -15,6 +15,7 @@ class CollectionScreen extends StatefulWidget {
     required this.unlockedDecorationIds,
     required this.onReplayOpeningStory,
     required this.onReplayFeedingStory,
+    required this.onReplaySicknessStory,
     required this.onReplayAbuseStory,
     required this.onPageTurn,
   });
@@ -24,6 +25,7 @@ class CollectionScreen extends StatefulWidget {
   final Set<String> unlockedDecorationIds;
   final VoidCallback onReplayOpeningStory;
   final VoidCallback onReplayFeedingStory;
+  final VoidCallback onReplaySicknessStory;
   final VoidCallback onReplayAbuseStory;
   final VoidCallback onPageTurn;
 
@@ -99,6 +101,7 @@ class _CollectionScreenState extends State<CollectionScreen> {
                 onNextPage: () => _turnPage(1),
                 onReplayOpeningStory: widget.onReplayOpeningStory,
                 onReplayFeedingStory: widget.onReplayFeedingStory,
+                onReplaySicknessStory: widget.onReplaySicknessStory,
                 onReplayAbuseStory: widget.onReplayAbuseStory,
               ),
             ],
@@ -123,6 +126,7 @@ class _AlbumOverlay extends StatelessWidget {
     required this.onNextPage,
     required this.onReplayOpeningStory,
     required this.onReplayFeedingStory,
+    required this.onReplaySicknessStory,
     required this.onReplayAbuseStory,
   });
 
@@ -138,6 +142,7 @@ class _AlbumOverlay extends StatelessWidget {
   final VoidCallback onNextPage;
   final VoidCallback onReplayOpeningStory;
   final VoidCallback onReplayFeedingStory;
+  final VoidCallback onReplaySicknessStory;
   final VoidCallback onReplayAbuseStory;
 
   @override
@@ -172,6 +177,7 @@ class _AlbumOverlay extends StatelessWidget {
                 cards: cards,
                 onReplayOpeningStory: onReplayOpeningStory,
                 onReplayFeedingStory: onReplayFeedingStory,
+                onReplaySicknessStory: onReplaySicknessStory,
                 onReplayAbuseStory: onReplayAbuseStory,
               ),
             ),
@@ -394,6 +400,7 @@ class _AlbumContent extends StatelessWidget {
     required this.cards,
     required this.onReplayOpeningStory,
     required this.onReplayFeedingStory,
+    required this.onReplaySicknessStory,
     required this.onReplayAbuseStory,
   });
 
@@ -403,6 +410,7 @@ class _AlbumContent extends StatelessWidget {
   final List<_CollectionCardData> cards;
   final VoidCallback onReplayOpeningStory;
   final VoidCallback onReplayFeedingStory;
+  final VoidCallback onReplaySicknessStory;
   final VoidCallback onReplayAbuseStory;
 
   @override
@@ -492,6 +500,8 @@ class _AlbumContent extends StatelessWidget {
                           onTap: switch (card.id) {
                             'opening-memory' => onReplayOpeningStory,
                             'first-feeding-memory' => onReplayFeedingStory,
+                            'day-seven-sickness-memory' =>
+                              onReplaySicknessStory,
                             'first-abuse-memory' => onReplayAbuseStory,
                             _ => null,
                           },
@@ -953,6 +963,15 @@ const _memoryEntries = <_CollectionCardData>[
     imageAsset: feedingStoryPage1Asset,
   ),
   _CollectionCardData(
+    id: 'day-seven-sickness-memory',
+    title: '雨中的发烧',
+    description: '第七天的雨里，迷你南河病倒了。',
+    unlocked: false,
+    icon: Icons.health_and_safety_rounded,
+    accent: azure,
+    imageAsset: sicknessStoryPage1Asset,
+  ),
+  _CollectionCardData(
     id: 'first-abuse-memory',
     title: '第一次殴打',
     description: '那一天，迷你南河学会了害怕。',
@@ -989,6 +1008,15 @@ const _achievementEntries = <_CollectionCardData>[
     icon: Icons.rice_bowl_rounded,
     accent: Color(0xFFE978A2),
     imageAsset: curryFavoriteAchievementAsset,
+  ),
+  _CollectionCardData(
+    id: 'hot-water-cure',
+    title: '多喝热水',
+    description: '热水治百病',
+    unlocked: false,
+    icon: Icons.local_drink_rounded,
+    accent: azure,
+    imageAsset: hotWaterAchievementAsset,
   ),
   _CollectionCardData(
     id: 'roadside-one',
