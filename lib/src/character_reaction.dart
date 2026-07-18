@@ -406,7 +406,7 @@ const lowTrustObserveReactions = <CharacterReaction>[
   CharacterReaction(
     emotion: NanheEmotion.calm,
     nanheSpeech: '南河……',
-    meaning: '他看了你一眼，又很快移開視線。',
+    meaning: '他看了你一眼，又很快移开视线。',
     voice: NanheVoice.calmSingle,
   ),
   CharacterReaction(
@@ -547,13 +547,13 @@ const lowTrustFeedReactions = <CharacterReaction>[
   CharacterReaction(
     emotion: NanheEmotion.curious,
     nanheSpeech: '南河？',
-    meaning: '……可以吃嗎？',
+    meaning: '……可以吃吗？',
     voice: NanheVoice.curiousSingle,
   ),
   CharacterReaction(
     emotion: NanheEmotion.calm,
     nanheSpeech: '南河……',
-    meaning: '他等你退開後，才慢慢靠近。',
+    meaning: '他等你退开后，才慢慢靠近。',
     voice: NanheVoice.calmSingle,
   ),
 ];
@@ -586,7 +586,7 @@ const lowTrustRestReactions = <CharacterReaction>[
   CharacterReaction(
     emotion: NanheEmotion.calm,
     nanheSpeech: '南河。',
-    meaning: '他縮在紙箱裡，安靜了一會兒。',
+    meaning: '他缩在纸箱里，安静了一会儿。',
     voice: NanheVoice.calmSingle,
   ),
 ];

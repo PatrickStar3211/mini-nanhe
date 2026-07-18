@@ -1040,6 +1040,39 @@ void main() {
 
     expect(find.byKey(const Key('reset-game-button')), findsOneWidget);
     expect(find.text('冬 | 第1年 · 1月2日 | 06:00 | 晴'), findsOneWidget);
+
+    await tester.tap(find.byIcon(Icons.collections_bookmark_outlined));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('collection-tab-成就')));
+    await tester.pumpAndSettle();
+
+    expect(find.byKey(const Key('collection-card-sick-death')), findsOneWidget);
+    expect(find.byKey(const Key('collection-card-roadside-one')), findsNothing);
+  });
+
+  testWidgets('sick ending triggers on day sixty exhaustion', (tester) async {
+    await _pumpLoadedApp(
+      tester,
+      debugInitialState: const MiniNanheDebugState(
+        totalDaysTogether: 60,
+        minuteOfDay: 16 * 60,
+        energy: 1,
+        affectionLevel: 5,
+        trustLevel: 2,
+        feedEventTriggered: true,
+        feedEventCompleted: true,
+        feedEventResolvedCorrectly: false,
+        doghouseUnlocked: true,
+      ),
+    );
+
+    await tester.tap(find.byKey(const Key('chat-button')));
+    await tester.pumpAndSettle();
+
+    expect(
+      find.byKey(const Key('sick-ending-onset-story-tap-area')),
+      findsOneWidget,
+    );
   });
 
   testWidgets('training page restores energy and shows training actions', (

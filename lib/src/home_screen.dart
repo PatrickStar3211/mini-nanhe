@@ -284,7 +284,7 @@ class _HomeScreenState extends State<HomeScreen> {
       !_luxuryUnlocked &&
       _hasSickEvolutionRoute &&
       _totalDaysTogether == 60 &&
-      _minuteOfDay >= _sickEndingTriggerMinute;
+      (_minuteOfDay >= _sickEndingTriggerMinute || _isExhausted);
   bool get _isPreEvolutionPeriod => _totalDaysTogether <= 60;
   bool get _isBondLocked =>
       _bondLockedByPreEvolutionHit && _isPreEvolutionPeriod;
@@ -322,8 +322,7 @@ class _HomeScreenState extends State<HomeScreen> {
     if (_feedEventResolvedCorrectly) 'curry-favorite',
     if (_sicknessEventCompleted && !_sicknessEventResolvedCorrectly)
       'hot-water-cure',
-    if (_hitCount >= _deathHitThreshold || _deathPending || _deathEndingReached)
-      'roadside-one',
+    if (_hitCount >= _deathHitThreshold || _deathPending) 'roadside-one',
   };
   int get _maxEnergy {
     final enduranceBonus =
@@ -1198,6 +1197,7 @@ class _HomeScreenState extends State<HomeScreen> {
       _minuteOfDay = _earliestWakeMinute;
       _sickEndingCareActive = false;
       _deathEndingReached = true;
+      _permanentAchievementIds.add('sick-death');
       _reaction = null;
       _isReacting = false;
       _selectedDestination = 0;

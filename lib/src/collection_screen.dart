@@ -1056,6 +1056,15 @@ const _achievementEntries = <_CollectionCardData>[
     imageAsset: hotWaterAchievementAsset,
   ),
   _CollectionCardData(
+    id: 'sick-death',
+    title: '重病身亡',
+    description: '你没能照顾好迷你南河，这是你的失职',
+    unlocked: false,
+    icon: Icons.personal_injury_rounded,
+    accent: Color(0xFF6B5260),
+    imageAsset: sickDeathAchievementAsset,
+  ),
+  _CollectionCardData(
     id: 'roadside-one',
     title: '路边一条',
     description: '迷你南河被你一脚踢死了。',
