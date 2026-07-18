@@ -66,10 +66,12 @@ flutter:
     - assets/images/loading_rainy_box.png
     - assets/images/backgrounds/
     - assets/images/collection/
+    - assets/images/endings/
     - assets/images/nanhe_emotions/
     - assets/images/story/opening/
     - assets/images/story/feeding/
     - assets/images/story/sickness/
+    - assets/images/story/sick_ending/
     - assets/images/story/doghouse/
     - assets/images/story/luxury/
     - assets/images/story/abuse/

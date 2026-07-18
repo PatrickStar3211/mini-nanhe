@@ -44,6 +44,17 @@ const sicknessStoryPage2CareAsset =
     'assets/images/story/sickness/sickness_page_2_care.webp';
 const hotWaterAchievementAsset =
     'assets/images/collection/achievement_hot_water.webp';
+const sickEndingBedAsset = 'assets/images/endings/mini_nanhe_sick_bed.webp';
+const sickEndingOnsetPage1Asset =
+    'assets/images/story/sick_ending/sick_ending_onset_page_1.webp';
+const sickEndingOnsetPage2Asset =
+    'assets/images/story/sick_ending/sick_ending_onset_page_2.webp';
+const sickEndingFinalPage1Asset =
+    'assets/images/story/sick_ending/sick_ending_final_page_1.webp';
+const sickEndingFinalPage2Asset =
+    'assets/images/story/sick_ending/sick_ending_final_page_2.webp';
+const sickEndingFinalPage3Asset =
+    'assets/images/story/sick_ending/sick_ending_final_page_3.webp';
 const doghouseUnlockStoryPage1Asset =
     'assets/images/story/doghouse/doghouse_unlock_page_1.webp';
 const luxuryUnlockStoryPage1Asset =
@@ -77,6 +88,23 @@ const sicknessStoryAssets = <String>[
 ];
 
 const doghouseUnlockStoryAssets = <String>[doghouseUnlockStoryPage1Asset];
+
+const sickEndingOnsetStoryAssets = <String>[
+  sickEndingOnsetPage1Asset,
+  sickEndingOnsetPage2Asset,
+];
+
+const sickEndingFinalStoryAssets = <String>[
+  sickEndingFinalPage1Asset,
+  sickEndingFinalPage2Asset,
+  sickEndingFinalPage3Asset,
+];
+
+const sickEndingStoryAssets = <String>[
+  sickEndingBedAsset,
+  ...sickEndingOnsetStoryAssets,
+  ...sickEndingFinalStoryAssets,
+];
 
 const luxuryUnlockStoryAssets = <String>[
   luxuryUnlockStoryPage1Asset,
@@ -117,6 +145,7 @@ const deferredPreloadAssets = <String>[
   ...openingStoryPageAssets,
   ...feedingStoryAssets,
   ...sicknessStoryAssets,
+  ...sickEndingStoryAssets,
   ...doghouseUnlockStoryAssets,
   ...luxuryUnlockStoryAssets,
   ...abuseStoryAssets,

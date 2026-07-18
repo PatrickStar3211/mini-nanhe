@@ -986,6 +986,62 @@ void main() {
     );
   });
 
+  testWidgets('sick ending triggers on day sixty night and ends after care', (
+    tester,
+  ) async {
+    await _pumpLoadedApp(
+      tester,
+      debugInitialState: const MiniNanheDebugState(
+        totalDaysTogether: 60,
+        minuteOfDay: 21 * 60 + 30,
+        affectionLevel: 5,
+        trustLevel: 2,
+        feedEventTriggered: true,
+        feedEventCompleted: true,
+        feedEventResolvedCorrectly: false,
+        doghouseUnlocked: true,
+      ),
+    );
+
+    await tester.tap(find.byKey(const Key('chat-button')));
+    await tester.pumpAndSettle();
+
+    expect(
+      find.byKey(const Key('sick-ending-onset-story-tap-area')),
+      findsOneWidget,
+    );
+    for (var tap = 0; tap < 6; tap += 1) {
+      await tester.tap(
+        find.byKey(const Key('sick-ending-onset-story-tap-area')),
+      );
+      await tester.pumpAndSettle();
+    }
+
+    expect(find.byKey(const Key('sick-ending-care-stage')), findsOneWidget);
+    expect(find.byKey(const Key('sick-ending-care-button')), findsOneWidget);
+    expect(find.byKey(const Key('chat-button')), findsNothing);
+    expect(find.byKey(const Key('sleep-button')), findsNothing);
+
+    for (var tap = 0; tap < 12; tap += 1) {
+      await tester.tap(find.byKey(const Key('sick-ending-care-button')));
+      await tester.pumpAndSettle();
+    }
+
+    expect(
+      find.byKey(const Key('sick-ending-final-story-tap-area')),
+      findsOneWidget,
+    );
+    for (var tap = 0; tap < 6; tap += 1) {
+      await tester.tap(
+        find.byKey(const Key('sick-ending-final-story-tap-area')),
+      );
+      await tester.pumpAndSettle();
+    }
+
+    expect(find.byKey(const Key('reset-game-button')), findsOneWidget);
+    expect(find.text('冬 | 第1年 · 1月2日 | 06:00 | 晴'), findsOneWidget);
+  });
+
   testWidgets('training page restores energy and shows training actions', (
     tester,
   ) async {

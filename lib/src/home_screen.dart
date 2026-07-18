@@ -14,6 +14,7 @@ import 'game_assets.dart';
 import 'luxury_unlock_story_screen.dart';
 import 'opening_story_screen.dart';
 import 'reaction_rules.dart';
+import 'sick_ending_story_screen.dart';
 import 'sickness_story_screen.dart';
 import 'theme.dart';
 
@@ -28,15 +29,44 @@ const _deathHitThreshold = 50;
 const _minutesPerInteraction = 30;
 const _sleepAvailableMinute = 22 * 60;
 const _midnightMinute = 24 * 60;
+const _postMidnightSickEndingMinute = 28 * 60;
 const _earliestWakeMinute = 6 * 60;
 const _sleepDurationMinutes = 8 * 60;
 const _endurancePerMaxEnergy = 4;
 const _feedUnlockMinute = 12 * 60;
 const _daySevenSickMinute = 16 * 60;
+const _sickEndingTriggerMinute = 22 * 60;
 
 enum YardHomeTier { box, doghouse, luxury }
 
 enum WeatherCondition { sunny, rainy, snowy }
+
+const _sickEndingCareReactions = <CharacterReaction>[
+  CharacterReaction(
+    emotion: NanheEmotion.sad,
+    nanheSpeech: '高烧退不下去',
+    meaning: '迷你南河的身体烫得吓人。',
+    voice: NanheVoice.sadDouble,
+  ),
+  CharacterReaction(
+    emotion: NanheEmotion.sad,
+    nanheSpeech: '越来越虚弱了',
+    meaning: '他的呼吸比刚才更轻了。',
+    voice: NanheVoice.sadDouble,
+  ),
+  CharacterReaction(
+    emotion: NanheEmotion.sad,
+    nanheSpeech: '咳血停不下来',
+    meaning: '床边的手帕又被染红了一点。',
+    voice: NanheVoice.sadDouble,
+  ),
+  CharacterReaction(
+    emotion: NanheEmotion.sad,
+    nanheSpeech: '吃了药也没有好转',
+    meaning: '你能做的事情正在变少。',
+    voice: NanheVoice.sadDouble,
+  ),
+];
 
 class MiniNanheDebugState {
   const MiniNanheDebugState({
@@ -129,6 +159,12 @@ class _HomeScreenState extends State<HomeScreen> {
   bool _sicknessEventCompleted = false;
   bool _sicknessStoryPending = false;
   bool _showingSicknessStory = false;
+  bool _sickEndingOnsetTriggered = false;
+  bool _sickEndingOnsetStoryPending = false;
+  bool _showingSickEndingOnsetStory = false;
+  bool _sickEndingCareActive = false;
+  bool _sickEndingFinalStoryPending = false;
+  bool _showingSickEndingFinalStory = false;
   bool _doghouseUnlockPending = false;
   bool _doghouseUnlockStoryPending = false;
   bool _showingDoghouseUnlockStory = false;
@@ -205,7 +241,8 @@ class _HomeScreenState extends State<HomeScreen> {
 
   bool get _isExhausted => _energy <= 0;
   bool get _isMidnight => _minuteOfDay >= _midnightMinute;
-  bool get _isForcedSleep => _isExhausted || _isMidnight;
+  bool get _isForcedSleep =>
+      !_sickEndingCareActive && (_isExhausted || _isMidnight);
   bool get _canSleepByTime => _minuteOfDay >= _sleepAvailableMinute;
   bool get _isTired => _energy <= max(1, (_maxEnergy * 0.35).ceil());
   bool get _hasHighPressure => _pressure >= 70;
@@ -238,7 +275,16 @@ class _HomeScreenState extends State<HomeScreen> {
       _sicknessEventResolvedCorrectly &&
       _totalDaysTogether > 25;
   bool get _canShowEvolutionButton =>
-      _totalDaysTogether > 60 && (_luxuryUnlocked || _hasSickEvolutionRoute);
+      !_sickEndingOnsetTriggered &&
+      _totalDaysTogether > 60 &&
+      (_luxuryUnlocked || _hasSickEvolutionRoute);
+  bool get _canTriggerSickEnding =>
+      !_sickEndingOnsetTriggered &&
+      !_deathEndingReached &&
+      !_luxuryUnlocked &&
+      _hasSickEvolutionRoute &&
+      _totalDaysTogether == 60 &&
+      _minuteOfDay >= _sickEndingTriggerMinute;
   bool get _isPreEvolutionPeriod => _totalDaysTogether <= 60;
   bool get _isBondLocked =>
       _bondLockedByPreEvolutionHit && _isPreEvolutionPeriod;
@@ -756,6 +802,20 @@ class _HomeScreenState extends State<HomeScreen> {
       _isReacting = false;
       if (showStory) _scheduleSicknessStory();
     }
+    if (_canTriggerSickEnding) {
+      _sickEndingOnsetTriggered = true;
+      _sickEndingOnsetStoryPending = showStory;
+      _healthValue = min(_healthValue, 5);
+      _pressure = _clampPercent(_pressure + 20);
+      _energy = min(_energy, 1);
+      _yardHomeTier = _doghouseUnlocked
+          ? YardHomeTier.doghouse
+          : YardHomeTier.box;
+      _selectedDestination = 0;
+      _reaction = null;
+      _isReacting = false;
+      if (showStory) _scheduleSickEndingOnsetStory();
+    }
   }
 
   void _scheduleSicknessStory() {
@@ -763,6 +823,30 @@ class _HomeScreenState extends State<HomeScreen> {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted || !_sicknessStoryPending || _showingSicknessStory) return;
       _showSicknessStory();
+    });
+  }
+
+  void _scheduleSickEndingOnsetStory() {
+    if (!_sickEndingOnsetStoryPending || _showingSickEndingOnsetStory) return;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted ||
+          !_sickEndingOnsetStoryPending ||
+          _showingSickEndingOnsetStory) {
+        return;
+      }
+      _showSickEndingOnsetStory();
+    });
+  }
+
+  void _scheduleSickEndingFinalStory() {
+    if (!_sickEndingFinalStoryPending || _showingSickEndingFinalStory) return;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted ||
+          !_sickEndingFinalStoryPending ||
+          _showingSickEndingFinalStory) {
+        return;
+      }
+      _showSickEndingFinalStory();
     });
   }
 
@@ -821,6 +905,11 @@ class _HomeScreenState extends State<HomeScreen> {
 
   void _requestSleep() {
     if (_sleepPending) return;
+
+    if (_canTriggerSickEnding) {
+      setState(() => _applyTimedEvents());
+      return;
+    }
 
     if (!_isForcedSleep && !_canSleepByTime) {
       setState(() => _reaction = tooEarlyToSleepReaction);
@@ -1042,6 +1131,79 @@ class _HomeScreenState extends State<HomeScreen> {
     if (mounted) _showingSicknessStory = false;
   }
 
+  Future<void> _showSickEndingOnsetStory() async {
+    if (_showingSickEndingOnsetStory || !_sickEndingOnsetStoryPending) return;
+    _showingSickEndingOnsetStory = true;
+    _sickEndingOnsetStoryPending = false;
+
+    unawaited(_precacheStoryAssets(sickEndingStoryAssets));
+    await Navigator.of(context).push(
+      PageRouteBuilder<void>(
+        pageBuilder: (_, animation, secondaryAnimation) {
+          return SickEndingStoryScreen(
+            assets: sickEndingOnsetStoryAssets,
+            panelCounts: const [3, 3],
+            tapAreaKey: const Key('sick-ending-onset-story-tap-area'),
+            onFinished: (storyContext) => Navigator.of(storyContext).pop(),
+          );
+        },
+        transitionDuration: const Duration(milliseconds: 450),
+        transitionsBuilder: (_, animation, secondaryAnimation, child) {
+          return FadeTransition(opacity: animation, child: child);
+        },
+      ),
+    );
+
+    if (!mounted) return;
+    setState(() {
+      _showingSickEndingOnsetStory = false;
+      _sickEndingCareActive = true;
+      _selectedDestination = 0;
+      _reaction = _sickEndingCareReactions.first;
+      _isReacting = false;
+    });
+    widget.audioController.playVoice(_sickEndingCareReactions.first.voice);
+  }
+
+  Future<void> _showSickEndingFinalStory() async {
+    if (_showingSickEndingFinalStory || !_sickEndingFinalStoryPending) return;
+    _showingSickEndingFinalStory = true;
+    _sickEndingFinalStoryPending = false;
+
+    unawaited(_precacheStoryAssets(sickEndingFinalStoryAssets));
+    await Navigator.of(context).push(
+      PageRouteBuilder<void>(
+        pageBuilder: (_, animation, secondaryAnimation) {
+          return SickEndingStoryScreen(
+            assets: sickEndingFinalStoryAssets,
+            panelCounts: const [3, 2, 1],
+            tapAreaKey: const Key('sick-ending-final-story-tap-area'),
+            onFinished: (storyContext) => Navigator.of(storyContext).pop(),
+          );
+        },
+        transitionDuration: const Duration(milliseconds: 450),
+        transitionsBuilder: (_, animation, secondaryAnimation, child) {
+          return FadeTransition(opacity: animation, child: child);
+        },
+      ),
+    );
+
+    if (!mounted) return;
+    setState(() {
+      _showingSickEndingFinalStory = false;
+      if (_minuteOfDay >= _midnightMinute) {
+        _advanceOneDay();
+        _totalDaysTogether += 1;
+      }
+      _minuteOfDay = _earliestWakeMinute;
+      _sickEndingCareActive = false;
+      _deathEndingReached = true;
+      _reaction = null;
+      _isReacting = false;
+      _selectedDestination = 0;
+    });
+  }
+
   void _resolveSicknessEvent(SicknessStoryChoice choice) {
     final isCorrectChoice = choice == SicknessStoryChoice.attentiveCare;
     final reaction = isCorrectChoice
@@ -1186,6 +1348,37 @@ class _HomeScreenState extends State<HomeScreen> {
       curiosityDelta: 2,
       confidenceDelta: 1,
     );
+  }
+
+  void _careSickEnding() {
+    if (!_sickEndingCareActive || _deathEndingReached) return;
+    final reaction =
+        _sickEndingCareReactions[_random.nextInt(
+          _sickEndingCareReactions.length,
+        )];
+    setState(() {
+      _minuteOfDay = min(
+        _minuteOfDay + _minutesPerInteraction,
+        _postMidnightSickEndingMinute,
+      );
+      _healthValue = min(_healthValue, 5);
+      _pressure = _clampPercent(_pressure + 1);
+      _reaction = reaction;
+      _isReacting = true;
+      if (_minuteOfDay >= _postMidnightSickEndingMinute) {
+        _sickEndingCareActive = false;
+        _sickEndingFinalStoryPending = true;
+        _reaction = null;
+        _isReacting = false;
+        _scheduleSickEndingFinalStory();
+      }
+    });
+    if (_sickEndingCareActive) {
+      widget.audioController.playVoice(reaction.voice);
+      Future<void>.delayed(const Duration(milliseconds: 170), () {
+        if (mounted) setState(() => _isReacting = false);
+      });
+    }
   }
 
   void _readDialogue() {
@@ -1541,6 +1734,12 @@ class _HomeScreenState extends State<HomeScreen> {
       _sicknessEventCompleted = false;
       _sicknessStoryPending = false;
       _showingSicknessStory = false;
+      _sickEndingOnsetTriggered = false;
+      _sickEndingOnsetStoryPending = false;
+      _showingSickEndingOnsetStory = false;
+      _sickEndingCareActive = false;
+      _sickEndingFinalStoryPending = false;
+      _showingSickEndingFinalStory = false;
       _doghouseUnlockPending = false;
       _doghouseUnlockStoryPending = false;
       _showingDoghouseUnlockStory = false;
@@ -1668,6 +1867,7 @@ class _HomeScreenState extends State<HomeScreen> {
         emotionLabel: _emotionLabel,
         characterAsset: _characterAsset,
         isEndingReached: _isEndingReached,
+        isSickEndingCareActive: _sickEndingCareActive,
         isForcedSleep: _isForcedSleep,
         isSleepPending: _sleepPending,
         canSleep: _canSleepByTime,
@@ -1687,6 +1887,7 @@ class _HomeScreenState extends State<HomeScreen> {
         cleanliness: _cleanliness,
         onReadDialogue: _readDialogue,
         onResetGame: _resetRunAndReplayOpening,
+        onCareSickEnding: _careSickEnding,
         onEvolution: _handleEvolution,
         onPreviousBackground: () => _changeYardHome(-1),
         onNextBackground: () => _changeYardHome(1),
@@ -1843,6 +2044,7 @@ class _CompanionPage extends StatelessWidget {
     required this.emotionLabel,
     required this.characterAsset,
     required this.isEndingReached,
+    required this.isSickEndingCareActive,
     required this.isForcedSleep,
     required this.isSleepPending,
     required this.canSleep,
@@ -1862,6 +2064,7 @@ class _CompanionPage extends StatelessWidget {
     required this.cleanliness,
     required this.onReadDialogue,
     required this.onResetGame,
+    required this.onCareSickEnding,
     required this.onEvolution,
     required this.onPreviousBackground,
     required this.onNextBackground,
@@ -1900,6 +2103,7 @@ class _CompanionPage extends StatelessWidget {
   final String emotionLabel;
   final String characterAsset;
   final bool isEndingReached;
+  final bool isSickEndingCareActive;
   final bool isForcedSleep;
   final bool isSleepPending;
   final bool canSleep;
@@ -1919,6 +2123,7 @@ class _CompanionPage extends StatelessWidget {
   final int cleanliness;
   final VoidCallback onReadDialogue;
   final VoidCallback onResetGame;
+  final VoidCallback onCareSickEnding;
   final VoidCallback onEvolution;
   final VoidCallback onPreviousBackground;
   final VoidCallback onNextBackground;
@@ -1960,31 +2165,37 @@ class _CompanionPage extends StatelessWidget {
             );
             final needsScrolling = availableStageHeight < protectedStageHeight;
 
-            final stage = _CharacterStage(
-              backgroundAsset: backgroundAsset,
-              canSwitchBackground: canSwitchBackground,
-              canShowEvolutionButton: canShowEvolutionButton,
-              weatherCondition: weatherCondition,
-              reaction: reaction,
-              isReacting: isReacting,
-              emotionLabel: emotionLabel,
-              characterAsset: characterAsset,
-              affectionLevel: affectionLevel,
-              affectionProgress: affectionProgress,
-              trustLevel: trustLevel,
-              trustProgress: trustProgress,
-              energy: energy,
-              maxEnergy: maxEnergy,
-              pressure: pressure,
-              cleanliness: cleanliness,
-              onTap: isEndingReached ? null : onCharacterTap,
-              onReadDialogue: onReadDialogue,
-              onPreviousBackground: onPreviousBackground,
-              onNextBackground: onNextBackground,
-              onEvolution: onEvolution,
-            );
+            final stage = isSickEndingCareActive
+                ? _SickEndingCareStage(
+                    reaction: reaction,
+                    onReadDialogue: onReadDialogue,
+                  )
+                : _CharacterStage(
+                    backgroundAsset: backgroundAsset,
+                    canSwitchBackground: canSwitchBackground,
+                    canShowEvolutionButton: canShowEvolutionButton,
+                    weatherCondition: weatherCondition,
+                    reaction: reaction,
+                    isReacting: isReacting,
+                    emotionLabel: emotionLabel,
+                    characterAsset: characterAsset,
+                    affectionLevel: affectionLevel,
+                    affectionProgress: affectionProgress,
+                    trustLevel: trustLevel,
+                    trustProgress: trustProgress,
+                    energy: energy,
+                    maxEnergy: maxEnergy,
+                    pressure: pressure,
+                    cleanliness: cleanliness,
+                    onTap: isEndingReached ? null : onCharacterTap,
+                    onReadDialogue: onReadDialogue,
+                    onPreviousBackground: onPreviousBackground,
+                    onNextBackground: onNextBackground,
+                    onEvolution: onEvolution,
+                  );
             final actions = _ActionPanel(
               isEndingReached: isEndingReached,
+              isSickEndingCareActive: isSickEndingCareActive,
               isForcedSleep: isForcedSleep,
               isSleepPending: isSleepPending,
               canSleep: canSleep,
@@ -2011,6 +2222,7 @@ class _CompanionPage extends StatelessWidget {
               onHit: onHit,
               onSleep: onSleep,
               onResetGame: onResetGame,
+              onCareSickEnding: onCareSickEnding,
             );
 
             if (needsScrolling) {
@@ -2296,6 +2508,69 @@ class _CharacterStage extends StatelessWidget {
                 onNext: onNextBackground,
               ),
             ),
+          if (reaction != null)
+            Positioned(
+              left: 18,
+              right: 18,
+              bottom: 18,
+              child: _ReactionBubble(
+                reaction: reaction!,
+                onTap: onReadDialogue,
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+}
+
+class _SickEndingCareStage extends StatelessWidget {
+  const _SickEndingCareStage({
+    required this.reaction,
+    required this.onReadDialogue,
+  });
+
+  final CharacterReaction? reaction;
+  final VoidCallback onReadDialogue;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      key: const Key('sick-ending-care-stage'),
+      width: double.infinity,
+      decoration: BoxDecoration(
+        color: const Color(0xFF151922),
+        image: const DecorationImage(
+          image: AssetImage(sickEndingBedAsset),
+          fit: BoxFit.cover,
+        ),
+        borderRadius: BorderRadius.circular(28),
+        border: Border.all(color: const Color(0xFFE6D5B8)),
+        boxShadow: const [
+          BoxShadow(
+            color: Color(0x1A9B7B4B),
+            blurRadius: 24,
+            offset: Offset(0, 10),
+          ),
+        ],
+      ),
+      clipBehavior: Clip.antiAlias,
+      child: Stack(
+        children: [
+          Positioned.fill(
+            child: DecoratedBox(
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.topCenter,
+                  end: Alignment.bottomCenter,
+                  colors: [
+                    Colors.black.withValues(alpha: 0.08),
+                    Colors.black.withValues(alpha: 0.28),
+                  ],
+                ),
+              ),
+            ),
+          ),
           if (reaction != null)
             Positioned(
               left: 18,
@@ -3089,6 +3364,7 @@ class _StatusValueRow extends StatelessWidget {
 class _ActionPanel extends StatelessWidget {
   const _ActionPanel({
     required this.isEndingReached,
+    required this.isSickEndingCareActive,
     required this.isForcedSleep,
     required this.isSleepPending,
     required this.canSleep,
@@ -3115,9 +3391,11 @@ class _ActionPanel extends StatelessWidget {
     required this.onHit,
     required this.onSleep,
     required this.onResetGame,
+    required this.onCareSickEnding,
   });
 
   final bool isEndingReached;
+  final bool isSickEndingCareActive;
   final bool isForcedSleep;
   final bool isSleepPending;
   final bool canSleep;
@@ -3144,6 +3422,7 @@ class _ActionPanel extends StatelessWidget {
   final VoidCallback onHit;
   final VoidCallback onSleep;
   final VoidCallback onResetGame;
+  final VoidCallback onCareSickEnding;
 
   @override
   Widget build(BuildContext context) {
@@ -3156,6 +3435,20 @@ class _ActionPanel extends StatelessWidget {
             label: '将大局逆转吧！',
             emphasized: true,
             onPressed: onResetGame,
+          ),
+        ),
+      );
+    }
+
+    if (isSickEndingCareActive) {
+      return Center(
+        child: SizedBox(
+          width: 220,
+          child: _ActionButton(
+            key: const Key('sick-ending-care-button'),
+            label: '照顾',
+            emphasized: true,
+            onPressed: onCareSickEnding,
           ),
         ),
       );
