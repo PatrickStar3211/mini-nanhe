@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mini_nanhe/main.dart';
 import 'package:mini_nanhe/src/character_reaction.dart';
+import 'package:mini_nanhe/src/app_version.dart';
 import 'package:mini_nanhe/src/game_audio_controller.dart';
 import 'package:mini_nanhe/src/home_screen.dart';
 import 'package:mini_nanhe/src/opening_story_screen.dart';
@@ -689,7 +690,7 @@ void main() {
       200,
       scrollable: find.byType(Scrollable).first,
     );
-    expect(find.text('版本 0.2.12'), findsOneWidget);
+    expect(find.text('版本 $appVersion'), findsOneWidget);
   });
 
   testWidgets('settings debug tools jump time and tune relationship values', (
