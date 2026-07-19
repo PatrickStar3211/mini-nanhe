@@ -440,6 +440,7 @@ class _AlbumContent extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final isAchievement = category == CollectionCategory.achievement;
+    final pageCapacity = isAchievement ? 4 : 3;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -496,7 +497,7 @@ class _AlbumContent extends StatelessWidget {
                     final crossAxisCount = isAchievement ? 2 : 1;
                     final rowCount = max(
                       1,
-                      (cards.length / crossAxisCount).ceil(),
+                      (pageCapacity / crossAxisCount).ceil(),
                     );
                     final itemWidth =
                         (constraints.maxWidth -
