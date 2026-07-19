@@ -1,7 +1,10 @@
 import 'dart:async';
+import 'dart:convert';
 import 'dart:math';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import 'abuse_story_screen.dart';
 import 'app_version.dart';
@@ -40,6 +43,19 @@ const _sickEndingTriggerMinute = 22 * 60;
 enum YardHomeTier { box, doghouse, luxury }
 
 enum WeatherCondition { sunny, rainy, snowy }
+
+const _saveSlotCount = 3;
+const _saveSlotKeyPrefix = 'mini_nanhe_save_slot_';
+const _saveSchemaVersion = 1;
+const _saveCodePrefix = 'MN1.';
+
+String _formatMinuteLabel(int minuteOfDay) {
+  final normalizedMinute = minuteOfDay % _midnightMinute;
+  final hour = normalizedMinute ~/ 60;
+  final minute = normalizedMinute % 60;
+  return '${hour.toString().padLeft(2, '0')}:'
+      '${minute.toString().padLeft(2, '0')}';
+}
 
 const _sickEndingCareReactions = <CharacterReaction>[
   CharacterReaction(
@@ -108,6 +124,41 @@ class MiniNanheDebugState {
   final bool? luxuryUnlocked;
 }
 
+class _SaveSlotSummary {
+  const _SaveSlotSummary({
+    required this.slotIndex,
+    this.savedAt,
+    this.totalDaysTogether,
+    this.minuteOfDay,
+    this.affectionLevel,
+    this.trustLevel,
+  });
+
+  final int slotIndex;
+  final DateTime? savedAt;
+  final int? totalDaysTogether;
+  final int? minuteOfDay;
+  final int? affectionLevel;
+  final int? trustLevel;
+
+  bool get isEmpty => savedAt == null;
+
+  String get title => '存档 ${slotIndex + 1}';
+
+  String get subtitle {
+    final savedTime = savedAt;
+    if (savedTime == null) return '空槽';
+    final day = totalDaysTogether ?? 1;
+    final time = _formatMinuteLabel(minuteOfDay ?? 0);
+    final savedAtLabel =
+        '${savedTime.month.toString().padLeft(2, '0')}/'
+        '${savedTime.day.toString().padLeft(2, '0')} '
+        '${savedTime.hour.toString().padLeft(2, '0')}:'
+        '${savedTime.minute.toString().padLeft(2, '0')}';
+    return '第 $day 天 $time · 好感 Lv.${affectionLevel ?? 1} · 信任 Lv.${trustLevel ?? 1} · $savedAtLabel';
+  }
+}
+
 class HomeScreen extends StatefulWidget {
   const HomeScreen({
     super.key,
@@ -151,7 +202,6 @@ class _HomeScreenState extends State<HomeScreen> {
   bool _bondLockedByPreEvolutionHit = false;
   bool _deathPending = false;
   bool _deathEndingReached = false;
-  bool _sickEvolutionEndingReached = false;
   bool _feedEventTriggered = false;
   bool _feedEventCompleted = false;
   bool _firstHitEventTriggered = false;
@@ -196,11 +246,17 @@ class _HomeScreenState extends State<HomeScreen> {
   double _musicVolumeBeforeMute = 0.7;
   double _soundEffectVolumeBeforeMute = 0.8;
   double _voiceVolumeBeforeMute = 0.9;
+  bool _showDebugTools = false;
   BgmTrack _selectedBgm = BgmTrack.cozyNanhe2;
+  List<_SaveSlotSummary> _saveSlots = List.generate(
+    _saveSlotCount,
+    (index) => _SaveSlotSummary(slotIndex: index),
+  );
 
   @override
   void initState() {
     super.initState();
+    unawaited(_loadSaveSlotSummaries());
     final debug = widget.debugInitialState;
     if (debug == null) return;
     _totalDaysTogether = debug.totalDaysTogether ?? _totalDaysTogether;
@@ -239,6 +295,390 @@ class _HomeScreenState extends State<HomeScreen> {
     _applyTimedEvents(showStory: false);
   }
 
+  Future<void> _loadSaveSlotSummaries() async {
+    final preferences = await SharedPreferences.getInstance();
+    final slots = <_SaveSlotSummary>[];
+    for (var index = 0; index < _saveSlotCount; index += 1) {
+      slots.add(
+        _readSaveSlotSummary(preferences.getString(_saveSlotKey(index)), index),
+      );
+    }
+    if (mounted) setState(() => _saveSlots = slots);
+  }
+
+  _SaveSlotSummary _readSaveSlotSummary(String? rawSave, int slotIndex) {
+    if (rawSave == null) return _SaveSlotSummary(slotIndex: slotIndex);
+    try {
+      final decoded = jsonDecode(rawSave);
+      if (decoded is! Map<String, dynamic>) {
+        return _SaveSlotSummary(slotIndex: slotIndex);
+      }
+      final state = decoded['state'];
+      final savedAtRaw = decoded['savedAt'];
+      final savedAt = savedAtRaw is String
+          ? DateTime.tryParse(savedAtRaw)
+          : null;
+      if (state is! Map<String, dynamic> || savedAt == null) {
+        return _SaveSlotSummary(slotIndex: slotIndex);
+      }
+      return _SaveSlotSummary(
+        slotIndex: slotIndex,
+        savedAt: savedAt,
+        totalDaysTogether: _jsonInt(state, 'totalDaysTogether', 1),
+        minuteOfDay: _jsonInt(state, 'minuteOfDay', 6 * 60),
+        affectionLevel: _jsonInt(state, 'affectionLevel', 1),
+        trustLevel: _jsonInt(state, 'trustLevel', 1),
+      );
+    } catch (_) {
+      return _SaveSlotSummary(slotIndex: slotIndex);
+    }
+  }
+
+  String _saveSlotKey(int slotIndex) => '$_saveSlotKeyPrefix$slotIndex';
+
+  Future<void> _saveGameToSlot(int slotIndex) async {
+    final preferences = await SharedPreferences.getInstance();
+    final saveData = <String, Object?>{
+      'schemaVersion': _saveSchemaVersion,
+      'savedAt': DateTime.now().toIso8601String(),
+      'state': _buildSaveState(),
+    };
+    await preferences.setString(_saveSlotKey(slotIndex), jsonEncode(saveData));
+    await _loadSaveSlotSummaries();
+    if (!mounted) return;
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: Text('已保存到存档 ${slotIndex + 1}')));
+  }
+
+  Future<void> _loadGameFromSlot(int slotIndex) async {
+    final preferences = await SharedPreferences.getInstance();
+    final rawSave = preferences.getString(_saveSlotKey(slotIndex));
+    if (rawSave == null) return;
+    try {
+      final decoded = jsonDecode(rawSave);
+      if (decoded is! Map<String, dynamic>) return;
+      final state = decoded['state'];
+      if (state is! Map<String, dynamic>) return;
+      setState(() => _applySaveState(state));
+      _syncAudioControllerWithState();
+      if (!mounted) return;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('已读取存档 ${slotIndex + 1}')));
+    } catch (_) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('存档 ${slotIndex + 1} 无法读取')));
+    }
+  }
+
+  Future<void> _exportSaveSlot(int slotIndex) async {
+    final preferences = await SharedPreferences.getInstance();
+    final rawSave = preferences.getString(_saveSlotKey(slotIndex));
+    if (rawSave == null) return;
+    final saveCode = _encodeSaveCode(rawSave);
+    await Clipboard.setData(ClipboardData(text: saveCode));
+    if (!mounted) return;
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: Text('存档 ${slotIndex + 1} 的存档码已复制')));
+  }
+
+  Future<void> _showImportSaveDialog() async {
+    final result = await showDialog<_SaveImportResult>(
+      context: context,
+      builder: (context) => const _ImportSaveDialog(),
+    );
+    if (result == null) return;
+    await _importSaveCodeToSlot(result.saveCode, result.slotIndex);
+  }
+
+  Future<void> _importSaveCodeToSlot(String saveCode, int slotIndex) async {
+    final rawSave = _decodeSaveCode(saveCode);
+    if (rawSave == null) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('存档码无法读取')));
+      return;
+    }
+    final summary = _readSaveSlotSummary(rawSave, slotIndex);
+    if (summary.isEmpty) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('存档码内容无效')));
+      return;
+    }
+    final preferences = await SharedPreferences.getInstance();
+    await preferences.setString(_saveSlotKey(slotIndex), rawSave);
+    await _loadSaveSlotSummaries();
+    if (!mounted) return;
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: Text('已导入到存档 ${slotIndex + 1}')));
+  }
+
+  String _encodeSaveCode(String rawSave) {
+    final encoded = base64UrlEncode(utf8.encode(rawSave));
+    return '$_saveCodePrefix$encoded';
+  }
+
+  String? _decodeSaveCode(String saveCode) {
+    final trimmed = saveCode.trim();
+    if (!trimmed.startsWith(_saveCodePrefix)) return null;
+    final encoded = trimmed.substring(_saveCodePrefix.length);
+    try {
+      return utf8.decode(base64Url.decode(encoded));
+    } catch (_) {
+      return null;
+    }
+  }
+
+  Map<String, Object?> _buildSaveState() {
+    return {
+      'totalDaysTogether': _totalDaysTogether,
+      'year': _year,
+      'month': _month,
+      'day': _day,
+      'minuteOfDay': _minuteOfDay,
+      'energy': _energy,
+      'affectionLevel': _affectionLevel,
+      'affectionProgress': _affectionProgress,
+      'trustLevel': _trustLevel,
+      'trustProgress': _trustProgress,
+      'pressure': _pressure,
+      'cleanliness': _cleanliness,
+      'healthValue': _healthValue,
+      'injury': _injury,
+      'exhaustionCount': _exhaustionCount,
+      'actionPage': _actionPage,
+      'yardHomeTier': _yardHomeTier.name,
+      'hasBeenHit': _hasBeenHit,
+      'hitCount': _hitCount,
+      'bondLockedByPreEvolutionHit': _bondLockedByPreEvolutionHit,
+      'deathPending': _deathPending,
+      'deathEndingReached': _deathEndingReached,
+      'feedEventTriggered': _feedEventTriggered,
+      'feedEventCompleted': _feedEventCompleted,
+      'firstHitEventTriggered': _firstHitEventTriggered,
+      'daySevenSicknessTriggered': _daySevenSicknessTriggered,
+      'sicknessEventCompleted': _sicknessEventCompleted,
+      'sickEndingOnsetTriggered': _sickEndingOnsetTriggered,
+      'sickEndingCareActive': _sickEndingCareActive,
+      'doghouseUnlocked': _doghouseUnlocked,
+      'luxuryUnlocked': _luxuryUnlocked,
+      'feedEventResolvedCorrectly': _feedEventResolvedCorrectly,
+      'sicknessEventResolvedCorrectly': _sicknessEventResolvedCorrectly,
+      'memoryIds': _permanentMemoryIds.toList(),
+      'achievementIds': _permanentAchievementIds.toList(),
+      'decorationIds': _permanentDecorationIds.toList(),
+      'strength': _strength,
+      'intelligence': _intelligence,
+      'charm': _charm,
+      'art': _art,
+      'skill': _skill,
+      'endurance': _endurance,
+      'curiosity': _curiosity,
+      'selfDiscipline': _selfDiscipline,
+      'rebellion': _rebellion,
+      'dependence': _dependence,
+      'confidence': _confidence,
+      'gentleness': _gentleness,
+      'musicVolume': _musicVolume,
+      'soundEffectVolume': _soundEffectVolume,
+      'voiceVolume': _voiceVolume,
+      'musicVolumeBeforeMute': _musicVolumeBeforeMute,
+      'soundEffectVolumeBeforeMute': _soundEffectVolumeBeforeMute,
+      'voiceVolumeBeforeMute': _voiceVolumeBeforeMute,
+      'selectedBgm': _selectedBgm.name,
+    };
+  }
+
+  void _applySaveState(Map<String, dynamic> state) {
+    _selectedDestination = 0;
+    _totalDaysTogether = _jsonInt(state, 'totalDaysTogether', 1);
+    _year = _jsonInt(state, 'year', 1);
+    _month = _jsonInt(state, 'month', 1);
+    _day = _jsonInt(state, 'day', 1);
+    _minuteOfDay = _jsonInt(
+      state,
+      'minuteOfDay',
+      6 * 60,
+    ).clamp(0, _postMidnightSickEndingMinute);
+    _energy = _jsonInt(
+      state,
+      'energy',
+      _initialMaxEnergy,
+    ).clamp(0, _maxStatValue);
+    _affectionLevel = _clampStat(_jsonInt(state, 'affectionLevel', 1));
+    _affectionProgress = _jsonInt(state, 'affectionProgress', 0).clamp(0, 99);
+    _trustLevel = _clampStat(_jsonInt(state, 'trustLevel', 1));
+    _trustProgress = _jsonInt(state, 'trustProgress', 0).clamp(0, 99);
+    _pressure = _clampPercent(_jsonInt(state, 'pressure', 0));
+    _cleanliness = _clampPercent(_jsonInt(state, 'cleanliness', 100));
+    _healthValue = _clampPercent(_jsonInt(state, 'healthValue', 80));
+    _injury = _clampPercent(_jsonInt(state, 'injury', 0));
+    _exhaustionCount = _clampPercent(_jsonInt(state, 'exhaustionCount', 0));
+    _actionPage = _jsonInt(state, 'actionPage', 0).clamp(0, 1);
+    _yardHomeTier = _yardHomeFromName(
+      _jsonString(state, 'yardHomeTier', YardHomeTier.box.name),
+    );
+    _hasBeenHit = _jsonBool(state, 'hasBeenHit', false);
+    _hitCount = _jsonInt(state, 'hitCount', 0);
+    _bondLockedByPreEvolutionHit = _jsonBool(
+      state,
+      'bondLockedByPreEvolutionHit',
+      false,
+    );
+    _deathPending = _jsonBool(state, 'deathPending', false);
+    _deathEndingReached = _jsonBool(state, 'deathEndingReached', false);
+    _feedEventTriggered = _jsonBool(state, 'feedEventTriggered', false);
+    _feedEventCompleted = _jsonBool(state, 'feedEventCompleted', false);
+    _firstHitEventTriggered = _jsonBool(state, 'firstHitEventTriggered', false);
+    _daySevenSicknessTriggered = _jsonBool(
+      state,
+      'daySevenSicknessTriggered',
+      false,
+    );
+    _sicknessEventCompleted = _jsonBool(state, 'sicknessEventCompleted', false);
+    _sickEndingOnsetTriggered = _jsonBool(
+      state,
+      'sickEndingOnsetTriggered',
+      false,
+    );
+    _sickEndingCareActive = _jsonBool(state, 'sickEndingCareActive', false);
+    _doghouseUnlocked = _jsonBool(state, 'doghouseUnlocked', false);
+    _luxuryUnlocked = _jsonBool(state, 'luxuryUnlocked', false);
+    _feedEventResolvedCorrectly = _jsonBool(
+      state,
+      'feedEventResolvedCorrectly',
+      false,
+    );
+    _sicknessEventResolvedCorrectly = _jsonBool(
+      state,
+      'sicknessEventResolvedCorrectly',
+      false,
+    );
+    _permanentMemoryIds
+      ..clear()
+      ..addAll(_jsonStringList(state, 'memoryIds', const ['opening-memory']));
+    _permanentAchievementIds
+      ..clear()
+      ..addAll(_jsonStringList(state, 'achievementIds', const ['rainy-day']));
+    _permanentDecorationIds
+      ..clear()
+      ..addAll(_jsonStringList(state, 'decorationIds', const ['yard-box']));
+    _strength = _clampStat(_jsonInt(state, 'strength', 1));
+    _intelligence = _clampStat(_jsonInt(state, 'intelligence', 1));
+    _charm = _clampStat(_jsonInt(state, 'charm', 1));
+    _art = _clampStat(_jsonInt(state, 'art', 1));
+    _skill = _clampStat(_jsonInt(state, 'skill', 1));
+    _endurance = _clampStat(_jsonInt(state, 'endurance', 1));
+    _curiosity = _clampPercent(_jsonInt(state, 'curiosity', 0));
+    _selfDiscipline = _clampPercent(_jsonInt(state, 'selfDiscipline', 0));
+    _rebellion = _clampPercent(_jsonInt(state, 'rebellion', 0));
+    _dependence = _clampPercent(_jsonInt(state, 'dependence', 0));
+    _confidence = _clampPercent(_jsonInt(state, 'confidence', 0));
+    _gentleness = _clampPercent(_jsonInt(state, 'gentleness', 0));
+    _musicVolume = _jsonDouble(state, 'musicVolume', 0.7).clamp(0, 1);
+    _soundEffectVolume = _jsonDouble(
+      state,
+      'soundEffectVolume',
+      0.8,
+    ).clamp(0, 1);
+    _voiceVolume = _jsonDouble(state, 'voiceVolume', 0.9).clamp(0, 1);
+    _musicVolumeBeforeMute = _jsonDouble(
+      state,
+      'musicVolumeBeforeMute',
+      0.7,
+    ).clamp(0, 1);
+    _soundEffectVolumeBeforeMute = _jsonDouble(
+      state,
+      'soundEffectVolumeBeforeMute',
+      0.8,
+    ).clamp(0, 1);
+    _voiceVolumeBeforeMute = _jsonDouble(
+      state,
+      'voiceVolumeBeforeMute',
+      0.9,
+    ).clamp(0, 1);
+    _selectedBgm = _bgmFromName(
+      _jsonString(state, 'selectedBgm', BgmTrack.cozyNanhe2.name),
+    );
+    _sleepPending = false;
+    _sicknessStoryPending = false;
+    _showingSicknessStory = false;
+    _sickEndingOnsetStoryPending = false;
+    _showingSickEndingOnsetStory = false;
+    _sickEndingFinalStoryPending = false;
+    _showingSickEndingFinalStory = false;
+    _doghouseUnlockStoryPending = false;
+    _showingDoghouseUnlockStory = false;
+    _luxuryUnlockStoryPending = false;
+    _showingLuxuryUnlockStory = false;
+    _reaction = null;
+    _isReacting = false;
+    _applyTimedEvents(showStory: false);
+    _queueProgressionUnlocks();
+    if (!_unlockedYardHomes.contains(_yardHomeTier)) {
+      _yardHomeTier = _unlockedYardHomes.last;
+    }
+  }
+
+  void _syncAudioControllerWithState() {
+    widget.audioController.setMusicVolume(_musicVolume);
+    widget.audioController.setSoundEffectVolume(_soundEffectVolume);
+    widget.audioController.setVoiceVolume(_voiceVolume);
+    unawaited(widget.audioController.changeBgm(_selectedBgm));
+  }
+
+  int _jsonInt(Map<String, dynamic> source, String key, int fallback) {
+    final value = source[key];
+    return value is num ? value.round() : fallback;
+  }
+
+  double _jsonDouble(Map<String, dynamic> source, String key, double fallback) {
+    final value = source[key];
+    return value is num ? value.toDouble() : fallback;
+  }
+
+  bool _jsonBool(Map<String, dynamic> source, String key, bool fallback) {
+    final value = source[key];
+    return value is bool ? value : fallback;
+  }
+
+  String _jsonString(Map<String, dynamic> source, String key, String fallback) {
+    final value = source[key];
+    return value is String ? value : fallback;
+  }
+
+  List<String> _jsonStringList(
+    Map<String, dynamic> source,
+    String key,
+    List<String> fallback,
+  ) {
+    final value = source[key];
+    if (value is! List) return fallback;
+    return value.whereType<String>().toList();
+  }
+
+  YardHomeTier _yardHomeFromName(String name) {
+    return YardHomeTier.values.firstWhere(
+      (tier) => tier.name == name,
+      orElse: () => YardHomeTier.box,
+    );
+  }
+
+  BgmTrack _bgmFromName(String name) {
+    return BgmTrack.values.firstWhere(
+      (track) => track.name == name,
+      orElse: () => BgmTrack.cozyNanhe2,
+    );
+  }
+
   bool get _isExhausted => _energy <= 0;
   bool get _isMidnight => _minuteOfDay >= _midnightMinute;
   bool get _isForcedSleep =>
@@ -275,25 +715,22 @@ class _HomeScreenState extends State<HomeScreen> {
       _sicknessEventResolvedCorrectly &&
       _totalDaysTogether > 25;
   bool get _canShowEvolutionButton =>
-      !_sickEndingOnsetTriggered &&
-      _totalDaysTogether > 60 &&
-      (_luxuryUnlocked || _hasSickEvolutionRoute);
+      !_sickEndingOnsetTriggered && _totalDaysTogether > 60 && _luxuryUnlocked;
   bool get _canTriggerSickEnding =>
       !_sickEndingOnsetTriggered &&
       !_deathEndingReached &&
       !_luxuryUnlocked &&
-      _hasSickEvolutionRoute &&
+      _hasSickEndingRoute &&
       _totalDaysTogether == 60 &&
       (_minuteOfDay >= _sickEndingTriggerMinute || _isExhausted);
   bool get _isPreEvolutionPeriod => _totalDaysTogether <= 60;
   bool get _isBondLocked =>
       _bondLockedByPreEvolutionHit && _isPreEvolutionPeriod;
-  bool get _hasSickEvolutionRoute =>
+  bool get _hasSickEndingRoute =>
       _bondLockedByPreEvolutionHit ||
       (_feedEventCompleted && !_feedEventResolvedCorrectly) ||
       (_sicknessEventCompleted && !_sicknessEventResolvedCorrectly);
-  bool get _isEndingReached =>
-      _deathEndingReached || _sickEvolutionEndingReached;
+  bool get _isEndingReached => _deathEndingReached;
   bool get _isDaySevenRain =>
       _totalDaysTogether == 7 && _minuteOfDay >= _earliestWakeMinute;
   List<YardHomeTier> get _unlockedYardHomes => [
@@ -331,11 +768,7 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   String get _timeLabel {
-    final normalizedMinute = _minuteOfDay % _midnightMinute;
-    final hour = normalizedMinute ~/ 60;
-    final minute = normalizedMinute % 60;
-    return '${hour.toString().padLeft(2, '0')}:'
-        '${minute.toString().padLeft(2, '0')}';
+    return _formatMinuteLabel(_minuteOfDay);
   }
 
   String get _seasonAssetKey {
@@ -484,7 +917,6 @@ class _HomeScreenState extends State<HomeScreen> {
 
   String get _characterAsset {
     if (_deathEndingReached) return miniNanheDeadAsset;
-    if (_sickEvolutionEndingReached) return miniNanheSadAsset;
     return switch (_currentEmotion) {
       NanheEmotion.happy => miniNanheHappyAsset,
       NanheEmotion.affectionate => miniNanheAffectionateAsset,
@@ -748,21 +1180,7 @@ class _HomeScreenState extends State<HomeScreen> {
     });
   }
 
-  void _handleEvolution() {
-    if (_hasSickEvolutionRoute) {
-      setState(() {
-        _sickEvolutionEndingReached = true;
-        _reaction = const CharacterReaction(
-          emotion: NanheEmotion.sad,
-          nanheSpeech: 'å—æ²³â€¦â€¦',
-          meaning: 'è¿·ä½ å—æ²³çš„èº«ä½“æ²¡æœ‰èƒ½æ”¯æ’‘ä½è¿™æ¬¡è¿›åŒ–ã€‚',
-          voice: NanheVoice.sadDouble,
-        );
-        _isReacting = false;
-      });
-      widget.audioController.playVoice(NanheVoice.sadDouble);
-    }
-  }
+  void _handleEvolution() {}
 
   void _advanceOneDay() {
     _day += 1;
@@ -1659,24 +2077,10 @@ class _HomeScreenState extends State<HomeScreen> {
     });
   }
 
-  void _setDebugAffectionProgress(int value) {
-    setState(() {
-      _affectionProgress = value.clamp(0, 99);
-      _queueProgressionUnlocks();
-    });
-  }
-
   void _setDebugTrustLevel(int value) {
     setState(() {
       _trustLevel = _clampStat(value);
       _trustProgress = _trustProgress.clamp(0, 99);
-      _queueProgressionUnlocks();
-    });
-  }
-
-  void _setDebugTrustProgress(int value) {
-    setState(() {
-      _trustProgress = value.clamp(0, 99);
       _queueProgressionUnlocks();
     });
   }
@@ -1752,7 +2156,6 @@ class _HomeScreenState extends State<HomeScreen> {
       _bondLockedByPreEvolutionHit = false;
       _deathPending = false;
       _deathEndingReached = false;
-      _sickEvolutionEndingReached = false;
       _feedEventTriggered = false;
       _feedEventCompleted = false;
       _firstHitEventTriggered = false;
@@ -1788,6 +2191,7 @@ class _HomeScreenState extends State<HomeScreen> {
       _dependence = 0;
       _confidence = 0;
       _gentleness = 0;
+      _showDebugTools = false;
       _reaction = null;
       _isReacting = false;
     });
@@ -1859,12 +2263,12 @@ class _HomeScreenState extends State<HomeScreen> {
         musicVolume: _musicVolume,
         soundEffectVolume: _soundEffectVolume,
         voiceVolume: _voiceVolume,
+        showDebugTools: _showDebugTools,
+        saveSlots: _saveSlots,
         totalDaysTogether: _totalDaysTogether,
         minuteOfDay: _minuteOfDay,
         affectionLevel: _affectionLevel,
-        affectionProgress: _affectionProgress,
         trustLevel: _trustLevel,
-        trustProgress: _trustProgress,
         onMusicChanged: _setMusicVolume,
         onSoundEffectChanged: _setSoundEffectVolume,
         onVoiceChanged: _setVoiceVolume,
@@ -1872,11 +2276,14 @@ class _HomeScreenState extends State<HomeScreen> {
         onSoundEffectMuteToggle: _toggleSoundEffectMute,
         onVoiceMuteToggle: _toggleVoiceMute,
         onBgmChanged: _changeBgm,
+        onSaveSlot: _saveGameToSlot,
+        onLoadSlot: _loadGameFromSlot,
+        onExportSlot: _exportSaveSlot,
+        onImportSave: _showImportSaveDialog,
+        onVersionLongPress: () => setState(() => _showDebugTools = true),
         onDebugTimelineChanged: _setDebugTimeline,
         onDebugAffectionLevelChanged: _setDebugAffectionLevel,
-        onDebugAffectionProgressChanged: _setDebugAffectionProgress,
         onDebugTrustLevelChanged: _setDebugTrustLevel,
-        onDebugTrustProgressChanged: _setDebugTrustProgress,
       ),
       _ => _CompanionPage(
         totalDaysTogether: _totalDaysTogether,
@@ -3753,12 +4160,12 @@ class _SettingsPage extends StatelessWidget {
     required this.musicVolume,
     required this.soundEffectVolume,
     required this.voiceVolume,
+    required this.showDebugTools,
+    required this.saveSlots,
     required this.totalDaysTogether,
     required this.minuteOfDay,
     required this.affectionLevel,
-    required this.affectionProgress,
     required this.trustLevel,
-    required this.trustProgress,
     required this.onMusicChanged,
     required this.onSoundEffectChanged,
     required this.onVoiceChanged,
@@ -3766,23 +4173,26 @@ class _SettingsPage extends StatelessWidget {
     required this.onSoundEffectMuteToggle,
     required this.onVoiceMuteToggle,
     required this.onBgmChanged,
+    required this.onSaveSlot,
+    required this.onLoadSlot,
+    required this.onExportSlot,
+    required this.onImportSave,
+    required this.onVersionLongPress,
     required this.onDebugTimelineChanged,
     required this.onDebugAffectionLevelChanged,
-    required this.onDebugAffectionProgressChanged,
     required this.onDebugTrustLevelChanged,
-    required this.onDebugTrustProgressChanged,
   });
 
   final BgmTrack selectedBgm;
   final double musicVolume;
   final double soundEffectVolume;
   final double voiceVolume;
+  final bool showDebugTools;
+  final List<_SaveSlotSummary> saveSlots;
   final int totalDaysTogether;
   final int minuteOfDay;
   final int affectionLevel;
-  final int affectionProgress;
   final int trustLevel;
-  final int trustProgress;
   final ValueChanged<double> onMusicChanged;
   final ValueChanged<double> onSoundEffectChanged;
   final ValueChanged<double> onVoiceChanged;
@@ -3790,12 +4200,15 @@ class _SettingsPage extends StatelessWidget {
   final VoidCallback onSoundEffectMuteToggle;
   final VoidCallback onVoiceMuteToggle;
   final ValueChanged<BgmTrack> onBgmChanged;
+  final ValueChanged<int> onSaveSlot;
+  final ValueChanged<int> onLoadSlot;
+  final ValueChanged<int> onExportSlot;
+  final VoidCallback onImportSave;
+  final VoidCallback onVersionLongPress;
   final void Function({required int totalDaysTogether, required int minute})
   onDebugTimelineChanged;
   final ValueChanged<int> onDebugAffectionLevelChanged;
-  final ValueChanged<int> onDebugAffectionProgressChanged;
   final ValueChanged<int> onDebugTrustLevelChanged;
-  final ValueChanged<int> onDebugTrustProgressChanged;
 
   @override
   Widget build(BuildContext context) {
@@ -3879,35 +4292,37 @@ class _SettingsPage extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 8),
-          const ListTile(
-            contentPadding: EdgeInsets.zero,
-            leading: Icon(Icons.save_outlined),
-            title: Text('本机存档'),
-            subtitle: Text('将在 EPIC 7 实作'),
+          _SaveSlotsPanel(
+            slots: saveSlots,
+            onSaveSlot: onSaveSlot,
+            onLoadSlot: onLoadSlot,
+            onExportSlot: onExportSlot,
+            onImportSave: onImportSave,
           ),
-          const SizedBox(height: 8),
-          _DebugToolsPanel(
-            totalDaysTogether: totalDaysTogether,
-            minuteOfDay: minuteOfDay,
-            affectionLevel: affectionLevel,
-            affectionProgress: affectionProgress,
-            trustLevel: trustLevel,
-            trustProgress: trustProgress,
-            onTimelineChanged: onDebugTimelineChanged,
-            onAffectionLevelChanged: onDebugAffectionLevelChanged,
-            onAffectionProgressChanged: onDebugAffectionProgressChanged,
-            onTrustLevelChanged: onDebugTrustLevelChanged,
-            onTrustProgressChanged: onDebugTrustProgressChanged,
-          ),
+          if (showDebugTools) ...[
+            const SizedBox(height: 8),
+            _DebugToolsPanel(
+              totalDaysTogether: totalDaysTogether,
+              minuteOfDay: minuteOfDay,
+              affectionLevel: affectionLevel,
+              trustLevel: trustLevel,
+              onTimelineChanged: onDebugTimelineChanged,
+              onAffectionLevelChanged: onDebugAffectionLevelChanged,
+              onTrustLevelChanged: onDebugTrustLevelChanged,
+            ),
+          ],
           const SizedBox(height: 24),
-          const Center(
-            child: Text(
-              '版本 $appVersion',
-              key: Key('app-version'),
-              style: TextStyle(
-                color: Color(0xFF7A8796),
-                fontSize: 12,
-                fontWeight: FontWeight.w600,
+          Center(
+            child: GestureDetector(
+              onLongPress: onVersionLongPress,
+              child: const Text(
+                '版本 $appVersion',
+                key: Key('app-version'),
+                style: TextStyle(
+                  color: Color(0xFF7A8796),
+                  fontSize: 12,
+                  fontWeight: FontWeight.w600,
+                ),
               ),
             ),
           ),
@@ -3918,44 +4333,262 @@ class _SettingsPage extends StatelessWidget {
   }
 }
 
+class _SaveSlotsPanel extends StatelessWidget {
+  const _SaveSlotsPanel({
+    required this.slots,
+    required this.onSaveSlot,
+    required this.onLoadSlot,
+    required this.onExportSlot,
+    required this.onImportSave,
+  });
+
+  final List<_SaveSlotSummary> slots;
+  final ValueChanged<int> onSaveSlot;
+  final ValueChanged<int> onLoadSlot;
+  final ValueChanged<int> onExportSlot;
+  final VoidCallback onImportSave;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      key: const Key('save-slots-panel'),
+      padding: const EdgeInsets.fromLTRB(16, 16, 12, 12),
+      decoration: BoxDecoration(
+        color: frost,
+        borderRadius: BorderRadius.circular(24),
+        border: Border.all(color: const Color(0xFFD7E8FA)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Text('本机存档', style: Theme.of(context).textTheme.titleMedium),
+          const SizedBox(height: 4),
+          Text(
+            '网页存档保存在当前浏览器，清除网站数据后会消失。',
+            style: Theme.of(context).textTheme.bodySmall,
+          ),
+          const SizedBox(height: 12),
+          for (final slot in slots) ...[
+            _SaveSlotTile(
+              slot: slot,
+              onSave: () => onSaveSlot(slot.slotIndex),
+              onLoad: slot.isEmpty ? null : () => onLoadSlot(slot.slotIndex),
+              onExport: slot.isEmpty
+                  ? null
+                  : () => onExportSlot(slot.slotIndex),
+            ),
+            if (slot.slotIndex != slots.length - 1) const SizedBox(height: 8),
+          ],
+          const SizedBox(height: 12),
+          OutlinedButton.icon(
+            key: const Key('import-save-code-button'),
+            onPressed: onImportSave,
+            icon: const Icon(Icons.input_rounded),
+            label: const Text('导入存档码'),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _SaveSlotTile extends StatelessWidget {
+  const _SaveSlotTile({
+    required this.slot,
+    required this.onSave,
+    required this.onLoad,
+    required this.onExport,
+  });
+
+  final _SaveSlotSummary slot;
+  final VoidCallback onSave;
+  final VoidCallback? onLoad;
+  final VoidCallback? onExport;
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: blueMist.withValues(alpha: 0.36),
+      borderRadius: BorderRadius.circular(16),
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(12, 10, 8, 10),
+        child: Row(
+          children: [
+            Icon(
+              slot.isEmpty ? Icons.inventory_2_outlined : Icons.save_rounded,
+              color: slot.isEmpty ? mutedInk : deepBlue,
+            ),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    slot.title,
+                    style: const TextStyle(
+                      color: ink,
+                      fontWeight: FontWeight.w900,
+                    ),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    slot.subtitle,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      color: mutedInk,
+                      fontSize: 12,
+                      height: 1.2,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(width: 10),
+            Wrap(
+              spacing: 6,
+              runSpacing: 6,
+              children: [
+                FilledButton.tonal(
+                  key: Key('save-slot-${slot.slotIndex}-save'),
+                  onPressed: onSave,
+                  style: FilledButton.styleFrom(
+                    minimumSize: const Size(0, 36),
+                    padding: const EdgeInsets.symmetric(horizontal: 10),
+                  ),
+                  child: const Text('保存'),
+                ),
+                FilledButton(
+                  key: Key('save-slot-${slot.slotIndex}-load'),
+                  onPressed: onLoad,
+                  style: FilledButton.styleFrom(
+                    minimumSize: const Size(0, 36),
+                    padding: const EdgeInsets.symmetric(horizontal: 10),
+                  ),
+                  child: const Text('读取'),
+                ),
+                OutlinedButton(
+                  key: Key('save-slot-${slot.slotIndex}-export'),
+                  onPressed: onExport,
+                  style: OutlinedButton.styleFrom(
+                    minimumSize: const Size(0, 36),
+                    padding: const EdgeInsets.symmetric(horizontal: 10),
+                  ),
+                  child: const Text('导出'),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _SaveImportResult {
+  const _SaveImportResult({required this.saveCode, required this.slotIndex});
+
+  final String saveCode;
+  final int slotIndex;
+}
+
+class _ImportSaveDialog extends StatefulWidget {
+  const _ImportSaveDialog();
+
+  @override
+  State<_ImportSaveDialog> createState() => _ImportSaveDialogState();
+}
+
+class _ImportSaveDialogState extends State<_ImportSaveDialog> {
+  final _controller = TextEditingController();
+  int _slotIndex = 0;
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  void _submit() {
+    final saveCode = _controller.text.trim();
+    if (saveCode.isEmpty) return;
+    Navigator.of(
+      context,
+    ).pop(_SaveImportResult(saveCode: saveCode, slotIndex: _slotIndex));
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: const Text('导入存档码'),
+      content: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          TextField(
+            key: const Key('import-save-code-field'),
+            controller: _controller,
+            minLines: 4,
+            maxLines: 6,
+            decoration: const InputDecoration(
+              labelText: '存档码',
+              alignLabelWithHint: true,
+              border: OutlineInputBorder(),
+            ),
+          ),
+          const SizedBox(height: 12),
+          DropdownButtonFormField<int>(
+            key: const Key('import-save-slot-selector'),
+            initialValue: _slotIndex,
+            decoration: const InputDecoration(
+              labelText: '导入到',
+              border: OutlineInputBorder(),
+            ),
+            items: [
+              for (var index = 0; index < _saveSlotCount; index += 1)
+                DropdownMenuItem(value: index, child: Text('存档 ${index + 1}')),
+            ],
+            onChanged: (value) {
+              if (value != null) setState(() => _slotIndex = value);
+            },
+          ),
+        ],
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(),
+          child: const Text('取消'),
+        ),
+        FilledButton(
+          key: const Key('import-save-confirm-button'),
+          onPressed: _submit,
+          child: const Text('导入'),
+        ),
+      ],
+    );
+  }
+}
+
 class _DebugToolsPanel extends StatelessWidget {
   const _DebugToolsPanel({
     required this.totalDaysTogether,
     required this.minuteOfDay,
     required this.affectionLevel,
-    required this.affectionProgress,
     required this.trustLevel,
-    required this.trustProgress,
     required this.onTimelineChanged,
     required this.onAffectionLevelChanged,
-    required this.onAffectionProgressChanged,
     required this.onTrustLevelChanged,
-    required this.onTrustProgressChanged,
   });
 
   final int totalDaysTogether;
   final int minuteOfDay;
   final int affectionLevel;
-  final int affectionProgress;
   final int trustLevel;
-  final int trustProgress;
   final void Function({required int totalDaysTogether, required int minute})
   onTimelineChanged;
   final ValueChanged<int> onAffectionLevelChanged;
-  final ValueChanged<int> onAffectionProgressChanged;
   final ValueChanged<int> onTrustLevelChanged;
-  final ValueChanged<int> onTrustProgressChanged;
-
-  static const _presets = [
-    _DebugTimePreset('第1天 06:00', 1, 6 * 60),
-    _DebugTimePreset('第1天 12:00', 1, 12 * 60),
-    _DebugTimePreset('第1天 22:00', 1, 22 * 60),
-    _DebugTimePreset('第3天 06:00', 3, 6 * 60),
-    _DebugTimePreset('第7天 06:00', 7, 6 * 60),
-    _DebugTimePreset('第7天 16:00', 7, 16 * 60),
-    _DebugTimePreset('第26天 06:00', 26, 6 * 60),
-    _DebugTimePreset('第61天 06:00', 61, 6 * 60),
-  ];
 
   String get _timeLabel {
     final normalizedMinute = minuteOfDay % _midnightMinute;
@@ -3990,23 +4623,6 @@ class _DebugToolsPanel extends StatelessWidget {
             '用于快速检查迷你期节点，不影响之后正式存档设计。',
             style: Theme.of(context).textTheme.bodySmall,
           ),
-          const SizedBox(height: 12),
-          Wrap(
-            spacing: 8,
-            runSpacing: 8,
-            children: [
-              for (final preset in _presets)
-                ActionChip(
-                  key: Key('debug-preset-${preset.label}'),
-                  label: Text(preset.label),
-                  avatar: const Icon(Icons.bolt_rounded, size: 16),
-                  onPressed: () => onTimelineChanged(
-                    totalDaysTogether: preset.day,
-                    minute: preset.minute,
-                  ),
-                ),
-            ],
-          ),
           const SizedBox(height: 14),
           _DebugIntSlider(
             key: const Key('debug-day-slider'),
@@ -4033,46 +4649,6 @@ class _DebugToolsPanel extends StatelessWidget {
               minute: value,
             ),
           ),
-          const Divider(height: 20),
-          Wrap(
-            spacing: 8,
-            runSpacing: 8,
-            children: [
-              ActionChip(
-                key: const Key('debug-affection-lv2'),
-                label: const Text('好感 Lv2'),
-                onPressed: () {
-                  onAffectionLevelChanged(2);
-                  onAffectionProgressChanged(0);
-                },
-              ),
-              ActionChip(
-                key: const Key('debug-affection-lv5'),
-                label: const Text('好感 Lv5'),
-                onPressed: () {
-                  onAffectionLevelChanged(5);
-                  onAffectionProgressChanged(0);
-                },
-              ),
-              ActionChip(
-                key: const Key('debug-trust-lv2'),
-                label: const Text('信任 Lv2'),
-                onPressed: () {
-                  onTrustLevelChanged(2);
-                  onTrustProgressChanged(0);
-                },
-              ),
-              ActionChip(
-                key: const Key('debug-trust-lv4'),
-                label: const Text('信任 Lv4'),
-                onPressed: () {
-                  onTrustLevelChanged(4);
-                  onTrustProgressChanged(0);
-                },
-              ),
-            ],
-          ),
-          const SizedBox(height: 8),
           _DebugIntSlider(
             key: const Key('debug-affection-level-slider'),
             label: '好感等级',
@@ -4083,15 +4659,6 @@ class _DebugToolsPanel extends StatelessWidget {
             onChanged: onAffectionLevelChanged,
           ),
           _DebugIntSlider(
-            key: const Key('debug-affection-progress-slider'),
-            label: '好感进度',
-            valueLabel: '$affectionProgress/100',
-            value: affectionProgress,
-            min: 0,
-            max: 99,
-            onChanged: onAffectionProgressChanged,
-          ),
-          _DebugIntSlider(
             key: const Key('debug-trust-level-slider'),
             label: '信任等级',
             valueLabel: 'Lv.$trustLevel',
@@ -4100,27 +4667,10 @@ class _DebugToolsPanel extends StatelessWidget {
             max: 10,
             onChanged: onTrustLevelChanged,
           ),
-          _DebugIntSlider(
-            key: const Key('debug-trust-progress-slider'),
-            label: '信任进度',
-            valueLabel: '$trustProgress/100',
-            value: trustProgress,
-            min: 0,
-            max: 99,
-            onChanged: onTrustProgressChanged,
-          ),
         ],
       ),
     );
   }
-}
-
-class _DebugTimePreset {
-  const _DebugTimePreset(this.label, this.day, this.minute);
-
-  final String label;
-  final int day;
-  final int minute;
 }
 
 class _DebugIntSlider extends StatelessWidget {

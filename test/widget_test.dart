@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -711,46 +713,114 @@ void main() {
     expect(find.text('版本 $appVersion'), findsOneWidget);
   });
 
-  testWidgets('settings debug tools jump time and tune relationship values', (
+  testWidgets('manual save slot restores saved game state', (tester) async {
+    await _pumpLoadedApp(tester);
+
+    await tester.tap(find.byKey(const Key('pet-button')));
+    await tester.pump(const Duration(milliseconds: 200));
+    expect(find.text('冬 | 第1年 · 1月1日 | 06:30 | 晴'), findsOneWidget);
+    expect(find.text('3/100'), findsOneWidget);
+
+    await tester.tap(find.text('设置'));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const Key('save-slots-panel')), findsOneWidget);
+    expect(find.text('空槽'), findsWidgets);
+    await tester.tap(find.byKey(const Key('save-slot-0-save')));
+    await tester.pumpAndSettle();
+    expect(find.textContaining('第 1 天 06:30'), findsOneWidget);
+
+    await tester.tap(find.text('陪伴'));
+    await tester.pumpAndSettle();
+    await tester.pump(const Duration(seconds: 6));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('pet-button')));
+    await tester.pump(const Duration(milliseconds: 200));
+    expect(find.text('冬 | 第1年 · 1月1日 | 07:00 | 晴'), findsOneWidget);
+    expect(find.text('6/100'), findsOneWidget);
+
+    await tester.tap(find.text('设置'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('save-slot-0-load')));
+    await tester.pumpAndSettle();
+
+    expect(find.text('冬 | 第1年 · 1月1日 | 06:30 | 晴'), findsOneWidget);
+    expect(find.text('3/100'), findsOneWidget);
+  });
+
+  testWidgets('save code can import into a slot', (tester) async {
+    await _pumpLoadedApp(tester);
+
+    await tester.tap(find.byKey(const Key('pet-button')));
+    await tester.pump(const Duration(milliseconds: 200));
+    await tester.tap(find.text('设置'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('save-slot-0-save')));
+    await tester.pumpAndSettle();
+    await tester.pump(const Duration(seconds: 6));
+    await tester.pumpAndSettle();
+
+    expect(find.byKey(const Key('save-slot-0-export')), findsOneWidget);
+
+    final preferences = await SharedPreferences.getInstance();
+    final rawSave = preferences.getString('mini_nanhe_save_slot_0');
+    expect(rawSave, isNotNull);
+    final saveCode = 'MN1.${base64UrlEncode(utf8.encode(rawSave!))}';
+    expect(saveCode, startsWith('MN1.'));
+
+    await tester.ensureVisible(
+      find.byKey(const Key('import-save-code-button')),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('import-save-code-button')));
+    await tester.pumpAndSettle();
+    await tester.enterText(
+      find.byKey(const Key('import-save-code-field')),
+      saveCode,
+    );
+    await tester.tap(find.byKey(const Key('import-save-confirm-button')));
+    await tester.pumpAndSettle();
+    expect(find.textContaining('已导入到存档 1'), findsOneWidget);
+    await tester.pump(const Duration(seconds: 6));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byKey(const Key('save-slot-0-load')));
+    await tester.pumpAndSettle();
+    expect(find.text('冬 | 第1年 · 1月1日 | 06:30 | 晴'), findsOneWidget);
+    expect(find.text('3/100'), findsOneWidget);
+  });
+
+  testWidgets('settings debug tools unlock from version long press', (
     tester,
   ) async {
     await _pumpLoadedApp(tester);
 
     await tester.tap(find.text('设置'));
     await tester.pumpAndSettle();
+    expect(find.byKey(const Key('debug-tools-panel')), findsNothing);
+
     await tester.scrollUntilVisible(
-      find.byKey(const Key('debug-tools-panel')),
-      240,
+      find.byKey(const Key('app-version')),
+      200,
       scrollable: find.byType(Scrollable).first,
     );
+    await tester.longPress(find.byKey(const Key('app-version')));
+    await tester.pumpAndSettle();
+
     expect(find.byKey(const Key('debug-tools-panel')), findsOneWidget);
-
-    await tester.ensureVisible(find.byKey(const Key('debug-preset-第7天 16:00')));
-    await tester.pumpAndSettle();
-    await tester.tap(find.byKey(const Key('debug-preset-第7天 16:00')));
-    await tester.pumpAndSettle();
-    await tester.tap(find.text('陪伴'));
-    await tester.pumpAndSettle();
-
-    expect(find.text('迷你期 · 第 7 天'), findsOneWidget);
-    expect(find.text('冬 | 第1年 · 1月7日 | 16:00 | 雨'), findsOneWidget);
-
-    await tester.tap(find.text('设置'));
-    await tester.pumpAndSettle();
-    await tester.scrollUntilVisible(
-      find.byKey(const Key('debug-tools-panel')),
-      240,
-      scrollable: find.byType(Scrollable).first,
+    expect(find.byKey(const Key('debug-day-slider')), findsOneWidget);
+    expect(find.byKey(const Key('debug-time-slider')), findsOneWidget);
+    expect(
+      find.byKey(const Key('debug-affection-level-slider')),
+      findsOneWidget,
     );
-    await tester.ensureVisible(find.byKey(const Key('debug-affection-lv2')));
-    await tester.pumpAndSettle();
-    await tester.tap(find.byKey(const Key('debug-affection-lv2')));
-    await tester.pumpAndSettle();
-    await tester.tap(find.text('陪伴'));
-    await tester.pumpAndSettle();
-
-    expect(find.byKey(const Key('play-button')), findsOneWidget);
-    expect(find.byKey(const Key('walk-button')), findsOneWidget);
+    expect(find.byKey(const Key('debug-trust-level-slider')), findsOneWidget);
+    expect(
+      find.byKey(const Key('debug-affection-progress-slider')),
+      findsNothing,
+    );
+    expect(find.byKey(const Key('debug-trust-progress-slider')), findsNothing);
+    expect(find.byKey(const Key('debug-preset-第7天 16:00')), findsNothing);
+    expect(find.byKey(const Key('debug-affection-lv2')), findsNothing);
   });
 
   testWidgets('short screens preserve the character stage and can scroll', (

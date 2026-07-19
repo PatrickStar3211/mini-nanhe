@@ -1136,14 +1136,6 @@ const _memoryEntries = <_CollectionCardData>[
     accent: Color(0xFF6B5260),
     imageAsset: sickEndingFinalPage3Asset,
   ),
-  _CollectionCardData(
-    id: 'future-memory-1',
-    title: '未开放',
-    description: '后续迷你期剧情会记录在这里。',
-    unlocked: false,
-    icon: Icons.question_mark_rounded,
-    accent: mutedInk,
-  ),
 ];
 
 const _achievementEntries = <_CollectionCardData>[
@@ -1191,38 +1183,6 @@ const _achievementEntries = <_CollectionCardData>[
     icon: Icons.warning_amber_rounded,
     accent: Color(0xFF5C667A),
     imageAsset: roadsideOneAchievementAsset,
-  ),
-  _CollectionCardData(
-    id: 'first-morning',
-    title: '第一个早晨',
-    description: '迎来和南河一起生活的第二天。',
-    unlocked: false,
-    icon: Icons.wb_twilight_rounded,
-    accent: gold,
-  ),
-  _CollectionCardData(
-    id: 'clean-and-bright',
-    title: '干干净净',
-    description: '第一次帮南河洗澡。',
-    unlocked: false,
-    icon: Icons.cleaning_services_rounded,
-    accent: azure,
-  ),
-  _CollectionCardData(
-    id: 'pet-again',
-    title: '再摸摸也可以',
-    description: '第一次让南河露出亲近的反应。',
-    unlocked: false,
-    icon: Icons.favorite_rounded,
-    accent: Color(0xFFE978A2),
-  ),
-  _CollectionCardData(
-    id: 'tired-care',
-    title: '别勉强',
-    description: '在体力很低时选择休息。',
-    unlocked: false,
-    icon: Icons.bedtime_rounded,
-    accent: mutedInk,
   ),
 ];
 

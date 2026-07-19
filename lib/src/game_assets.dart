@@ -65,7 +65,7 @@ const luxuryUnlockStoryPage2Asset =
     'assets/images/story/luxury/luxury_unlock_page_2.webp';
 const abuseStoryPage1Asset = 'assets/images/story/abuse/abuse_page_1.png';
 const roadsideOneAchievementAsset =
-    'assets/images/collection/achievement_roadside_one.png';
+    'assets/images/collection/achievement_roadside_one.webp';
 
 const openingStoryPageAssets = <String>[
   openingStoryPage1Asset,
