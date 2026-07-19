@@ -1197,6 +1197,7 @@ class _HomeScreenState extends State<HomeScreen> {
       _minuteOfDay = _earliestWakeMinute;
       _sickEndingCareActive = false;
       _deathEndingReached = true;
+      _permanentMemoryIds.add('sick-ending-memory');
       _permanentAchievementIds.add('sick-death');
       _reaction = null;
       _isReacting = false;
@@ -1580,6 +1581,31 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
+  void _replaySickEndingStory() {
+    widget.audioController.playPageTurn();
+    const assets = <String>[
+      ...sickEndingOnsetStoryAssets,
+      ...sickEndingFinalStoryAssets,
+    ];
+    unawaited(_precacheStoryAssets(assets));
+    Navigator.of(context).push(
+      PageRouteBuilder<void>(
+        pageBuilder: (_, animation, secondaryAnimation) {
+          return SickEndingStoryScreen(
+            assets: assets,
+            panelCounts: const [3, 3, 3, 2, 1],
+            tapAreaKey: const Key('sick-ending-memory-story-tap-area'),
+            onFinished: (storyContext) => Navigator.of(storyContext).pop(),
+          );
+        },
+        transitionDuration: const Duration(milliseconds: 450),
+        transitionsBuilder: (_, animation, secondaryAnimation, child) {
+          return FadeTransition(opacity: animation, child: child);
+        },
+      ),
+    );
+  }
+
   Future<void> _precacheStoryAssets(List<String> assets) async {
     for (final asset in assets) {
       if (!mounted) return;
@@ -1825,6 +1851,7 @@ class _HomeScreenState extends State<HomeScreen> {
         onReplayDoghouseUnlockStory: _replayDoghouseUnlockStory,
         onReplayLuxuryUnlockStory: _replayLuxuryUnlockStory,
         onReplayAbuseStory: _replayAbuseStory,
+        onReplaySickEndingStory: _replaySickEndingStory,
         onPageTurn: widget.audioController.playPageTurn,
       ),
       5 => _SettingsPage(

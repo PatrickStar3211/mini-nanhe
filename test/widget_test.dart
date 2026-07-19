@@ -513,6 +513,24 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('那天下雨了'), findsOneWidget);
     expect(find.text('初次相遇'), findsNothing);
+    await tester.tap(find.byKey(const Key('collection-card-rainy-day')));
+    await tester.pumpAndSettle();
+    expect(
+      find.byKey(const Key('achievement-preview-rainy-day')),
+      findsOneWidget,
+    );
+    expect(
+      find.byKey(const Key('achievement-preview-description-rainy-day')),
+      findsOneWidget,
+    );
+    await tester.tap(
+      find.byKey(const Key('achievement-preview-close-rainy-day')),
+    );
+    await tester.pumpAndSettle();
+    expect(
+      find.byKey(const Key('achievement-preview-rainy-day')),
+      findsNothing,
+    );
 
     await tester.tap(find.byKey(const Key('collection-tab-装饰')));
     await tester.pumpAndSettle();
@@ -1044,6 +1062,30 @@ void main() {
 
     await tester.tap(find.byIcon(Icons.collections_bookmark_outlined));
     await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('collection-page-next')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('collection-page-next')));
+    await tester.pumpAndSettle();
+
+    expect(
+      find.byKey(const Key('collection-card-sick-ending-memory')),
+      findsOneWidget,
+    );
+    await tester.tap(
+      find.byKey(const Key('collection-card-sick-ending-memory')),
+    );
+    await tester.pumpAndSettle();
+    expect(
+      find.byKey(const Key('sick-ending-memory-story-tap-area')),
+      findsOneWidget,
+    );
+    for (var tap = 0; tap < 12; tap += 1) {
+      await tester.tap(
+        find.byKey(const Key('sick-ending-memory-story-tap-area')),
+      );
+      await tester.pumpAndSettle();
+    }
+
     await tester.tap(find.byKey(const Key('collection-tab-成就')));
     await tester.pumpAndSettle();
 

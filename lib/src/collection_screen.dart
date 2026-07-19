@@ -19,6 +19,7 @@ class CollectionScreen extends StatefulWidget {
     required this.onReplayDoghouseUnlockStory,
     required this.onReplayLuxuryUnlockStory,
     required this.onReplayAbuseStory,
+    required this.onReplaySickEndingStory,
     required this.onPageTurn,
   });
 
@@ -31,6 +32,7 @@ class CollectionScreen extends StatefulWidget {
   final VoidCallback onReplayDoghouseUnlockStory;
   final VoidCallback onReplayLuxuryUnlockStory;
   final VoidCallback onReplayAbuseStory;
+  final VoidCallback onReplaySickEndingStory;
   final VoidCallback onPageTurn;
 
   @override
@@ -109,6 +111,7 @@ class _CollectionScreenState extends State<CollectionScreen> {
                 onReplayDoghouseUnlockStory: widget.onReplayDoghouseUnlockStory,
                 onReplayLuxuryUnlockStory: widget.onReplayLuxuryUnlockStory,
                 onReplayAbuseStory: widget.onReplayAbuseStory,
+                onReplaySickEndingStory: widget.onReplaySickEndingStory,
               ),
             ],
           );
@@ -136,6 +139,7 @@ class _AlbumOverlay extends StatelessWidget {
     required this.onReplayDoghouseUnlockStory,
     required this.onReplayLuxuryUnlockStory,
     required this.onReplayAbuseStory,
+    required this.onReplaySickEndingStory,
   });
 
   final CollectionCategory category;
@@ -154,6 +158,7 @@ class _AlbumOverlay extends StatelessWidget {
   final VoidCallback onReplayDoghouseUnlockStory;
   final VoidCallback onReplayLuxuryUnlockStory;
   final VoidCallback onReplayAbuseStory;
+  final VoidCallback onReplaySickEndingStory;
 
   @override
   Widget build(BuildContext context) {
@@ -191,6 +196,7 @@ class _AlbumOverlay extends StatelessWidget {
                 onReplayDoghouseUnlockStory: onReplayDoghouseUnlockStory,
                 onReplayLuxuryUnlockStory: onReplayLuxuryUnlockStory,
                 onReplayAbuseStory: onReplayAbuseStory,
+                onReplaySickEndingStory: onReplaySickEndingStory,
               ),
             ),
             Positioned(
@@ -416,6 +422,7 @@ class _AlbumContent extends StatelessWidget {
     required this.onReplayDoghouseUnlockStory,
     required this.onReplayLuxuryUnlockStory,
     required this.onReplayAbuseStory,
+    required this.onReplaySickEndingStory,
   });
 
   final CollectionCategory category;
@@ -428,6 +435,7 @@ class _AlbumContent extends StatelessWidget {
   final VoidCallback onReplayDoghouseUnlockStory;
   final VoidCallback onReplayLuxuryUnlockStory;
   final VoidCallback onReplayAbuseStory;
+  final VoidCallback onReplaySickEndingStory;
 
   @override
   Widget build(BuildContext context) {
@@ -513,17 +521,23 @@ class _AlbumContent extends StatelessWidget {
                         return _CollectionCard(
                           data: card,
                           compact: isAchievement,
-                          onTap: switch (card.id) {
-                            'opening-memory' => onReplayOpeningStory,
-                            'first-feeding-memory' => onReplayFeedingStory,
-                            'day-seven-sickness-memory' =>
-                              onReplaySicknessStory,
-                            'doghouse-unlock-memory' =>
-                              onReplayDoghouseUnlockStory,
-                            'luxury-unlock-memory' => onReplayLuxuryUnlockStory,
-                            'first-abuse-memory' => onReplayAbuseStory,
-                            _ => null,
-                          },
+                          onTap: isAchievement
+                              ? () => _showAchievementDialog(context, card)
+                              : switch (card.id) {
+                                  'opening-memory' => onReplayOpeningStory,
+                                  'first-feeding-memory' =>
+                                    onReplayFeedingStory,
+                                  'day-seven-sickness-memory' =>
+                                    onReplaySicknessStory,
+                                  'doghouse-unlock-memory' =>
+                                    onReplayDoghouseUnlockStory,
+                                  'luxury-unlock-memory' =>
+                                    onReplayLuxuryUnlockStory,
+                                  'first-abuse-memory' => onReplayAbuseStory,
+                                  'sick-ending-memory' =>
+                                    onReplaySickEndingStory,
+                                  _ => null,
+                                },
                         );
                       },
                     );
@@ -542,6 +556,102 @@ class _AlbumContent extends StatelessWidget {
           ),
         ),
       ],
+    );
+  }
+
+  Future<void> _showAchievementDialog(
+    BuildContext context,
+    _CollectionCardData data,
+  ) {
+    return showDialog<void>(
+      context: context,
+      builder: (context) => _AchievementPreviewDialog(data: data),
+    );
+  }
+}
+
+class _AchievementPreviewDialog extends StatelessWidget {
+  const _AchievementPreviewDialog({required this.data});
+
+  final _CollectionCardData data;
+
+  @override
+  Widget build(BuildContext context) {
+    final media = MediaQuery.sizeOf(context);
+    final maxDialogWidth = min(media.width - 40, 520.0);
+    final maxImageHeight = min(media.height * 0.46, 360.0);
+
+    return Dialog(
+      key: Key('achievement-preview-${data.id}'),
+      insetPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 24),
+      backgroundColor: const Color(0xFFFDF9F0),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
+      clipBehavior: Clip.antiAlias,
+      child: ConstrainedBox(
+        constraints: BoxConstraints(maxWidth: maxDialogWidth),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            SizedBox(
+              width: double.infinity,
+              height: maxImageHeight,
+              child: data.imageAsset == null
+                  ? DecoratedBox(
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFEAF2FF),
+                        border: Border(
+                          bottom: BorderSide(
+                            color: data.accent.withValues(alpha: 0.28),
+                          ),
+                        ),
+                      ),
+                      child: Icon(data.icon, color: data.accent, size: 88),
+                    )
+                  : ColoredBox(
+                      color: const Color(0xFFE8E0D1),
+                      child: Image.asset(data.imageAsset!, fit: BoxFit.contain),
+                    ),
+            ),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(22, 18, 22, 20),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    data.title,
+                    key: Key('achievement-preview-title-${data.id}'),
+                    style: const TextStyle(
+                      color: ink,
+                      fontSize: 22,
+                      fontWeight: FontWeight.w900,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    data.description,
+                    key: Key('achievement-preview-description-${data.id}'),
+                    style: const TextStyle(
+                      color: mutedInk,
+                      fontSize: 15,
+                      height: 1.35,
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                  const SizedBox(height: 18),
+                  Align(
+                    alignment: Alignment.centerRight,
+                    child: FilledButton(
+                      key: Key('achievement-preview-close-${data.id}'),
+                      onPressed: () => Navigator.of(context).pop(),
+                      child: const Text('关闭'),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 }
@@ -1016,6 +1126,15 @@ const _memoryEntries = <_CollectionCardData>[
     icon: Icons.report_rounded,
     accent: Color(0xFF5C667A),
     imageAsset: abuseStoryPage1Asset,
+  ),
+  _CollectionCardData(
+    id: 'sick-ending-memory',
+    title: '病重结局',
+    description: '那一夜，迷你南河没能撑过去。',
+    unlocked: false,
+    icon: Icons.sick_rounded,
+    accent: Color(0xFF6B5260),
+    imageAsset: sickEndingFinalPage3Asset,
   ),
   _CollectionCardData(
     id: 'future-memory-1',

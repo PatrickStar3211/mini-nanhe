@@ -55,7 +55,8 @@ const sickEndingFinalPage2Asset =
     'assets/images/story/sick_ending/sick_ending_final_page_2.webp';
 const sickEndingFinalPage3Asset =
     'assets/images/story/sick_ending/sick_ending_final_page_3.webp';
-const sickDeathAchievementAsset = sickEndingFinalPage3Asset;
+const sickDeathAchievementAsset =
+    'assets/images/collection/achievement_sick_death.webp';
 const doghouseUnlockStoryPage1Asset =
     'assets/images/story/doghouse/doghouse_unlock_page_1.webp';
 const luxuryUnlockStoryPage1Asset =
