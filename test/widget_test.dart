@@ -216,14 +216,12 @@ void main() {
     expect(find.text('耐力'), findsOneWidget);
 
     await tester.scrollUntilVisible(
-      find.text('性格与特质'),
+      find.text('倾向'),
       240,
       scrollable: find.byType(Scrollable).first,
     );
-    expect(find.text('性格'), findsOneWidget);
-    expect(find.text('特质'), findsOneWidget);
-    expect(find.text('普通'), findsOneWidget);
-    expect(find.text('无'), findsOneWidget);
+    expect(find.text('目前倾向'), findsOneWidget);
+    expect(find.text('尚未形成'), findsOneWidget);
   });
 
   testWidgets('background arrows cycle through unlocked yard homes', (
@@ -455,6 +453,105 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('生病、疲劳'), findsOneWidget);
+  });
+
+  testWidgets('day seven sickness lowers health with a floor', (tester) async {
+    await _pumpLoadedApp(
+      tester,
+      debugInitialState: const MiniNanheDebugState(
+        totalDaysTogether: 7,
+        minuteOfDay: 15 * 60 + 30,
+        healthValue: 12,
+      ),
+    );
+
+    await tester.tap(find.byKey(const Key('observe-button')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('sickness-story-tap-area')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('sickness-story-tap-area')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('sickness-story-tap-area')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('sickness-story-hot-water-choice')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('sickness-story-tap-area')));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('状态'));
+    await tester.pumpAndSettle();
+    expect(find.text('亚健康'), findsOneWidget);
+  });
+
+  testWidgets('zero health immediately shows death state', (tester) async {
+    await _pumpLoadedApp(
+      tester,
+      debugInitialState: const MiniNanheDebugState(healthValue: 0),
+    );
+
+    expect(find.byKey(const Key('reset-game-button')), findsOneWidget);
+    await tester.tap(find.text('状态'));
+    await tester.pumpAndSettle();
+    expect(find.text('死亡'), findsOneWidget);
+  });
+
+  testWidgets('very healthy raises max energy', (tester) async {
+    await _pumpLoadedApp(
+      tester,
+      debugInitialState: const MiniNanheDebugState(healthValue: 95),
+    );
+    expect(find.text('25/37'), findsOneWidget);
+  });
+
+  testWidgets('fatigue halves max energy', (tester) async {
+    await _pumpLoadedApp(
+      tester,
+      debugInitialState: const MiniNanheDebugState(
+        energy: 25,
+        exhaustionCount: 2,
+      ),
+    );
+    expect(find.text('12/12'), findsOneWidget);
+  });
+
+  testWidgets('sickness raises interaction cost and pressure gain', (
+    tester,
+  ) async {
+    await _pumpLoadedApp(
+      tester,
+      debugInitialState: const MiniNanheDebugState(
+        doghouseUnlocked: true,
+        healthValue: 25,
+      ),
+    );
+    await tester.tap(find.byKey(const Key('action-page-down')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('study-button')));
+    await tester.pump(const Duration(milliseconds: 200));
+    expect(find.text('9/25'), findsOneWidget);
+    await tester.tap(find.text('状态'));
+    await tester.pumpAndSettle();
+    expect(find.text('12%'), findsOneWidget);
+  });
+
+  testWidgets('injury raises physical action cost and pressure gain', (
+    tester,
+  ) async {
+    await _pumpLoadedApp(
+      tester,
+      debugInitialState: const MiniNanheDebugState(
+        totalDaysTogether: 61,
+        injury: 10,
+      ),
+    );
+
+    await tester.tap(find.byKey(const Key('hit-button')));
+    await tester.pump(const Duration(milliseconds: 200));
+
+    expect(find.text('22/25'), findsOneWidget);
+    await tester.tap(find.text('状态'));
+    await tester.pumpAndSettle();
+    expect(find.text('20%'), findsOneWidget);
   });
 
   testWidgets('new placeholder destinations open from the bottom navigation', (
@@ -1223,33 +1320,141 @@ void main() {
 
     await tester.tap(find.byKey(const Key('study-button')));
     await tester.pump(const Duration(milliseconds: 200));
-    expect(find.text('22/25'), findsOneWidget);
-    expect(find.text('冬 | 第1年 · 1月1日 | 07:30 | 晴'), findsOneWidget);
-
-    await tester.tap(find.byKey(const Key('exercise-button')));
-    await tester.pump(const Duration(milliseconds: 200));
-    expect(find.text('18/25'), findsOneWidget);
+    expect(find.text('17/25'), findsOneWidget);
     expect(find.text('冬 | 第1年 · 1月1日 | 08:00 | 晴'), findsOneWidget);
 
     await tester.tap(find.byKey(const Key('exercise-button')));
     await tester.pump(const Duration(milliseconds: 200));
-    expect(find.text('14/26'), findsOneWidget);
-    expect(find.text('冬 | 第1年 · 1月1日 | 08:30 | 晴'), findsOneWidget);
-
-    await tester.tap(find.byKey(const Key('exercise-button')));
-    await tester.pump(const Duration(milliseconds: 200));
-    expect(find.text('10/26'), findsOneWidget);
+    expect(find.text('6/25'), findsOneWidget);
     expect(find.text('冬 | 第1年 · 1月1日 | 09:00 | 晴'), findsOneWidget);
 
     await tester.tap(find.byKey(const Key('exercise-button')));
     await tester.pump(const Duration(milliseconds: 200));
-    expect(find.text('6/27'), findsOneWidget);
-    expect(find.text('6/29'), findsNothing);
-    expect(find.text('冬 | 第1年 · 1月1日 | 09:30 | 晴'), findsOneWidget);
+    expect(find.text('6/25'), findsOneWidget);
+    expect(find.text('冬 | 第1年 · 1月1日 | 09:00 | 晴'), findsOneWidget);
+    expect(find.textContaining('有点困'), findsOneWidget);
+  });
+
+  testWidgets('training actions show stacked core stat popups only', (
+    tester,
+  ) async {
+    await _pumpLoadedApp(
+      tester,
+      debugInitialState: const MiniNanheDebugState(doghouseUnlocked: true),
+    );
+
+    await tester.tap(find.byKey(const Key('action-page-down')));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byKey(const Key('study-button')));
+    await tester.pump(const Duration(milliseconds: 200));
+    expect(find.text('智力+1'), findsOneWidget);
+    expect(find.text('好奇+1'), findsNothing);
+    expect(find.text('自律+1'), findsNothing);
+    expect(find.text('压力+6'), findsNothing);
 
     await tester.tap(find.byKey(const Key('exercise-button')));
     await tester.pump(const Duration(milliseconds: 200));
-    expect(find.textContaining('腿软'), findsOneWidget);
+    expect(find.text('智力+1'), findsOneWidget);
+    expect(find.text('力量+1'), findsOneWidget);
+    expect(find.text('耐力+1'), findsOneWidget);
+
+    await tester.tap(find.byKey(const Key('rest-button')));
+    await tester.pump(const Duration(milliseconds: 200));
+    expect(find.text('力量+1'), findsOneWidget);
+    expect(find.text('耐力+1'), findsOneWidget);
+
+    await tester.tap(find.byKey(const Key('rest-button')));
+    await tester.pump(const Duration(milliseconds: 200));
+    expect(find.text('力量+1'), findsOneWidget);
+    expect(find.text('耐力+1'), findsOneWidget);
+
+    await tester.tap(find.byKey(const Key('game-button')));
+    await tester.pump(const Duration(milliseconds: 200));
+    expect(find.text('力量+1'), findsNothing);
+    expect(find.text('耐力+1'), findsOneWidget);
+    expect(find.text('智力+1'), findsOneWidget);
+    expect(find.text('技巧+1'), findsOneWidget);
+
+    await tester.pump(const Duration(milliseconds: 2100));
+    expect(find.text('耐力+1'), findsNothing);
+    expect(find.text('智力+1'), findsNothing);
+    expect(find.text('技巧+1'), findsNothing);
+  });
+
+  testWidgets('training ends early at timed story triggers', (tester) async {
+    await _pumpLoadedApp(
+      tester,
+      debugInitialState: const MiniNanheDebugState(
+        doghouseUnlocked: true,
+        totalDaysTogether: 7,
+        minuteOfDay: 15 * 60 + 30,
+        energy: 25,
+      ),
+    );
+
+    await tester.tap(find.byKey(const Key('action-page-down')));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byKey(const Key('study-button')));
+    await tester.pumpAndSettle();
+
+    expect(find.byKey(const Key('sickness-story-tap-area')), findsOneWidget);
+  });
+
+  testWidgets('late training can end at midnight with full gains', (
+    tester,
+  ) async {
+    await _pumpLoadedApp(
+      tester,
+      debugInitialState: const MiniNanheDebugState(
+        doghouseUnlocked: true,
+        totalDaysTogether: 2,
+        minuteOfDay: 23 * 60 + 30,
+        energy: 25,
+      ),
+    );
+
+    await tester.tap(find.byKey(const Key('action-page-down')));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byKey(const Key('study-button')));
+    await tester.pump(const Duration(milliseconds: 200));
+
+    expect(find.textContaining('00:00'), findsOneWidget);
+    expect(find.text('智力+1'), findsOneWidget);
+    expect(find.text('17/25'), findsOneWidget);
+  });
+
+  testWidgets('exhaustion forces pending same-day timed story', (tester) async {
+    await _pumpLoadedApp(
+      tester,
+      debugInitialState: const MiniNanheDebugState(
+        totalDaysTogether: 7,
+        minuteOfDay: 10 * 60,
+        energy: 1,
+      ),
+    );
+
+    await tester.tap(find.byKey(const Key('observe-button')));
+    await tester.pumpAndSettle();
+
+    expect(find.byKey(const Key('sickness-story-tap-area')), findsOneWidget);
+  });
+
+  testWidgets('daily play and walk do not grow core stats', (tester) async {
+    await _pumpLoadedApp(
+      tester,
+      debugInitialState: const MiniNanheDebugState(affectionLevel: 2),
+    );
+
+    await tester.tap(find.byKey(const Key('play-button')));
+    await tester.pump(const Duration(milliseconds: 200));
+    expect(find.text('技巧+1'), findsNothing);
+
+    await tester.tap(find.byKey(const Key('walk-button')));
+    await tester.pump(const Duration(milliseconds: 200));
+    expect(find.text('耐力+1'), findsNothing);
   });
 
   testWidgets('daily rest replaces sleep before night', (tester) async {
@@ -1275,7 +1480,7 @@ void main() {
       await tester.pump(const Duration(milliseconds: 200));
     }
 
-    expect(find.text('0/25'), findsOneWidget);
+    expect(find.text('0/12'), findsOneWidget);
     expect(find.text('睡觉'), findsOneWidget);
     expect(find.byKey(const Key('pet-button')), findsNothing);
 

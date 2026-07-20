@@ -23,13 +23,14 @@ import 'theme.dart';
 
 const _initialMaxEnergy = 25;
 const _minStatValue = 1;
-const _maxStatValue = 999;
+const _maxStatValue = 9999;
 const _affectionGainPerInteraction = 3;
 const _affectionGainPerQuietInteraction = 1;
 const _affectionLossPerHit = 5;
 const _trustLossPerHit = 10;
 const _deathHitThreshold = 50;
 const _minutesPerInteraction = 30;
+const _minutesPerTraining = 60;
 const _sleepAvailableMinute = 22 * 60;
 const _midnightMinute = 24 * 60;
 const _postMidnightSickEndingMinute = 28 * 60;
@@ -159,6 +160,13 @@ class _SaveSlotSummary {
   }
 }
 
+class _StatPopup {
+  const _StatPopup({required this.id, required this.label});
+
+  final int id;
+  final String label;
+}
+
 class HomeScreen extends StatefulWidget {
   const HomeScreen({
     super.key,
@@ -248,6 +256,9 @@ class _HomeScreenState extends State<HomeScreen> {
   double _voiceVolumeBeforeMute = 0.9;
   bool _showDebugTools = false;
   BgmTrack _selectedBgm = BgmTrack.cozyNanhe2;
+  int _nextStatPopupId = 0;
+  final List<_StatPopup> _statPopups = [];
+  final List<Timer> _statPopupTimers = [];
   List<_SaveSlotSummary> _saveSlots = List.generate(
     _saveSlotCount,
     (index) => _SaveSlotSummary(slotIndex: index),
@@ -293,6 +304,8 @@ class _HomeScreenState extends State<HomeScreen> {
       _yardHomeTier = YardHomeTier.doghouse;
     }
     _applyTimedEvents(showStory: false);
+    _applyHealthDeathIfNeeded();
+    _clampEnergyToMax();
   }
 
   Future<void> _loadSaveSlotSummaries() async {
@@ -622,6 +635,8 @@ class _HomeScreenState extends State<HomeScreen> {
     _reaction = null;
     _isReacting = false;
     _applyTimedEvents(showStory: false);
+    _applyHealthDeathIfNeeded();
+    _clampEnergyToMax();
     _queueProgressionUnlocks();
     if (!_unlockedYardHomes.contains(_yardHomeTier)) {
       _yardHomeTier = _unlockedYardHomes.last;
@@ -692,9 +707,26 @@ class _HomeScreenState extends State<HomeScreen> {
       _affectionLevel >= 2 || _affectionProgress >= 50;
   bool get _hasLowAffection => _affectionLevel < 2;
   bool get _isDirty => _cleanliness <= 35;
-  bool get _isSick => _cleanliness <= 20 || _healthValue < 30;
+  bool get _isDead => _healthValue <= 0;
+  bool get _isSick => !_isDead && (_cleanliness <= 20 || _healthValue < 30);
   bool get _isInjured => _injury >= 10;
   bool get _isFatigued => _isExhausted || _exhaustionCount >= 2;
+  bool get _isVeryHealthy =>
+      !_isDead && !_isInjured && !_isSick && !_isFatigued && _healthValue >= 90;
+  bool get _isSubHealthy =>
+      !_isDead &&
+      !_isInjured &&
+      !_isSick &&
+      !_isFatigued &&
+      _healthValue >= 50 &&
+      _healthValue < 70;
+  bool get _isUnhealthy =>
+      !_isDead &&
+      !_isInjured &&
+      !_isSick &&
+      !_isFatigued &&
+      _healthValue >= 30 &&
+      _healthValue < 50;
   bool get _isLateNight => _minuteOfDay >= 20 * 60;
   bool get _hasUnlockedAllDailyActions => _affectionLevel >= 2;
   bool get _hasUnlockedFeed =>
@@ -730,7 +762,7 @@ class _HomeScreenState extends State<HomeScreen> {
       _bondLockedByPreEvolutionHit ||
       (_feedEventCompleted && !_feedEventResolvedCorrectly) ||
       (_sicknessEventCompleted && !_sicknessEventResolvedCorrectly);
-  bool get _isEndingReached => _deathEndingReached;
+  bool get _isEndingReached => _deathEndingReached || _isDead;
   bool get _isDaySevenRain =>
       _totalDaysTogether == 7 && _minuteOfDay >= _earliestWakeMinute;
   List<YardHomeTier> get _unlockedYardHomes => [
@@ -764,7 +796,10 @@ class _HomeScreenState extends State<HomeScreen> {
   int get _maxEnergy {
     final enduranceBonus =
         (_endurance - _minStatValue) ~/ _endurancePerMaxEnergy;
-    return _clampStat(_initialMaxEnergy + enduranceBonus);
+    final baseMaxEnergy = _initialMaxEnergy + enduranceBonus;
+    if (_isFatigued) return max(1, baseMaxEnergy ~/ 2);
+    if (_isVeryHealthy) return max(1, (baseMaxEnergy * 1.5).floor());
+    return _clampStat(baseMaxEnergy);
   }
 
   String get _timeLabel {
@@ -831,6 +866,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
   @override
   void dispose() {
+    _cancelStatPopupTimers();
     widget.audioController.dispose();
     super.dispose();
   }
@@ -874,6 +910,7 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   List<String> get _healthLabels {
+    if (_isDead) return ['死亡'];
     final labels = <String>[];
     if (_isInjured) labels.add('受伤');
     if (_isSick) labels.add('生病');
@@ -887,36 +924,25 @@ class _HomeScreenState extends State<HomeScreen> {
     return ['生病'];
   }
 
-  String get _personalityLabel {
-    final tendencies = <String, int>{
-      '好奇': _curiosity,
-      '自律': _selfDiscipline,
-      '叛逆': _rebellion,
-      '依赖': _dependence,
-      '自信': _confidence,
-      '温柔': _gentleness,
+  List<String> get _tendencyLabels {
+    final scores = <String, int>{
+      '学习': _intelligence + _curiosity + _selfDiscipline,
+      '创作': _art + _curiosity + _gentleness,
+      '表现': _charm + _skill + _confidence,
+      '亲密':
+          _dependence +
+          _gentleness +
+          max(0, _affectionLevel - 1) * 8 +
+          max(0, _trustLevel - 1) * 8,
+      '警戒': _rebellion + _injury + (_pressure ~/ 2) + (_hasLowTrust ? 10 : 0),
     };
-    final strongest = tendencies.entries.reduce(
-      (a, b) => a.value >= b.value ? a : b,
-    );
-    return strongest.value >= 15 ? strongest.key : '普通';
-  }
-
-  String get _traitLabel {
-    if (_intelligence >= 20 && _curiosity >= 15 && _pressure < 80) {
-      return '研究者';
-    }
-    if (_intelligence >= 20 && _selfDiscipline >= 15 && _healthValue >= 70) {
-      return '优等生';
-    }
-    if (_skill >= 20 && _endurance >= 10) return '游戏高手';
-    if (_skill >= 20 && _charm >= 15) return '人气玩家';
-    if (_art >= 20 && _pressure < 70) return '小艺术家';
-    return '无';
+    final ranked = scores.entries.where((entry) => entry.value >= 15).toList()
+      ..sort((a, b) => b.value.compareTo(a.value));
+    return ranked.take(3).map((entry) => entry.key).toList();
   }
 
   String get _characterAsset {
-    if (_deathEndingReached) return miniNanheDeadAsset;
+    if (_isEndingReached) return miniNanheDeadAsset;
     return switch (_currentEmotion) {
       NanheEmotion.happy => miniNanheHappyAsset,
       NanheEmotion.affectionate => miniNanheAffectionateAsset,
@@ -932,6 +958,10 @@ class _HomeScreenState extends State<HomeScreen> {
   int _clampStat(int value) => value.clamp(_minStatValue, _maxStatValue);
 
   int _clampPercent(int value) => value.clamp(0, 100);
+
+  void _clampEnergyToMax() {
+    _energy = _energy.clamp(0, _maxEnergy);
+  }
 
   void _changeAffection(int amount) {
     if (_isBondLocked && amount > 0) return;
@@ -993,6 +1023,164 @@ class _HomeScreenState extends State<HomeScreen> {
     return selectContextualReactions(action, _reactionContext);
   }
 
+  void _queueStatPopups(List<_StatPopup> popups) {
+    if (popups.isEmpty) return;
+    _statPopups.addAll(popups);
+    if (_statPopups.length > 3) {
+      _statPopups.removeRange(0, _statPopups.length - 3);
+    }
+    for (final popup in popups) {
+      late final Timer timer;
+      timer = Timer(const Duration(seconds: 2), () {
+        _statPopupTimers.remove(timer);
+        if (!mounted) return;
+        setState(() {
+          _statPopups.removeWhere((item) => item.id == popup.id);
+        });
+      });
+      _statPopupTimers.add(timer);
+    }
+  }
+
+  void _cancelStatPopupTimers() {
+    for (final timer in _statPopupTimers) {
+      timer.cancel();
+    }
+    _statPopupTimers.clear();
+  }
+
+  int _healthEnergyCostMultiplier({required bool isPhysicalAction}) {
+    var multiplier = 1;
+    if (_isSick) multiplier *= 2;
+    if (_isInjured && isPhysicalAction) multiplier *= 3;
+    if (_isSubHealthy && _random.nextDouble() < 0.25) multiplier *= 2;
+    if (_isUnhealthy && _random.nextDouble() < 0.5) multiplier *= 2;
+    return multiplier;
+  }
+
+  int _healthPressureGainMultiplier({required bool isPhysicalAction}) {
+    var multiplier = 1;
+    if (_isSick) multiplier *= 2;
+    if (_isFatigued) multiplier *= 2;
+    if (_isInjured && isPhysicalAction) multiplier *= 2;
+    if (_isUnhealthy && _random.nextDouble() < 0.5) multiplier *= 2;
+    return multiplier;
+  }
+
+  int _effectivePressureDelta(
+    int pressureDelta, {
+    required bool isPhysicalAction,
+  }) {
+    if (pressureDelta <= 0) return pressureDelta;
+    return pressureDelta *
+        _healthPressureGainMultiplier(isPhysicalAction: isPhysicalAction);
+  }
+
+  int _effectiveEnergyDelta(int energyDelta, {required bool isPhysicalAction}) {
+    if (energyDelta >= 0) return energyDelta;
+    final baseCost = -energyDelta;
+    final healthMultiplier = _healthEnergyCostMultiplier(
+      isPhysicalAction: isPhysicalAction,
+    );
+    final pressureMultiplier = 1 + (_pressure / 100);
+    return -(baseCost * healthMultiplier * pressureMultiplier).ceil();
+  }
+
+  int _effectiveActionDuration(
+    int durationMinutes, {
+    required bool canEndEarly,
+  }) {
+    if (!canEndEarly || durationMinutes <= 0) return durationMinutes;
+    final startMinute = _minuteOfDay;
+    var effectiveDuration = min(durationMinutes, _midnightMinute - startMinute);
+    final daySevenSicknessInRange =
+        !_daySevenSicknessTriggered &&
+        _totalDaysTogether == 7 &&
+        startMinute < _daySevenSickMinute &&
+        startMinute + durationMinutes > _daySevenSickMinute;
+    if (daySevenSicknessInRange) {
+      effectiveDuration = min(
+        effectiveDuration,
+        _daySevenSickMinute - startMinute,
+      );
+    }
+    final sickEndingInRange =
+        !_sickEndingOnsetTriggered &&
+        !_deathEndingReached &&
+        !_luxuryUnlocked &&
+        _hasSickEndingRoute &&
+        _totalDaysTogether == 60 &&
+        startMinute < _sickEndingTriggerMinute &&
+        startMinute + durationMinutes > _sickEndingTriggerMinute;
+    if (sickEndingInRange) {
+      effectiveDuration = min(
+        effectiveDuration,
+        _sickEndingTriggerMinute - startMinute,
+      );
+    }
+    return max(0, effectiveDuration);
+  }
+
+  void _settleExhaustedTimedStory() {
+    if (_energy > 0 ||
+        _deathPending ||
+        _deathEndingReached ||
+        _sickEndingOnsetTriggered ||
+        _sickEndingCareActive ||
+        _sicknessStoryPending) {
+      return;
+    }
+
+    if (!_daySevenSicknessTriggered &&
+        _totalDaysTogether == 7 &&
+        _minuteOfDay < _daySevenSickMinute) {
+      _minuteOfDay = _daySevenSickMinute;
+      _applyTimedEvents();
+    }
+  }
+
+  void _applyHealthDeathIfNeeded() {
+    if (_healthValue > 0 ||
+        _deathEndingReached ||
+        _sickEndingCareActive ||
+        _sickEndingOnsetStoryPending ||
+        _sickEndingFinalStoryPending ||
+        _showingSickEndingOnsetStory ||
+        _showingSickEndingFinalStory) {
+      return;
+    }
+    _deathEndingReached = true;
+    _reaction = null;
+    _isReacting = false;
+    _selectedDestination = 0;
+  }
+
+  List<_StatPopup> _buildStatPopups({
+    required int strengthDelta,
+    required int intelligenceDelta,
+    required int charmDelta,
+    required int artDelta,
+    required int skillDelta,
+    required int enduranceDelta,
+  }) {
+    final deltas = <String, int>{
+      '力量': strengthDelta,
+      '智力': intelligenceDelta,
+      '魅力': charmDelta,
+      '艺术': artDelta,
+      '技巧': skillDelta,
+      '耐力': enduranceDelta,
+    };
+    return [
+      for (final entry in deltas.entries)
+        if (entry.value != 0)
+          _StatPopup(
+            id: _nextStatPopupId++,
+            label: '${entry.key}${entry.value > 0 ? '+' : ''}${entry.value}',
+          ),
+    ];
+  }
+
   void _applyAction(
     List<CharacterReaction> responses, {
     int energyDelta = -1,
@@ -1015,45 +1203,94 @@ class _HomeScreenState extends State<HomeScreen> {
     int confidenceDelta = 0,
     int gentlenessDelta = 0,
     bool advancesTime = true,
+    int durationMinutes = _minutesPerInteraction,
+    bool canEndEarlyForTimedStory = false,
+    bool settleExhaustedTimedStory = true,
+    bool isPhysicalAction = false,
     Duration voiceDelay = const Duration(milliseconds: 90),
   }) {
     if (_sleepPending) return;
 
-    if (energyDelta < 0 && _isForcedSleep) {
+    final actualEnergyDelta = _effectiveEnergyDelta(
+      energyDelta,
+      isPhysicalAction: isPhysicalAction,
+    );
+    final actualEnergyCost = actualEnergyDelta < 0 ? -actualEnergyDelta : 0;
+    final actualPressureDelta = _effectivePressureDelta(
+      pressureDelta,
+      isPhysicalAction: isPhysicalAction,
+    );
+
+    if (actualEnergyDelta < 0 && _isForcedSleep) {
       setState(() => _reaction = exhaustedReaction);
       widget.audioController.playVoice(exhaustedReaction.voice);
       return;
     }
+
+    if (actualEnergyCost > _energy) {
+      setState(() => _reaction = exhaustedReaction);
+      widget.audioController.playVoice(exhaustedReaction.voice);
+      return;
+    }
+
+    final actualDurationMinutes = advancesTime
+        ? _effectiveActionDuration(
+            durationMinutes,
+            canEndEarly: canEndEarlyForTimedStory,
+          )
+        : 0;
 
     final reaction = _pickReaction(responses);
 
     setState(() {
       _changeAffection(affectionDelta);
       _changeTrust(trustDelta);
-      _pressure = _clampPercent(_pressure + pressureDelta);
+      _pressure = _clampPercent(_pressure + actualPressureDelta);
       _cleanliness = _clampPercent(_cleanliness + cleanlinessDelta);
       _healthValue = _clampPercent(_healthValue + healthDelta);
       _injury = _clampPercent(_injury + injuryDelta);
+      final previousStrength = _strength;
+      final previousIntelligence = _intelligence;
+      final previousCharm = _charm;
+      final previousArt = _art;
+      final previousSkill = _skill;
+      final previousEndurance = _endurance;
       _strength = _clampStat(_strength + strengthDelta);
       _intelligence = _clampStat(_intelligence + intelligenceDelta);
       _charm = _clampStat(_charm + charmDelta);
       _art = _clampStat(_art + artDelta);
       _skill = _clampStat(_skill + skillDelta);
       _endurance = _clampStat(_endurance + enduranceDelta);
-      _energy = (_energy + energyDelta).clamp(0, _maxEnergy);
+      _energy = (_energy + actualEnergyDelta).clamp(0, _maxEnergy);
       _curiosity = _clampPercent(_curiosity + curiosityDelta);
       _selfDiscipline = _clampPercent(_selfDiscipline + selfDisciplineDelta);
       _rebellion = _clampPercent(_rebellion + rebellionDelta);
       _dependence = _clampPercent(_dependence + dependenceDelta);
       _confidence = _clampPercent(_confidence + confidenceDelta);
       _gentleness = _clampPercent(_gentleness + gentlenessDelta);
-      if (advancesTime) _advanceMinutes(_minutesPerInteraction);
+      if (advancesTime) _advanceMinutes(actualDurationMinutes);
       _applyTimedEvents();
+      if (settleExhaustedTimedStory) _settleExhaustedTimedStory();
+      _applyHealthDeathIfNeeded();
       _queueProgressionUnlocks();
-      _reaction = reaction;
-      _isReacting = true;
+      if (!_deathEndingReached) {
+        _queueStatPopups(
+          _buildStatPopups(
+            strengthDelta: _strength - previousStrength,
+            intelligenceDelta: _intelligence - previousIntelligence,
+            charmDelta: _charm - previousCharm,
+            artDelta: _art - previousArt,
+            skillDelta: _skill - previousSkill,
+            enduranceDelta: _endurance - previousEndurance,
+          ),
+        );
+        _reaction = reaction;
+        _isReacting = true;
+      }
     });
-    widget.audioController.playVoice(reaction.voice, delay: voiceDelay);
+    if (!_deathEndingReached) {
+      widget.audioController.playVoice(reaction.voice, delay: voiceDelay);
+    }
 
     Future<void>.delayed(const Duration(milliseconds: 170), () {
       if (mounted) setState(() => _isReacting = false);
@@ -1162,6 +1399,8 @@ class _HomeScreenState extends State<HomeScreen> {
       healthDelta: -2,
       injuryDelta: 5,
       rebellionDelta: 3,
+      settleExhaustedTimedStory: false,
+      isPhysicalAction: true,
       voiceDelay: const Duration(milliseconds: 180),
     );
     setState(() {
@@ -1213,7 +1452,7 @@ class _HomeScreenState extends State<HomeScreen> {
         _minuteOfDay >= _daySevenSickMinute) {
       _daySevenSicknessTriggered = true;
       _sicknessStoryPending = showStory;
-      _healthValue = min(_healthValue, 25);
+      _healthValue = max(10, _healthValue < 30 ? _healthValue - 5 : 25);
       _pressure = _clampPercent(_pressure + 12);
       _reaction = null;
       _isReacting = false;
@@ -1357,13 +1596,14 @@ class _HomeScreenState extends State<HomeScreen> {
       _totalDaysTogether += 1;
       _applyNextDayUnlocks();
       _minuteOfDay = wakeMinute;
-      _energy = _maxEnergy;
       _pressure = _clampPercent(_pressure - 4);
       _healthValue = _clampPercent(_healthValue + 3);
       _injury = _clampPercent(_injury - 2);
       _exhaustionCount = sleptFromExhaustion
           ? _clampPercent(_exhaustionCount + 1)
           : _clampPercent(_exhaustionCount - 1);
+      _energy = 1;
+      _energy = _maxEnergy;
       _reaction = wakeUpReaction;
       _sleepPending = false;
       _isReacting = false;
@@ -1426,8 +1666,8 @@ class _HomeScreenState extends State<HomeScreen> {
       affectionDelta: 2,
       trustDelta: 1,
       pressureDelta: -4,
-      skillDelta: 1,
       confidenceDelta: 1,
+      isPhysicalAction: true,
     );
   }
 
@@ -1439,8 +1679,8 @@ class _HomeScreenState extends State<HomeScreen> {
       trustDelta: 1,
       pressureDelta: -5,
       healthDelta: 1,
-      enduranceDelta: 1,
       curiosityDelta: 1,
+      isPhysicalAction: true,
     );
   }
 
@@ -1511,6 +1751,8 @@ class _HomeScreenState extends State<HomeScreen> {
       _energy = (_energy - 1).clamp(0, _maxEnergy);
       _advanceMinutes(_minutesPerInteraction);
       _applyTimedEvents();
+      _settleExhaustedTimedStory();
+      _applyHealthDeathIfNeeded();
       _queueProgressionUnlocks();
       _reaction = reaction;
       _isReacting = true;
@@ -1615,6 +1857,7 @@ class _HomeScreenState extends State<HomeScreen> {
       _minuteOfDay = _earliestWakeMinute;
       _sickEndingCareActive = false;
       _deathEndingReached = true;
+      _healthValue = 0;
       _permanentMemoryIds.add('sick-ending-memory');
       _permanentAchievementIds.add('sick-death');
       _reaction = null;
@@ -1655,7 +1898,7 @@ class _HomeScreenState extends State<HomeScreen> {
       _applyNextDayUnlocks();
       _minuteOfDay = _earliestWakeMinute;
       _energy = _maxEnergy;
-      _healthValue = max(_healthValue, 80);
+      _healthValue = max(_healthValue, isCorrectChoice ? 80 : 50);
       _cleanliness = max(_cleanliness, 55);
       _injury = _clampPercent(_injury - 5);
       _pressure = _clampPercent(_pressure + (isCorrectChoice ? -12 : 4));
@@ -1682,7 +1925,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
     _applyAction(
       _contextualResponses(ReactionAction.rest),
-      energyDelta: 5,
+      energyDelta: 2,
       pressureDelta: -3,
       healthDelta: 1,
       selfDisciplineDelta: 1,
@@ -1692,59 +1935,81 @@ class _HomeScreenState extends State<HomeScreen> {
   void _study() {
     _applyAction(
       _contextualResponses(ReactionAction.study),
-      energyDelta: -3,
-      pressureDelta: 4,
-      intelligenceDelta: 2,
+      energyDelta: -8,
+      affectionDelta: 1,
+      trustDelta: 1,
+      pressureDelta: 6,
+      intelligenceDelta: 1,
       curiosityDelta: 1,
       selfDisciplineDelta: 1,
+      durationMinutes: _minutesPerTraining,
+      canEndEarlyForTimedStory: true,
     );
   }
 
   void _exercise() {
     _applyAction(
       _contextualResponses(ReactionAction.exercise),
-      energyDelta: -4,
-      pressureDelta: -5,
-      cleanlinessDelta: -5,
-      healthDelta: 2,
-      strengthDelta: 2,
-      enduranceDelta: 2,
+      energyDelta: -10,
+      affectionDelta: 1,
+      trustDelta: 1,
+      pressureDelta: 8,
+      cleanlinessDelta: -8,
+      healthDelta: 1,
+      strengthDelta: 1,
+      enduranceDelta: 1,
       selfDisciplineDelta: 1,
       confidenceDelta: 1,
+      durationMinutes: _minutesPerTraining,
+      canEndEarlyForTimedStory: true,
+      isPhysicalAction: true,
     );
   }
 
   void _game() {
     _applyAction(
       _contextualResponses(ReactionAction.game),
-      energyDelta: -3,
-      pressureDelta: -6,
+      energyDelta: -8,
+      affectionDelta: 1,
+      trustDelta: 1,
+      pressureDelta: 4,
       cleanlinessDelta: -3,
       intelligenceDelta: 1,
-      skillDelta: 2,
+      skillDelta: 1,
       confidenceDelta: 1,
+      durationMinutes: _minutesPerTraining,
+      canEndEarlyForTimedStory: true,
     );
   }
 
   void _create() {
     _applyAction(
       _contextualResponses(ReactionAction.create),
-      energyDelta: -2,
-      pressureDelta: -2,
+      energyDelta: -7,
+      affectionDelta: 1,
+      trustDelta: 1,
+      pressureDelta: 2,
       charmDelta: 1,
-      artDelta: 2,
+      artDelta: 1,
       curiosityDelta: 1,
+      durationMinutes: _minutesPerTraining,
+      canEndEarlyForTimedStory: true,
     );
   }
 
   void _perform() {
     _applyAction(
       _contextualResponses(ReactionAction.perform),
-      energyDelta: -3,
-      pressureDelta: 2,
-      charmDelta: 2,
+      energyDelta: -8,
+      affectionDelta: 1,
+      trustDelta: 1,
+      pressureDelta: 8,
+      charmDelta: 1,
       artDelta: 1,
       confidenceDelta: 2,
+      durationMinutes: _minutesPerTraining,
+      canEndEarlyForTimedStory: true,
+      isPhysicalAction: true,
     );
   }
 
@@ -1761,11 +2026,16 @@ class _HomeScreenState extends State<HomeScreen> {
   void _outing() {
     _applyAction(
       _contextualResponses(ReactionAction.outing),
-      energyDelta: -3,
-      pressureDelta: -4,
+      energyDelta: -7,
+      affectionDelta: 1,
+      trustDelta: 1,
+      pressureDelta: -2,
       charmDelta: 1,
       curiosityDelta: 2,
       confidenceDelta: 1,
+      durationMinutes: _minutesPerTraining,
+      canEndEarlyForTimedStory: true,
+      isPhysicalAction: true,
     );
   }
 
@@ -1781,7 +2051,9 @@ class _HomeScreenState extends State<HomeScreen> {
         _postMidnightSickEndingMinute,
       );
       _healthValue = min(_healthValue, 5);
-      _pressure = _clampPercent(_pressure + 1);
+      _pressure = _clampPercent(
+        _pressure + _effectivePressureDelta(1, isPhysicalAction: false),
+      );
       _reaction = reaction;
       _isReacting = true;
       if (_minuteOfDay >= _postMidnightSickEndingMinute) {
@@ -2192,6 +2464,8 @@ class _HomeScreenState extends State<HomeScreen> {
       _confidence = 0;
       _gentleness = 0;
       _showDebugTools = false;
+      _cancelStatPopupTimers();
+      _statPopups.clear();
       _reaction = null;
       _isReacting = false;
     });
@@ -2225,8 +2499,7 @@ class _HomeScreenState extends State<HomeScreen> {
         pressure: _pressure,
         cleanliness: _cleanliness,
         healthLabel: _healthLabel,
-        personalityLabel: _personalityLabel,
-        traitLabel: _traitLabel,
+        tendencyLabels: _tendencyLabels,
         characterAsset: _characterAsset,
         strength: _strength,
         intelligence: _intelligence,
@@ -2300,6 +2573,7 @@ class _HomeScreenState extends State<HomeScreen> {
         isReacting: _isReacting,
         emotionLabel: _emotionLabel,
         characterAsset: _characterAsset,
+        statPopups: List.unmodifiable(_statPopups),
         isEndingReached: _isEndingReached,
         isSickEndingCareActive: _sickEndingCareActive,
         isForcedSleep: _isForcedSleep,
@@ -2477,6 +2751,7 @@ class _CompanionPage extends StatelessWidget {
     required this.isReacting,
     required this.emotionLabel,
     required this.characterAsset,
+    required this.statPopups,
     required this.isEndingReached,
     required this.isSickEndingCareActive,
     required this.isForcedSleep,
@@ -2536,6 +2811,7 @@ class _CompanionPage extends StatelessWidget {
   final bool isReacting;
   final String emotionLabel;
   final String characterAsset;
+  final List<_StatPopup> statPopups;
   final bool isEndingReached;
   final bool isSickEndingCareActive;
   final bool isForcedSleep;
@@ -2613,6 +2889,7 @@ class _CompanionPage extends StatelessWidget {
                     isReacting: isReacting,
                     emotionLabel: emotionLabel,
                     characterAsset: characterAsset,
+                    statPopups: statPopups,
                     affectionLevel: affectionLevel,
                     affectionProgress: affectionProgress,
                     trustLevel: trustLevel,
@@ -2798,6 +3075,7 @@ class _CharacterStage extends StatelessWidget {
     required this.isReacting,
     required this.emotionLabel,
     required this.characterAsset,
+    required this.statPopups,
     required this.affectionLevel,
     required this.affectionProgress,
     required this.trustLevel,
@@ -2821,6 +3099,7 @@ class _CharacterStage extends StatelessWidget {
   final bool isReacting;
   final String emotionLabel;
   final String characterAsset;
+  final List<_StatPopup> statPopups;
   final int affectionLevel;
   final int affectionProgress;
   final int trustLevel;
@@ -2905,6 +3184,9 @@ class _CharacterStage extends StatelessWidget {
                 );
               },
             ),
+          ),
+          Positioned.fill(
+            child: IgnorePointer(child: _StatPopupStack(popups: statPopups)),
           ),
           Positioned(
             top: 12,
@@ -3310,6 +3592,88 @@ class _WeatherPainter extends CustomPainter {
   }
 }
 
+class _StatPopupStack extends StatelessWidget {
+  const _StatPopupStack({required this.popups});
+
+  final List<_StatPopup> popups;
+
+  @override
+  Widget build(BuildContext context) {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final baseBottom = constraints.maxHeight * 0.42;
+        final right = constraints.maxWidth * 0.22;
+
+        return Stack(
+          children: [
+            for (var index = 0; index < popups.length; index += 1)
+              Positioned(
+                right: right,
+                bottom: baseBottom + ((popups.length - 1 - index) * 30),
+                child: _StatPopupChip(
+                  key: ValueKey('stat-popup-${popups[index].id}'),
+                  label: popups[index].label,
+                ),
+              ),
+          ],
+        );
+      },
+    );
+  }
+}
+
+class _StatPopupChip extends StatelessWidget {
+  const _StatPopupChip({super.key, required this.label});
+
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    return TweenAnimationBuilder<double>(
+      tween: Tween(begin: 0, end: 1),
+      duration: const Duration(seconds: 2),
+      curve: Curves.easeOutCubic,
+      builder: (context, value, child) {
+        final opacity = value < 0.72 ? 1.0 : (1 - value) / 0.28;
+        return Opacity(
+          opacity: opacity.clamp(0, 1),
+          child: Transform.translate(
+            offset: Offset(0, -10 * value),
+            child: child,
+          ),
+        );
+      },
+      child: DecoratedBox(
+        decoration: BoxDecoration(
+          color: const Color(0xEFFFFFF8),
+          borderRadius: BorderRadius.circular(999),
+          border: Border.all(color: const Color(0xFFE2C77D)),
+          boxShadow: const [
+            BoxShadow(
+              color: Color(0x22000000),
+              blurRadius: 8,
+              offset: Offset(0, 3),
+            ),
+          ],
+        ),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+          child: Text(
+            label,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: const TextStyle(
+              color: Color(0xFF274467),
+              fontSize: 13,
+              fontWeight: FontWeight.w900,
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
 class _CompactStatusPanel extends StatelessWidget {
   const _CompactStatusPanel({
     required this.affectionLevel,
@@ -3624,8 +3988,7 @@ class _StatusPage extends StatelessWidget {
     required this.pressure,
     required this.cleanliness,
     required this.healthLabel,
-    required this.personalityLabel,
-    required this.traitLabel,
+    required this.tendencyLabels,
     required this.characterAsset,
     required this.strength,
     required this.intelligence,
@@ -3645,8 +4008,7 @@ class _StatusPage extends StatelessWidget {
   final int pressure;
   final int cleanliness;
   final String healthLabel;
-  final String personalityLabel;
-  final String traitLabel;
+  final List<String> tendencyLabels;
   final String characterAsset;
   final int strength;
   final int intelligence;
@@ -3731,10 +4093,20 @@ class _StatusPage extends StatelessWidget {
           ),
           const SizedBox(height: 10),
           _StatusValueCard(
-            title: '性格与特质',
+            title: '倾向',
             children: [
-              _StatusValueRow(label: '性格', value: personalityLabel),
-              _StatusValueRow(label: '特质', value: traitLabel),
+              if (tendencyLabels.isEmpty)
+                const _StatusValueRow(label: '目前倾向', value: '尚未形成')
+              else
+                for (var index = 0; index < tendencyLabels.length; index += 1)
+                  _StatusValueRow(
+                    label: switch (index) {
+                      0 => '主要倾向',
+                      1 => '次要倾向',
+                      _ => '其他倾向',
+                    },
+                    value: tendencyLabels[index],
+                  ),
             ],
           ),
         ],
