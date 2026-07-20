@@ -288,6 +288,39 @@ void main() {
     expect(find.byKey(const Key('hit-button')), findsOneWidget);
   });
 
+  testWidgets('evolution story starts childhood stage', (tester) async {
+    await _pumpLoadedApp(
+      tester,
+      debugInitialState: const MiniNanheDebugState(
+        totalDaysTogether: 61,
+        luxuryUnlocked: true,
+      ),
+    );
+
+    expect(find.text('迷你期 · 第 61 天'), findsOneWidget);
+    expect(find.byKey(const Key('evolution-button')), findsOneWidget);
+
+    await tester.tap(find.byKey(const Key('evolution-button')));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const Key('evolution-story-tap-area')), findsOneWidget);
+
+    expect(find.text('恭喜，迷你南河進化為了小南河'), findsNothing);
+
+    for (var i = 0; i < 3; i += 1) {
+      await tester.tap(find.byKey(const Key('evolution-story-tap-area')));
+      await tester.pumpAndSettle();
+    }
+
+    expect(find.text('恭喜，迷你南河進化為了小南河'), findsOneWidget);
+
+    await tester.tap(find.byKey(const Key('evolution-story-tap-area')));
+    await tester.pumpAndSettle();
+
+    expect(find.text('幼年期 · 第 61 天'), findsOneWidget);
+    expect(find.text('南河会自己走了。'), findsOneWidget);
+    expect(find.byKey(const Key('evolution-button')), findsNothing);
+  });
+
   testWidgets(
     'feeding at noon keeps early wary reactions before affection lv2',
     (tester) async {
@@ -918,6 +951,23 @@ void main() {
     expect(find.byKey(const Key('debug-trust-progress-slider')), findsNothing);
     expect(find.byKey(const Key('debug-preset-第7天 16:00')), findsNothing);
     expect(find.byKey(const Key('debug-affection-lv2')), findsNothing);
+    expect(
+      find.byKey(const Key('debug-evolution-ready-button')),
+      findsOneWidget,
+    );
+
+    await tester.scrollUntilVisible(
+      find.byKey(const Key('debug-evolution-ready-button')),
+      160,
+      scrollable: find.byType(Scrollable).first,
+    );
+    await tester.drag(find.byType(Scrollable).first, const Offset(0, -180));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('debug-evolution-ready-button')));
+    await tester.pumpAndSettle();
+
+    expect(find.text('迷你期 · 第 61 天'), findsOneWidget);
+    expect(find.byKey(const Key('evolution-button')), findsOneWidget);
   });
 
   testWidgets('short screens preserve the character stage and can scroll', (

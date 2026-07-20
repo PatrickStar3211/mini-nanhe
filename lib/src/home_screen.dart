@@ -11,6 +11,7 @@ import 'app_version.dart';
 import 'character_reaction.dart';
 import 'collection_screen.dart';
 import 'doghouse_unlock_story_screen.dart';
+import 'evolution_story_screen.dart';
 import 'feeding_story_screen.dart';
 import 'game_audio_controller.dart';
 import 'game_assets.dart';
@@ -42,6 +43,8 @@ const _daySevenSickMinute = 16 * 60;
 const _sickEndingTriggerMinute = 22 * 60;
 
 enum YardHomeTier { box, doghouse, luxury }
+
+enum GrowthStage { mini, childhood }
 
 enum WeatherCondition { sunny, rainy, snowy }
 
@@ -204,6 +207,7 @@ class _HomeScreenState extends State<HomeScreen> {
   int _exhaustionCount = 0;
   int _actionPage = 0;
   bool _sleepPending = false;
+  GrowthStage _growthStage = GrowthStage.mini;
   YardHomeTier _yardHomeTier = YardHomeTier.box;
   bool _hasBeenHit = false;
   int _hitCount = 0;
@@ -231,6 +235,7 @@ class _HomeScreenState extends State<HomeScreen> {
   bool _luxuryUnlockStoryPending = false;
   bool _showingLuxuryUnlockStory = false;
   bool _luxuryUnlocked = false;
+  bool _showingEvolutionStory = false;
   bool _feedEventResolvedCorrectly = false;
   bool _sicknessEventResolvedCorrectly = false;
   final Set<String> _permanentMemoryIds = {'opening-memory'};
@@ -468,6 +473,7 @@ class _HomeScreenState extends State<HomeScreen> {
       'injury': _injury,
       'exhaustionCount': _exhaustionCount,
       'actionPage': _actionPage,
+      'growthStage': _growthStage.name,
       'yardHomeTier': _yardHomeTier.name,
       'hasBeenHit': _hasBeenHit,
       'hitCount': _hitCount,
@@ -536,6 +542,9 @@ class _HomeScreenState extends State<HomeScreen> {
     _injury = _clampPercent(_jsonInt(state, 'injury', 0));
     _exhaustionCount = _clampPercent(_jsonInt(state, 'exhaustionCount', 0));
     _actionPage = _jsonInt(state, 'actionPage', 0).clamp(0, 1);
+    _growthStage = _growthStageFromName(
+      _jsonString(state, 'growthStage', GrowthStage.mini.name),
+    );
     _yardHomeTier = _yardHomeFromName(
       _jsonString(state, 'yardHomeTier', YardHomeTier.box.name),
     );
@@ -687,6 +696,13 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
+  GrowthStage _growthStageFromName(String name) {
+    return GrowthStage.values.firstWhere(
+      (stage) => stage.name == name,
+      orElse: () => GrowthStage.mini,
+    );
+  }
+
   BgmTrack _bgmFromName(String name) {
     return BgmTrack.values.firstWhere(
       (track) => track.name == name,
@@ -747,7 +763,10 @@ class _HomeScreenState extends State<HomeScreen> {
       _sicknessEventResolvedCorrectly &&
       _totalDaysTogether > 25;
   bool get _canShowEvolutionButton =>
-      !_sickEndingOnsetTriggered && _totalDaysTogether > 60 && _luxuryUnlocked;
+      _growthStage == GrowthStage.mini &&
+      !_sickEndingOnsetTriggered &&
+      _totalDaysTogether > 60 &&
+      _luxuryUnlocked;
   bool get _canTriggerSickEnding =>
       !_sickEndingOnsetTriggered &&
       !_deathEndingReached &&
@@ -755,7 +774,8 @@ class _HomeScreenState extends State<HomeScreen> {
       _hasSickEndingRoute &&
       _totalDaysTogether == 60 &&
       (_minuteOfDay >= _sickEndingTriggerMinute || _isExhausted);
-  bool get _isPreEvolutionPeriod => _totalDaysTogether <= 60;
+  bool get _isPreEvolutionPeriod =>
+      _growthStage == GrowthStage.mini && _totalDaysTogether <= 60;
   bool get _isBondLocked =>
       _bondLockedByPreEvolutionHit && _isPreEvolutionPeriod;
   bool get _hasSickEndingRoute =>
@@ -943,6 +963,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
   String get _characterAsset {
     if (_isEndingReached) return miniNanheDeadAsset;
+    if (_growthStage == GrowthStage.childhood) return childNanheAsset;
     return switch (_currentEmotion) {
       NanheEmotion.happy => miniNanheHappyAsset,
       NanheEmotion.affectionate => miniNanheAffectionateAsset,
@@ -1419,7 +1440,57 @@ class _HomeScreenState extends State<HomeScreen> {
     });
   }
 
-  void _handleEvolution() {}
+  Future<void> _handleEvolution() async {
+    if (!_canShowEvolutionButton || _showingEvolutionStory) return;
+
+    widget.audioController.playPageTurn();
+    _showingEvolutionStory = true;
+    await Navigator.of(context).push(
+      PageRouteBuilder<void>(
+        pageBuilder: (_, animation, secondaryAnimation) {
+          return EvolutionStoryScreen(
+            config: const EvolutionStoryConfig(
+              fromName: '迷你南河',
+              toName: '小南河',
+              fromAsset: miniNanheHappyAsset,
+              toAsset: childNanheAsset,
+              resultText: '恭喜，迷你南河進化為了小南河',
+            ),
+            onFinished: (storyContext) => Navigator.of(storyContext).pop(),
+          );
+        },
+        transitionDuration: const Duration(milliseconds: 450),
+        transitionsBuilder: (_, animation, secondaryAnimation, child) {
+          return FadeTransition(opacity: animation, child: child);
+        },
+      ),
+    );
+
+    if (!mounted) return;
+    final reaction = const CharacterReaction(
+      emotion: NanheEmotion.happy,
+      nanheSpeech: '南河会自己走了。',
+      meaning: '幼年期开始了。',
+      voice: NanheVoice.affectionDouble,
+    );
+    setState(() {
+      _showingEvolutionStory = false;
+      _growthStage = GrowthStage.childhood;
+      _energy = _maxEnergy;
+      _healthValue = max(_healthValue, 85);
+      _cleanliness = max(_cleanliness, 80);
+      _pressure = _clampPercent(_pressure - 10);
+      _sleepPending = false;
+      _reaction = reaction;
+      _isReacting = true;
+      _selectedDestination = 0;
+    });
+    widget.audioController.playVoice(reaction.voice);
+
+    Future<void>.delayed(const Duration(milliseconds: 170), () {
+      if (mounted) setState(() => _isReacting = false);
+    });
+  }
 
   void _advanceOneDay() {
     _day += 1;
@@ -2357,6 +2428,65 @@ class _HomeScreenState extends State<HomeScreen> {
     });
   }
 
+  void _setDebugEvolutionReady() {
+    setState(() {
+      _setCalendarFromTotalDays(61);
+      _minuteOfDay = _earliestWakeMinute;
+      _growthStage = GrowthStage.mini;
+      _yardHomeTier = YardHomeTier.luxury;
+      _hasBeenHit = false;
+      _bondLockedByPreEvolutionHit = false;
+      _deathPending = false;
+      _deathEndingReached = false;
+      _feedEventTriggered = true;
+      _feedEventCompleted = true;
+      _firstHitEventTriggered = false;
+      _daySevenSicknessTriggered = true;
+      _sicknessEventCompleted = true;
+      _sicknessStoryPending = false;
+      _showingSicknessStory = false;
+      _sickEndingOnsetTriggered = false;
+      _sickEndingOnsetStoryPending = false;
+      _showingSickEndingOnsetStory = false;
+      _sickEndingCareActive = false;
+      _sickEndingFinalStoryPending = false;
+      _showingSickEndingFinalStory = false;
+      _doghouseUnlockPending = false;
+      _doghouseUnlockStoryPending = false;
+      _showingDoghouseUnlockStory = false;
+      _doghouseUnlocked = true;
+      _luxuryUnlockPending = false;
+      _luxuryUnlockStoryPending = false;
+      _showingLuxuryUnlockStory = false;
+      _luxuryUnlocked = true;
+      _showingEvolutionStory = false;
+      _feedEventResolvedCorrectly = true;
+      _sicknessEventResolvedCorrectly = true;
+      _permanentDecorationIds.addAll({'yard-doghouse', 'yard-luxury'});
+      _permanentMemoryIds.addAll({
+        'first-feeding-memory',
+        'day-seven-sickness-memory',
+        'doghouse-unlock-memory',
+        'luxury-unlock-memory',
+      });
+      _permanentAchievementIds.add('curry-favorite');
+      _affectionLevel = max(_affectionLevel, 8);
+      _affectionProgress = 0;
+      _trustLevel = max(_trustLevel, 4);
+      _trustProgress = 0;
+      _pressure = 0;
+      _cleanliness = 100;
+      _healthValue = 100;
+      _injury = 0;
+      _exhaustionCount = 0;
+      _energy = _maxEnergy;
+      _sleepPending = false;
+      _reaction = null;
+      _isReacting = false;
+      _selectedDestination = 0;
+    });
+  }
+
   void _setCalendarFromTotalDays(int totalDaysTogether) {
     final clampedDays = totalDaysTogether.clamp(1, _maxStatValue);
     final zeroBasedDay = clampedDays - 1;
@@ -2422,6 +2552,7 @@ class _HomeScreenState extends State<HomeScreen> {
       _exhaustionCount = 0;
       _actionPage = 0;
       _sleepPending = false;
+      _growthStage = GrowthStage.mini;
       _yardHomeTier = YardHomeTier.box;
       _hasBeenHit = false;
       _hitCount = 0;
@@ -2449,6 +2580,7 @@ class _HomeScreenState extends State<HomeScreen> {
       _luxuryUnlockStoryPending = false;
       _showingLuxuryUnlockStory = false;
       _luxuryUnlocked = false;
+      _showingEvolutionStory = false;
       _feedEventResolvedCorrectly = false;
       _sicknessEventResolvedCorrectly = false;
       _strength = 1;
@@ -2557,9 +2689,11 @@ class _HomeScreenState extends State<HomeScreen> {
         onDebugTimelineChanged: _setDebugTimeline,
         onDebugAffectionLevelChanged: _setDebugAffectionLevel,
         onDebugTrustLevelChanged: _setDebugTrustLevel,
+        onDebugEvolutionReady: _setDebugEvolutionReady,
       ),
       _ => _CompanionPage(
         totalDaysTogether: _totalDaysTogether,
+        growthStage: _growthStage,
         season: _season,
         year: _year,
         month: _month,
@@ -2738,6 +2872,7 @@ class _PlaceholderPage extends StatelessWidget {
 class _CompanionPage extends StatelessWidget {
   const _CompanionPage({
     required this.totalDaysTogether,
+    required this.growthStage,
     required this.season,
     required this.year,
     required this.month,
@@ -2798,6 +2933,7 @@ class _CompanionPage extends StatelessWidget {
   });
 
   final int totalDaysTogether;
+  final GrowthStage growthStage;
   final String season;
   final int year;
   final int month;
@@ -2942,7 +3078,10 @@ class _CompanionPage extends StatelessWidget {
                 padding: const EdgeInsets.fromLTRB(16, 8, 16, 10),
                 child: Column(
                   children: [
-                    _Header(totalDaysTogether: totalDaysTogether),
+                    _Header(
+                      totalDaysTogether: totalDaysTogether,
+                      growthStage: growthStage,
+                    ),
                     const SizedBox(height: 8),
                     _CalendarCard(
                       season: season,
@@ -2965,7 +3104,10 @@ class _CompanionPage extends StatelessWidget {
               padding: const EdgeInsets.fromLTRB(16, 8, 16, 10),
               child: Column(
                 children: [
-                  _Header(totalDaysTogether: totalDaysTogether),
+                  _Header(
+                    totalDaysTogether: totalDaysTogether,
+                    growthStage: growthStage,
+                  ),
                   const SizedBox(height: 8),
                   _CalendarCard(
                     season: season,
@@ -2990,9 +3132,17 @@ class _CompanionPage extends StatelessWidget {
 }
 
 class _Header extends StatelessWidget {
-  const _Header({required this.totalDaysTogether});
+  const _Header({required this.totalDaysTogether, required this.growthStage});
 
   final int totalDaysTogether;
+  final GrowthStage growthStage;
+
+  String get _growthStageLabel {
+    return switch (growthStage) {
+      GrowthStage.mini => '迷你期',
+      GrowthStage.childhood => '幼年期',
+    };
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -3007,7 +3157,7 @@ class _Header extends StatelessWidget {
               children: [
                 Text('迷你南河', style: Theme.of(context).textTheme.headlineSmall),
                 Text(
-                  '迷你期 · 第 $totalDaysTogether 天',
+                  '$_growthStageLabel · 第 $totalDaysTogether 天',
                   style: Theme.of(context).textTheme.bodySmall,
                 ),
               ],
@@ -4553,6 +4703,7 @@ class _SettingsPage extends StatelessWidget {
     required this.onDebugTimelineChanged,
     required this.onDebugAffectionLevelChanged,
     required this.onDebugTrustLevelChanged,
+    required this.onDebugEvolutionReady,
   });
 
   final BgmTrack selectedBgm;
@@ -4581,6 +4732,7 @@ class _SettingsPage extends StatelessWidget {
   onDebugTimelineChanged;
   final ValueChanged<int> onDebugAffectionLevelChanged;
   final ValueChanged<int> onDebugTrustLevelChanged;
+  final VoidCallback onDebugEvolutionReady;
 
   @override
   Widget build(BuildContext context) {
@@ -4681,6 +4833,7 @@ class _SettingsPage extends StatelessWidget {
               onTimelineChanged: onDebugTimelineChanged,
               onAffectionLevelChanged: onDebugAffectionLevelChanged,
               onTrustLevelChanged: onDebugTrustLevelChanged,
+              onEvolutionReady: onDebugEvolutionReady,
             ),
           ],
           const SizedBox(height: 24),
@@ -4951,6 +5104,7 @@ class _DebugToolsPanel extends StatelessWidget {
     required this.onTimelineChanged,
     required this.onAffectionLevelChanged,
     required this.onTrustLevelChanged,
+    required this.onEvolutionReady,
   });
 
   final int totalDaysTogether;
@@ -4961,6 +5115,7 @@ class _DebugToolsPanel extends StatelessWidget {
   onTimelineChanged;
   final ValueChanged<int> onAffectionLevelChanged;
   final ValueChanged<int> onTrustLevelChanged;
+  final VoidCallback onEvolutionReady;
 
   String get _timeLabel {
     final normalizedMinute = minuteOfDay % _midnightMinute;
@@ -4996,6 +5151,13 @@ class _DebugToolsPanel extends StatelessWidget {
             style: Theme.of(context).textTheme.bodySmall,
           ),
           const SizedBox(height: 14),
+          FilledButton.tonalIcon(
+            key: const Key('debug-evolution-ready-button'),
+            onPressed: onEvolutionReady,
+            icon: const Icon(Icons.auto_awesome_rounded),
+            label: const Text('第 61 天 · 可进化'),
+          ),
+          const SizedBox(height: 8),
           _DebugIntSlider(
             key: const Key('debug-day-slider'),
             label: '在一起天数',
