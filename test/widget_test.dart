@@ -1666,11 +1666,15 @@ void main() {
     expect(find.text('6/25'), findsOneWidget);
     expect(find.text('冬 | 第1年 · 1月1日 | 09:00 | 晴'), findsOneWidget);
 
+    await tester.pump(const Duration(milliseconds: 2100));
+
     await tester.tap(find.byKey(const Key('exercise-button')));
     await tester.pump(const Duration(milliseconds: 200));
-    expect(find.text('6/25'), findsOneWidget);
-    expect(find.text('冬 | 第1年 · 1月1日 | 09:00 | 晴'), findsOneWidget);
-    expect(find.textContaining('有点困'), findsOneWidget);
+    expect(find.text('0/12'), findsOneWidget);
+    expect(find.text('冬 | 第1年 · 1月1日 | 10:00 | 晴'), findsOneWidget);
+    expect(find.text('力量+1'), findsOneWidget);
+    expect(find.text('耐力+1'), findsOneWidget);
+    expect(find.textContaining('有点困'), findsNothing);
   });
 
   testWidgets('chores raises skill and slightly improves cleanliness', (

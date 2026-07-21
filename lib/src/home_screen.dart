@@ -1359,19 +1359,12 @@ class _HomeScreenState extends State<HomeScreen> {
       energyDelta,
       isPhysicalAction: isPhysicalAction,
     );
-    final actualEnergyCost = actualEnergyDelta < 0 ? -actualEnergyDelta : 0;
     final actualPressureDelta = _effectivePressureDelta(
       pressureDelta,
       isPhysicalAction: isPhysicalAction,
     );
 
     if (actualEnergyDelta < 0 && _isForcedSleep) {
-      setState(() => _reaction = exhaustedReaction);
-      widget.audioController.playVoice(exhaustedReaction.voice);
-      return;
-    }
-
-    if (actualEnergyCost > _energy) {
       setState(() => _reaction = exhaustedReaction);
       widget.audioController.playVoice(exhaustedReaction.voice);
       return;
@@ -2866,7 +2859,7 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Future<void> _openLocationSelection() async {
-    widget.audioController.playPageTurn();
+    widget.audioController.playRegularInteraction();
     final location = await Navigator.of(context).push<CompanionLocation>(
       MaterialPageRoute(
         builder: (_) => _LocationSelectionPage(
@@ -2880,7 +2873,7 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Future<void> _openAppearanceSelection() async {
-    widget.audioController.playPageTurn();
+    widget.audioController.playRegularInteraction();
     final appearance = await Navigator.of(context).push<NanheAppearance>(
       MaterialPageRoute(
         builder: (_) => _AppearanceSelectionPage(
