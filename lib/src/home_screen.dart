@@ -45,7 +45,13 @@ const _sickEndingTriggerMinute = 22 * 60;
 
 enum YardHomeTier { box, doghouse, luxury }
 
+enum HomeRoom { bedroom, livingRoom, study }
+
 enum GrowthStage { mini, childhood }
+
+enum CompanionLocation { garden, home }
+
+enum NanheAppearance { mini, childhood }
 
 enum WeatherCondition { sunny, rainy, snowy }
 
@@ -98,6 +104,7 @@ class MiniNanheDebugState {
     this.trustLevel,
     this.trustProgress,
     this.energy,
+    this.money,
     this.healthValue,
     this.exhaustionCount,
     this.injury,
@@ -120,6 +127,7 @@ class MiniNanheDebugState {
   final int? trustLevel;
   final int? trustProgress;
   final int? energy;
+  final int? money;
   final int? healthValue;
   final int? exhaustionCount;
   final int? injury;
@@ -203,6 +211,7 @@ class _HomeScreenState extends State<HomeScreen> {
   int _day = 1;
   int _minuteOfDay = 6 * 60;
   int _energy = _initialMaxEnergy;
+  int _money = 0;
   int _affectionLevel = 1;
   int _affectionProgress = 0;
   int _trustLevel = 1;
@@ -216,6 +225,9 @@ class _HomeScreenState extends State<HomeScreen> {
   bool _sleepPending = false;
   GrowthStage _growthStage = GrowthStage.mini;
   YardHomeTier _yardHomeTier = YardHomeTier.box;
+  HomeRoom _homeRoom = HomeRoom.bedroom;
+  CompanionLocation _companionLocation = CompanionLocation.garden;
+  NanheAppearance _selectedAppearance = NanheAppearance.mini;
   bool _hasBeenHit = false;
   int _hitCount = 0;
   bool _bondLockedByPreEvolutionHit = false;
@@ -292,6 +304,7 @@ class _HomeScreenState extends State<HomeScreen> {
     _trustLevel = debug.trustLevel ?? _trustLevel;
     _trustProgress = debug.trustProgress ?? _trustProgress;
     _energy = debug.energy ?? _energy;
+    _money = max(0, debug.money ?? _money);
     _healthValue = debug.healthValue ?? _healthValue;
     _exhaustionCount = debug.exhaustionCount ?? _exhaustionCount;
     _injury = debug.injury ?? _injury;
@@ -300,6 +313,12 @@ class _HomeScreenState extends State<HomeScreen> {
     _homeBedtimeStoryCompleted =
         debug.homeBedtimeStoryCompleted ?? _homeBedtimeStoryCompleted;
     _homeInteriorUnlocked = debug.homeInteriorUnlocked ?? _homeInteriorUnlocked;
+    if (_growthStage == GrowthStage.childhood) {
+      _selectedAppearance = NanheAppearance.childhood;
+    }
+    if (_homeInteriorUnlocked) {
+      _companionLocation = CompanionLocation.home;
+    }
     _feedEventTriggered = debug.feedEventTriggered ?? _feedEventTriggered;
     _feedEventCompleted = debug.feedEventCompleted ?? _feedEventCompleted;
     _feedEventResolvedCorrectly =
@@ -477,6 +496,7 @@ class _HomeScreenState extends State<HomeScreen> {
       'day': _day,
       'minuteOfDay': _minuteOfDay,
       'energy': _energy,
+      'money': _money,
       'affectionLevel': _affectionLevel,
       'affectionProgress': _affectionProgress,
       'trustLevel': _trustLevel,
@@ -489,6 +509,9 @@ class _HomeScreenState extends State<HomeScreen> {
       'actionPage': _actionPage,
       'growthStage': _growthStage.name,
       'yardHomeTier': _yardHomeTier.name,
+      'homeRoom': _homeRoom.name,
+      'companionLocation': _companionLocation.name,
+      'selectedAppearance': _selectedAppearance.name,
       'homeBedtimeStoryCompleted': _homeBedtimeStoryCompleted,
       'homeInteriorUnlocked': _homeInteriorUnlocked,
       'hasBeenHit': _hasBeenHit,
@@ -548,6 +571,7 @@ class _HomeScreenState extends State<HomeScreen> {
       'energy',
       _initialMaxEnergy,
     ).clamp(0, _maxStatValue);
+    _money = max(0, _jsonInt(state, 'money', 0));
     _affectionLevel = _clampStat(_jsonInt(state, 'affectionLevel', 1));
     _affectionProgress = _jsonInt(state, 'affectionProgress', 0).clamp(0, 99);
     _trustLevel = _clampStat(_jsonInt(state, 'trustLevel', 1));
@@ -563,6 +587,21 @@ class _HomeScreenState extends State<HomeScreen> {
     );
     _yardHomeTier = _yardHomeFromName(
       _jsonString(state, 'yardHomeTier', YardHomeTier.box.name),
+    );
+    _homeRoom = _homeRoomFromName(
+      _jsonString(state, 'homeRoom', HomeRoom.bedroom.name),
+    );
+    _companionLocation = _companionLocationFromName(
+      _jsonString(state, 'companionLocation', CompanionLocation.garden.name),
+    );
+    _selectedAppearance = _nanheAppearanceFromName(
+      _jsonString(
+        state,
+        'selectedAppearance',
+        _growthStage == GrowthStage.childhood
+            ? NanheAppearance.childhood.name
+            : NanheAppearance.mini.name,
+      ),
     );
     _homeBedtimeStoryCompleted = _jsonBool(
       state,
@@ -673,6 +712,12 @@ class _HomeScreenState extends State<HomeScreen> {
     if (!_unlockedYardHomes.contains(_yardHomeTier)) {
       _yardHomeTier = _unlockedYardHomes.last;
     }
+    if (!_homeInteriorUnlocked) {
+      _companionLocation = CompanionLocation.garden;
+    }
+    if (_growthStage == GrowthStage.mini) {
+      _selectedAppearance = NanheAppearance.mini;
+    }
   }
 
   void _syncAudioControllerWithState() {
@@ -716,6 +761,27 @@ class _HomeScreenState extends State<HomeScreen> {
     return YardHomeTier.values.firstWhere(
       (tier) => tier.name == name,
       orElse: () => YardHomeTier.box,
+    );
+  }
+
+  HomeRoom _homeRoomFromName(String name) {
+    return HomeRoom.values.firstWhere(
+      (room) => room.name == name,
+      orElse: () => HomeRoom.bedroom,
+    );
+  }
+
+  CompanionLocation _companionLocationFromName(String name) {
+    return CompanionLocation.values.firstWhere(
+      (location) => location.name == name,
+      orElse: () => CompanionLocation.garden,
+    );
+  }
+
+  NanheAppearance _nanheAppearanceFromName(String name) {
+    return NanheAppearance.values.firstWhere(
+      (appearance) => appearance.name == name,
+      orElse: () => NanheAppearance.mini,
     );
   }
 
@@ -820,7 +886,11 @@ class _HomeScreenState extends State<HomeScreen> {
     'yard-box',
     if (_doghouseUnlocked) 'yard-doghouse',
     if (_luxuryUnlocked) 'yard-luxury',
-    if (_homeInteriorUnlocked) 'home-interior',
+    if (_homeInteriorUnlocked) ...{
+      'home-bedroom',
+      'home-living-room',
+      'home-study',
+    },
   };
   Set<String> get _unlockedMemoryIds => {
     ..._permanentMemoryIds,
@@ -889,7 +959,15 @@ class _HomeScreenState extends State<HomeScreen> {
     };
   }
 
-  String get _yardBackgroundAsset {
+  String get _backgroundAsset {
+    if (_isViewingHome) {
+      final room = switch (_homeRoom) {
+        HomeRoom.bedroom => 'bedroom',
+        HomeRoom.livingRoom => 'living_room',
+        HomeRoom.study => 'study',
+      };
+      return homeBackgroundAsset(room: room, timeOfDay: _timeOfDayAssetKey);
+    }
     return yardBackgroundAsset(
       home: _yardHomeTier.name,
       season: _seasonAssetKey,
@@ -897,7 +975,21 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  void _changeYardHome(int direction) {
+  bool get _isViewingHome =>
+      _homeInteriorUnlocked && _companionLocation == CompanionLocation.home;
+
+  int get _backgroundCount =>
+      _isViewingHome ? HomeRoom.values.length : _unlockedYardHomes.length;
+
+  void _changeBackground(int direction) {
+    if (_isViewingHome) {
+      final currentIndex = HomeRoom.values.indexOf(_homeRoom);
+      final nextIndex =
+          (currentIndex + direction + HomeRoom.values.length) %
+          HomeRoom.values.length;
+      setState(() => _homeRoom = HomeRoom.values[nextIndex]);
+      return;
+    }
     final unlockedHomes = _unlockedYardHomes;
     if (unlockedHomes.length < 2) return;
     final currentIndex = unlockedHomes.indexOf(_yardHomeTier);
@@ -991,7 +1083,10 @@ class _HomeScreenState extends State<HomeScreen> {
 
   String get _characterAsset {
     if (_isEndingReached) return miniNanheDeadAsset;
-    if (_growthStage == GrowthStage.childhood) return childNanheAsset;
+    if (_selectedAppearance == NanheAppearance.childhood &&
+        _growthStage == GrowthStage.childhood) {
+      return childNanheAsset;
+    }
     return switch (_currentEmotion) {
       NanheEmotion.happy => miniNanheHappyAsset,
       NanheEmotion.affectionate => miniNanheAffectionateAsset,
@@ -1504,6 +1599,7 @@ class _HomeScreenState extends State<HomeScreen> {
     setState(() {
       _showingEvolutionStory = false;
       _growthStage = GrowthStage.childhood;
+      _selectedAppearance = NanheAppearance.childhood;
       _energy = _maxEnergy;
       _healthValue = max(_healthValue, 85);
       _cleanliness = max(_cleanliness, 80);
@@ -1737,7 +1833,13 @@ class _HomeScreenState extends State<HomeScreen> {
       _applyNextDayUnlocks();
       if (_homeBedtimeStoryCompleted && !_homeInteriorUnlocked) {
         _homeInteriorUnlocked = true;
-        _permanentDecorationIds.add('home-interior');
+        _homeRoom = HomeRoom.bedroom;
+        _companionLocation = CompanionLocation.home;
+        _permanentDecorationIds.addAll({
+          'home-bedroom',
+          'home-living-room',
+          'home-study',
+        });
       }
       _minuteOfDay = wakeMinute;
       _pressure = _clampPercent(_pressure - 4);
@@ -2179,22 +2281,6 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  void _outing() {
-    _applyAction(
-      _contextualResponses(ReactionAction.outing),
-      energyDelta: -7,
-      affectionDelta: 1,
-      trustDelta: 1,
-      pressureDelta: -2,
-      charmDelta: 1,
-      curiosityDelta: 2,
-      confidenceDelta: 1,
-      durationMinutes: _minutesPerTraining,
-      canEndEarlyForTimedStory: true,
-      isPhysicalAction: true,
-    );
-  }
-
   void _careSickEnding() {
     if (!_sickEndingCareActive || _deathEndingReached) return;
     final reaction =
@@ -2537,6 +2623,9 @@ class _HomeScreenState extends State<HomeScreen> {
       _minuteOfDay = _earliestWakeMinute;
       _growthStage = GrowthStage.mini;
       _yardHomeTier = YardHomeTier.luxury;
+      _homeRoom = HomeRoom.bedroom;
+      _companionLocation = CompanionLocation.garden;
+      _selectedAppearance = NanheAppearance.mini;
       _hasBeenHit = false;
       _bondLockedByPreEvolutionHit = false;
       _deathPending = false;
@@ -2569,6 +2658,11 @@ class _HomeScreenState extends State<HomeScreen> {
       _permanentMemoryIds.remove('home-bedtime-memory');
       _permanentAchievementIds.remove('home-sweet-home');
       _permanentDecorationIds.remove('home-interior');
+      _permanentDecorationIds.removeAll({
+        'home-bedroom',
+        'home-living-room',
+        'home-study',
+      });
       _feedEventResolvedCorrectly = true;
       _sicknessEventResolvedCorrectly = true;
       _permanentDecorationIds.addAll({'yard-doghouse', 'yard-luxury'});
@@ -2650,6 +2744,7 @@ class _HomeScreenState extends State<HomeScreen> {
       _day = 1;
       _minuteOfDay = 6 * 60;
       _energy = _initialMaxEnergy;
+      _money = 0;
       _affectionLevel = 1;
       _affectionProgress = 0;
       _trustLevel = 1;
@@ -2663,6 +2758,9 @@ class _HomeScreenState extends State<HomeScreen> {
       _sleepPending = false;
       _growthStage = GrowthStage.mini;
       _yardHomeTier = YardHomeTier.box;
+      _homeRoom = HomeRoom.bedroom;
+      _companionLocation = CompanionLocation.garden;
+      _selectedAppearance = NanheAppearance.mini;
       _hasBeenHit = false;
       _hitCount = 0;
       _bondLockedByPreEvolutionHit = false;
@@ -2729,10 +2827,39 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
+  Future<void> _openLocationSelection() async {
+    widget.audioController.playPageTurn();
+    final location = await Navigator.of(context).push<CompanionLocation>(
+      MaterialPageRoute(
+        builder: (_) => _LocationSelectionPage(
+          currentLocation: _companionLocation,
+          homeUnlocked: _homeInteriorUnlocked,
+        ),
+      ),
+    );
+    if (!mounted || location == null) return;
+    setState(() => _companionLocation = location);
+  }
+
+  Future<void> _openAppearanceSelection() async {
+    widget.audioController.playPageTurn();
+    final appearance = await Navigator.of(context).push<NanheAppearance>(
+      MaterialPageRoute(
+        builder: (_) => _AppearanceSelectionPage(
+          currentAppearance: _selectedAppearance,
+          childhoodUnlocked: _growthStage == GrowthStage.childhood,
+        ),
+      ),
+    );
+    if (!mounted || appearance == null) return;
+    setState(() => _selectedAppearance = appearance);
+  }
+
   @override
   Widget build(BuildContext context) {
     final page = switch (_selectedDestination) {
       1 => _StatusPage(
+        growthStage: _growthStage,
         affectionLevel: _affectionLevel,
         affectionProgress: _affectionProgress,
         trustLevel: _trustLevel,
@@ -2807,6 +2934,7 @@ class _HomeScreenState extends State<HomeScreen> {
       _ => _CompanionPage(
         totalDaysTogether: _totalDaysTogether,
         growthStage: _growthStage,
+        money: _money,
         childhoodRoutineUnlocked: _hasUnlockedChildhoodRoutine,
         season: _season,
         year: _year,
@@ -2814,9 +2942,11 @@ class _HomeScreenState extends State<HomeScreen> {
         day: _day,
         timeLabel: _timeLabel,
         weatherLabel: _weatherLabel,
-        weatherCondition: _visibleWeatherCondition,
-        backgroundAsset: _yardBackgroundAsset,
-        canSwitchBackground: _unlockedYardHomes.length > 1,
+        weatherCondition: _isViewingHome
+            ? WeatherCondition.sunny
+            : _visibleWeatherCondition,
+        backgroundAsset: _backgroundAsset,
+        canSwitchBackground: _backgroundCount > 1,
         reaction: _reaction,
         isReacting: _isReacting,
         emotionLabel: _emotionLabel,
@@ -2845,8 +2975,10 @@ class _HomeScreenState extends State<HomeScreen> {
         onResetGame: _resetRunAndReplayOpening,
         onCareSickEnding: _careSickEnding,
         onEvolution: _handleEvolution,
-        onPreviousBackground: () => _changeYardHome(-1),
-        onNextBackground: () => _changeYardHome(1),
+        onPreviousBackground: () => _changeBackground(-1),
+        onNextBackground: () => _changeBackground(1),
+        onOpenLocationSelector: _openLocationSelection,
+        onOpenAppearanceSelector: _openAppearanceSelection,
         onPageChanged: _setActionPage,
         onCharacterTap: () {
           widget.audioController.playRegularInteraction();
@@ -2909,8 +3041,7 @@ class _HomeScreenState extends State<HomeScreen> {
           _chores();
         },
         onOuting: () {
-          widget.audioController.playRegularInteraction();
-          _outing();
+          _openLocationSelection();
         },
         onHit: () {
           _handleHitPressed();
@@ -2991,6 +3122,7 @@ class _CompanionPage extends StatelessWidget {
   const _CompanionPage({
     required this.totalDaysTogether,
     required this.growthStage,
+    required this.money,
     required this.childhoodRoutineUnlocked,
     required this.season,
     required this.year,
@@ -3031,6 +3163,8 @@ class _CompanionPage extends StatelessWidget {
     required this.onEvolution,
     required this.onPreviousBackground,
     required this.onNextBackground,
+    required this.onOpenLocationSelector,
+    required this.onOpenAppearanceSelector,
     required this.onPageChanged,
     required this.onCharacterTap,
     required this.onChat,
@@ -3054,6 +3188,7 @@ class _CompanionPage extends StatelessWidget {
 
   final int totalDaysTogether;
   final GrowthStage growthStage;
+  final int money;
   final bool childhoodRoutineUnlocked;
   final String season;
   final int year;
@@ -3094,6 +3229,8 @@ class _CompanionPage extends StatelessWidget {
   final VoidCallback onEvolution;
   final VoidCallback onPreviousBackground;
   final VoidCallback onNextBackground;
+  final VoidCallback onOpenLocationSelector;
+  final VoidCallback onOpenAppearanceSelector;
   final ValueChanged<int> onPageChanged;
   final VoidCallback onCharacterTap;
   final VoidCallback onChat;
@@ -3160,6 +3297,8 @@ class _CompanionPage extends StatelessWidget {
                     onReadDialogue: onReadDialogue,
                     onPreviousBackground: onPreviousBackground,
                     onNextBackground: onNextBackground,
+                    onOpenLocationSelector: onOpenLocationSelector,
+                    onOpenAppearanceSelector: onOpenAppearanceSelector,
                     onEvolution: onEvolution,
                   );
             final actions = _ActionPanel(
@@ -3206,6 +3345,7 @@ class _CompanionPage extends StatelessWidget {
                     _Header(
                       totalDaysTogether: totalDaysTogether,
                       growthStage: growthStage,
+                      money: money,
                     ),
                     const SizedBox(height: 8),
                     _CalendarCard(
@@ -3232,6 +3372,7 @@ class _CompanionPage extends StatelessWidget {
                   _Header(
                     totalDaysTogether: totalDaysTogether,
                     growthStage: growthStage,
+                    money: money,
                   ),
                   const SizedBox(height: 8),
                   _CalendarCard(
@@ -3257,15 +3398,27 @@ class _CompanionPage extends StatelessWidget {
 }
 
 class _Header extends StatelessWidget {
-  const _Header({required this.totalDaysTogether, required this.growthStage});
+  const _Header({
+    required this.totalDaysTogether,
+    required this.growthStage,
+    required this.money,
+  });
 
   final int totalDaysTogether;
   final GrowthStage growthStage;
+  final int money;
 
   String get _growthStageLabel {
     return switch (growthStage) {
       GrowthStage.mini => '迷你期',
       GrowthStage.childhood => '幼年期',
+    };
+  }
+
+  String get _characterName {
+    return switch (growthStage) {
+      GrowthStage.mini => '迷你南河',
+      GrowthStage.childhood => '小南河',
     };
   }
 
@@ -3280,10 +3433,43 @@ class _Header extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                Text('迷你南河', style: Theme.of(context).textTheme.headlineSmall),
+                Text(
+                  _characterName,
+                  style: Theme.of(context).textTheme.headlineSmall,
+                ),
                 Text(
                   '$_growthStageLabel · 第 $totalDaysTogether 天',
                   style: Theme.of(context).textTheme.bodySmall,
+                ),
+              ],
+            ),
+          ),
+          Container(
+            key: const Key('money-indicator'),
+            constraints: const BoxConstraints(minWidth: 82),
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+            decoration: BoxDecoration(
+              color: const Color(0xFFFFF4D4),
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(color: const Color(0xFFE3BE61)),
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                const Icon(
+                  Icons.monetization_on_rounded,
+                  size: 20,
+                  color: Color(0xFFB7791F),
+                ),
+                const SizedBox(width: 6),
+                Text(
+                  '$money',
+                  key: const Key('money-value'),
+                  style: const TextStyle(
+                    color: ink,
+                    fontWeight: FontWeight.w800,
+                  ),
                 ),
               ],
             ),
@@ -3363,6 +3549,8 @@ class _CharacterStage extends StatelessWidget {
     required this.onReadDialogue,
     required this.onPreviousBackground,
     required this.onNextBackground,
+    required this.onOpenLocationSelector,
+    required this.onOpenAppearanceSelector,
     required this.onEvolution,
   });
 
@@ -3387,6 +3575,8 @@ class _CharacterStage extends StatelessWidget {
   final VoidCallback onReadDialogue;
   final VoidCallback onPreviousBackground;
   final VoidCallback onNextBackground;
+  final VoidCallback onOpenLocationSelector;
+  final VoidCallback onOpenAppearanceSelector;
   final VoidCallback onEvolution;
 
   @override
@@ -3433,7 +3623,7 @@ class _CharacterStage extends StatelessWidget {
                     padding: const EdgeInsets.only(bottom: 86),
                     child: Semantics(
                       button: true,
-                      label: '迷你南河，点击互动',
+                      label: '南河，点击互动',
                       child: InkWell(
                         key: const Key('character-tap-area'),
                         borderRadius: BorderRadius.circular(24),
@@ -3448,6 +3638,7 @@ class _CharacterStage extends StatelessWidget {
                               maxHeight: maxCharacterHeight,
                             ),
                             child: Image.asset(
+                              key: const Key('companion-character-image'),
                               characterAsset,
                               fit: BoxFit.contain,
                             ),
@@ -3509,6 +3700,14 @@ class _CharacterStage extends StatelessWidget {
                 onTap: onReadDialogue,
               ),
             ),
+          Positioned(
+            right: 20,
+            bottom: reaction == null ? 18 : 118,
+            child: _CompanionShortcutBar(
+              onOpenLocationSelector: onOpenLocationSelector,
+              onOpenAppearanceSelector: onOpenAppearanceSelector,
+            ),
+          ),
         ],
       ),
     );
@@ -3645,6 +3844,230 @@ class _BackgroundSwitchButton extends StatelessWidget {
           iconSize: 28,
           splashRadius: 24,
           onPressed: onPressed,
+        ),
+      ),
+    );
+  }
+}
+
+class _CompanionShortcutBar extends StatelessWidget {
+  const _CompanionShortcutBar({
+    required this.onOpenLocationSelector,
+    required this.onOpenAppearanceSelector,
+  });
+
+  final VoidCallback onOpenLocationSelector;
+  final VoidCallback onOpenAppearanceSelector;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        _CompanionShortcutButton(
+          key: const Key('location-shortcut-button'),
+          tooltip: '外出',
+          onPressed: onOpenLocationSelector,
+          child: const Icon(Icons.public_rounded, color: deepBlue, size: 22),
+        ),
+        const SizedBox(width: 8),
+        _CompanionShortcutButton(
+          key: const Key('appearance-shortcut-button'),
+          tooltip: '切换外观',
+          onPressed: onOpenAppearanceSelector,
+          child: ClipOval(
+            child: Image.asset(
+              miniNanheCalmAsset,
+              width: 25,
+              height: 25,
+              fit: BoxFit.cover,
+              alignment: Alignment.topCenter,
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _CompanionShortcutButton extends StatelessWidget {
+  const _CompanionShortcutButton({
+    super.key,
+    required this.tooltip,
+    required this.onPressed,
+    required this.child,
+  });
+
+  final String tooltip;
+  final VoidCallback onPressed;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    return Tooltip(
+      message: tooltip,
+      child: Material(
+        color: Colors.white.withValues(alpha: 0.9),
+        shape: const CircleBorder(),
+        elevation: 3,
+        shadowColor: const Color(0x339B7B4B),
+        child: InkWell(
+          customBorder: const CircleBorder(),
+          onTap: onPressed,
+          child: SizedBox(width: 40, height: 40, child: Center(child: child)),
+        ),
+      ),
+    );
+  }
+}
+
+class _LocationSelectionPage extends StatelessWidget {
+  const _LocationSelectionPage({
+    required this.currentLocation,
+    required this.homeUnlocked,
+  });
+
+  final CompanionLocation currentLocation;
+  final bool homeUnlocked;
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(title: const Text('外出')),
+      body: SafeArea(
+        child: Center(
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 420),
+            child: Padding(
+              padding: const EdgeInsets.all(24),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: FilledButton.tonal(
+                      key: const Key('location-home-button'),
+                      onPressed: homeUnlocked
+                          ? () => Navigator.of(
+                              context,
+                            ).pop(CompanionLocation.home)
+                          : null,
+                      child: const Text('家'),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: FilledButton.tonal(
+                      key: const Key('location-garden-button'),
+                      onPressed: () =>
+                          Navigator.of(context).pop(CompanionLocation.garden),
+                      child: const Text('花园'),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _AppearanceSelectionPage extends StatelessWidget {
+  const _AppearanceSelectionPage({
+    required this.currentAppearance,
+    required this.childhoodUnlocked,
+  });
+
+  final NanheAppearance currentAppearance;
+  final bool childhoodUnlocked;
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(title: const Text('切换外观')),
+      body: SafeArea(
+        child: Center(
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 620),
+            child: Padding(
+              padding: const EdgeInsets.all(20),
+              child: GridView.count(
+                shrinkWrap: true,
+                crossAxisCount: 2,
+                mainAxisSpacing: 12,
+                crossAxisSpacing: 12,
+                childAspectRatio: 0.78,
+                children: [
+                  _AppearanceOption(
+                    buttonKey: const Key('appearance-mini-button'),
+                    label: '迷你南河',
+                    imageAsset: miniNanheCalmAsset,
+                    selected: currentAppearance == NanheAppearance.mini,
+                    onTap: () =>
+                        Navigator.of(context).pop(NanheAppearance.mini),
+                  ),
+                  if (childhoodUnlocked)
+                    _AppearanceOption(
+                      buttonKey: const Key('appearance-childhood-button'),
+                      label: '小南河',
+                      imageAsset: childNanheAsset,
+                      selected: currentAppearance == NanheAppearance.childhood,
+                      onTap: () =>
+                          Navigator.of(context).pop(NanheAppearance.childhood),
+                    ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _AppearanceOption extends StatelessWidget {
+  const _AppearanceOption({
+    required this.buttonKey,
+    required this.label,
+    required this.imageAsset,
+    required this.selected,
+    required this.onTap,
+  });
+
+  final Key buttonKey;
+  final String label;
+  final String imageAsset;
+  final bool selected;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      key: buttonKey,
+      color: selected ? blueMist : frost,
+      borderRadius: BorderRadius.circular(8),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(8),
+        onTap: onTap,
+        child: Container(
+          padding: const EdgeInsets.all(12),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(8),
+            border: Border.all(
+              color: selected ? azure : const Color(0xFFD7E8FA),
+              width: selected ? 2 : 1,
+            ),
+          ),
+          child: Column(
+            children: [
+              Expanded(child: Image.asset(imageAsset, fit: BoxFit.contain)),
+              const SizedBox(height: 8),
+              Text(
+                label,
+                style: const TextStyle(color: ink, fontWeight: FontWeight.w800),
+              ),
+            ],
+          ),
         ),
       ),
     );
@@ -4253,6 +4676,7 @@ class _ReactionBubble extends StatelessWidget {
 
 class _StatusPage extends StatelessWidget {
   const _StatusPage({
+    required this.growthStage,
     required this.affectionLevel,
     required this.affectionProgress,
     required this.trustLevel,
@@ -4273,6 +4697,7 @@ class _StatusPage extends StatelessWidget {
     required this.endurance,
   });
 
+  final GrowthStage growthStage;
   final int affectionLevel;
   final int affectionProgress;
   final int trustLevel;
@@ -4291,6 +4716,16 @@ class _StatusPage extends StatelessWidget {
   final int art;
   final int skill;
   final int endurance;
+
+  String get _characterName => switch (growthStage) {
+    GrowthStage.mini => '迷你南河',
+    GrowthStage.childhood => '小南河',
+  };
+
+  String get _growthStageLabel => switch (growthStage) {
+    GrowthStage.mini => '迷你期',
+    GrowthStage.childhood => '幼年期',
+  };
 
   @override
   Widget build(BuildContext context) {
@@ -4324,11 +4759,14 @@ class _StatusPage extends StatelessWidget {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        '迷你南河',
+                        _characterName,
                         style: Theme.of(context).textTheme.titleMedium,
                       ),
                       const SizedBox(height: 6),
-                      Text('迷你期', style: Theme.of(context).textTheme.bodySmall),
+                      Text(
+                        _growthStageLabel,
+                        style: Theme.of(context).textTheme.bodySmall,
+                      ),
                     ],
                   ),
                 ),

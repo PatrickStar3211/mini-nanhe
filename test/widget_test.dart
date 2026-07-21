@@ -89,6 +89,13 @@ String? _currentBackgroundAsset(WidgetTester tester) {
   return null;
 }
 
+String _currentCharacterAsset(WidgetTester tester) {
+  final image = tester.widget<Image>(
+    find.byKey(const Key('companion-character-image')),
+  );
+  return (image.image as AssetImage).assetName;
+}
+
 void main() {
   test('all Nanhe voice assets are bundled', () async {
     for (final voice in NanheVoice.values) {
@@ -167,6 +174,8 @@ void main() {
     expect(find.text('设置'), findsOneWidget);
     expect(find.text('回忆'), findsNothing);
     expect(find.text('迷你南河'), findsOneWidget);
+    expect(find.byKey(const Key('money-indicator')), findsOneWidget);
+    expect(tester.widget<Text>(find.byKey(const Key('money-value'))).data, '0');
     expect(find.text('想和他做什么？'), findsNothing);
     expect(find.byKey(const Key('chat-button')), findsOneWidget);
     expect(find.byKey(const Key('pet-button')), findsOneWidget);
@@ -226,6 +235,18 @@ void main() {
     expect(find.text('尚未形成'), findsOneWidget);
   });
 
+  testWidgets('money indicator displays the saved balance', (tester) async {
+    await _pumpLoadedApp(
+      tester,
+      debugInitialState: const MiniNanheDebugState(money: 128),
+    );
+
+    expect(
+      tester.widget<Text>(find.byKey(const Key('money-value'))).data,
+      '128',
+    );
+  });
+
   testWidgets('background arrows cycle through unlocked yard homes', (
     tester,
   ) async {
@@ -264,6 +285,33 @@ void main() {
       _currentBackgroundAsset(tester),
       'assets/images/backgrounds/yard_box_winter_day.webp',
     );
+  });
+
+  testWidgets('home rooms use their nighttime background variants', (
+    tester,
+  ) async {
+    await _pumpLoadedApp(
+      tester,
+      debugInitialState: const MiniNanheDebugState(
+        totalDaysTogether: 62,
+        minuteOfDay: 22 * 60,
+        growthStage: GrowthStage.childhood,
+        doghouseUnlocked: true,
+        luxuryUnlocked: true,
+        homeBedtimeStoryCompleted: true,
+        homeInteriorUnlocked: true,
+      ),
+    );
+
+    expect(_currentBackgroundAsset(tester), homeBedroomNightAsset);
+
+    await tester.tap(find.byKey(const Key('background-next-button')));
+    await tester.pumpAndSettle();
+    expect(_currentBackgroundAsset(tester), homeLivingRoomNightAsset);
+
+    await tester.tap(find.byKey(const Key('background-next-button')));
+    await tester.pumpAndSettle();
+    expect(_currentBackgroundAsset(tester), homeStudyNightAsset);
   });
 
   testWidgets('mini period starts with limited actions', (tester) async {
@@ -422,6 +470,15 @@ void main() {
     expect(find.text('幼年期 · 第 62 天'), findsOneWidget);
     expect(find.byKey(const Key('walk-button')), findsNothing);
     expect(find.byKey(const Key('outing-button')), findsOneWidget);
+    expect(_currentBackgroundAsset(tester), homeBedroomDayAsset);
+
+    await tester.tap(find.byKey(const Key('background-next-button')));
+    await tester.pumpAndSettle();
+    expect(_currentBackgroundAsset(tester), homeLivingRoomDayAsset);
+
+    await tester.tap(find.byKey(const Key('background-next-button')));
+    await tester.pumpAndSettle();
+    expect(_currentBackgroundAsset(tester), homeStudyDayAsset);
 
     await tester.tap(find.byKey(const Key('action-page-down')));
     await tester.pumpAndSettle();
@@ -479,9 +536,14 @@ void main() {
     await tester.tap(find.byKey(const Key('collection-page-next')));
     await tester.pumpAndSettle();
     expect(
-      find.byKey(const Key('collection-card-home-interior')),
+      find.byKey(const Key('collection-card-home-bedroom')),
       findsOneWidget,
     );
+    expect(
+      find.byKey(const Key('collection-card-home-living-room')),
+      findsOneWidget,
+    );
+    expect(find.byKey(const Key('collection-card-home-study')), findsOneWidget);
   });
 
   testWidgets('first feeding asks the player to choose food', (tester) async {
@@ -1728,7 +1790,9 @@ void main() {
     expect(find.byKey(const Key('sickness-story-tap-area')), findsOneWidget);
   });
 
-  testWidgets('childhood outing replaces walk', (tester) async {
+  testWidgets('childhood outing opens the shared location page', (
+    tester,
+  ) async {
     await _pumpLoadedApp(
       tester,
       debugInitialState: const MiniNanheDebugState(
@@ -1746,9 +1810,57 @@ void main() {
     expect(find.byKey(const Key('outing-button')), findsOneWidget);
 
     await tester.tap(find.byKey(const Key('outing-button')));
-    await tester.pump(const Duration(milliseconds: 200));
-    expect(find.text('魅力+1'), findsOneWidget);
-    expect(find.text('冬 | 第1年 · 1月1日 | 07:30 | 晴'), findsOneWidget);
+    await tester.pumpAndSettle();
+    expect(find.byKey(const Key('location-home-button')), findsOneWidget);
+    expect(find.byKey(const Key('location-garden-button')), findsOneWidget);
+
+    await tester.tap(find.byKey(const Key('location-garden-button')));
+    await tester.pumpAndSettle();
+    expect(
+      _currentBackgroundAsset(tester),
+      'assets/images/backgrounds/yard_box_winter_day.webp',
+    );
+
+    await tester.tap(find.byKey(const Key('location-shortcut-button')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('location-home-button')));
+    await tester.pumpAndSettle();
+    expect(_currentBackgroundAsset(tester), homeBedroomDayAsset);
+  });
+
+  testWidgets('appearance switching does not change childhood stage', (
+    tester,
+  ) async {
+    await _pumpLoadedApp(
+      tester,
+      debugInitialState: const MiniNanheDebugState(
+        growthStage: GrowthStage.childhood,
+        homeInteriorUnlocked: true,
+      ),
+    );
+
+    expect(find.text('小南河'), findsOneWidget);
+    expect(find.text('幼年期 · 第 1 天'), findsOneWidget);
+    expect(_currentCharacterAsset(tester), childNanheAsset);
+
+    await tester.tap(find.byKey(const Key('appearance-shortcut-button')));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const Key('appearance-mini-button')), findsOneWidget);
+    expect(
+      find.byKey(const Key('appearance-childhood-button')),
+      findsOneWidget,
+    );
+
+    await tester.tap(find.byKey(const Key('appearance-mini-button')));
+    await tester.pumpAndSettle();
+    expect(_currentCharacterAsset(tester), miniNanheCalmAsset);
+    expect(find.text('小南河'), findsOneWidget);
+    expect(find.text('幼年期 · 第 1 天'), findsOneWidget);
+
+    await tester.tap(find.text('状态'));
+    await tester.pumpAndSettle();
+    expect(find.text('小南河'), findsOneWidget);
+    expect(find.text('幼年期'), findsOneWidget);
   });
 
   testWidgets('daily rest replaces sleep before night', (tester) async {

@@ -136,6 +136,29 @@ String yardBackgroundAsset({
   return '$yardBackgroundAssetDirectory/yard_${home}_${season}_$timeOfDay.webp';
 }
 
+String homeBackgroundAsset({required String room, required String timeOfDay}) {
+  return '$yardBackgroundAssetDirectory/home_${room}_$timeOfDay.webp';
+}
+
+const homeBedroomDayAsset = 'assets/images/backgrounds/home_bedroom_day.webp';
+const homeBedroomNightAsset =
+    'assets/images/backgrounds/home_bedroom_night.webp';
+const homeLivingRoomDayAsset =
+    'assets/images/backgrounds/home_living_room_day.webp';
+const homeLivingRoomNightAsset =
+    'assets/images/backgrounds/home_living_room_night.webp';
+const homeStudyDayAsset = 'assets/images/backgrounds/home_study_day.webp';
+const homeStudyNightAsset = 'assets/images/backgrounds/home_study_night.webp';
+
+const homeBackgroundAssets = <String>[
+  homeBedroomDayAsset,
+  homeBedroomNightAsset,
+  homeLivingRoomDayAsset,
+  homeLivingRoomNightAsset,
+  homeStudyDayAsset,
+  homeStudyNightAsset,
+];
+
 const startupPreloadAssets = <String>[
   defaultGardenDoghouseAsset,
   loadingRainyBoxAsset,
@@ -162,5 +185,6 @@ const deferredPreloadAssets = <String>[
   ...doghouseUnlockStoryAssets,
   ...luxuryUnlockStoryAssets,
   ...homeBedtimeStoryAssets,
+  ...homeBackgroundAssets,
   ...abuseStoryAssets,
 ];
