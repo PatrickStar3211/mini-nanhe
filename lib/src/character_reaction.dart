@@ -288,6 +288,39 @@ const bathReactions = <CharacterReaction>[
   ),
 ];
 
+const choresReactions = <CharacterReaction>[
+  CharacterReaction(
+    emotion: NanheEmotion.happy,
+    nanheSpeech: '南河！',
+    meaning: '这边我来。',
+    voice: NanheVoice.affectionSingle,
+  ),
+  CharacterReaction(
+    emotion: NanheEmotion.calm,
+    nanheSpeech: '南河……',
+    meaning: '怎么又掉到地上了。',
+    voice: NanheVoice.calmSingle,
+  ),
+];
+
+const tiredChoresReactions = <CharacterReaction>[
+  CharacterReaction(
+    emotion: NanheEmotion.sleepy,
+    nanheSpeech: '南河……',
+    meaning: '剩下的明天再收。',
+    voice: NanheVoice.sleepySingle,
+  ),
+];
+
+const highPressureChoresReactions = <CharacterReaction>[
+  CharacterReaction(
+    emotion: NanheEmotion.frustrated,
+    nanheSpeech: '南河……',
+    meaning: '别动，我刚整理好。',
+    voice: NanheVoice.calmSingle,
+  ),
+];
+
 const outingReactions = <CharacterReaction>[
   CharacterReaction(
     emotion: NanheEmotion.curious,
@@ -412,7 +445,7 @@ const lowTrustObserveReactions = <CharacterReaction>[
   CharacterReaction(
     emotion: NanheEmotion.curious,
     nanheSpeech: '南河？',
-    meaning: '別一直看我。',
+    meaning: '别一直看我。',
     voice: NanheVoice.curiousSingle,
   ),
 ];

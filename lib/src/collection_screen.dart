@@ -18,6 +18,7 @@ class CollectionScreen extends StatefulWidget {
     required this.onReplaySicknessStory,
     required this.onReplayDoghouseUnlockStory,
     required this.onReplayLuxuryUnlockStory,
+    required this.onReplayHomeBedtimeStory,
     required this.onReplayAbuseStory,
     required this.onReplaySickEndingStory,
     required this.onPageTurn,
@@ -31,6 +32,7 @@ class CollectionScreen extends StatefulWidget {
   final VoidCallback onReplaySicknessStory;
   final VoidCallback onReplayDoghouseUnlockStory;
   final VoidCallback onReplayLuxuryUnlockStory;
+  final VoidCallback onReplayHomeBedtimeStory;
   final VoidCallback onReplayAbuseStory;
   final VoidCallback onReplaySickEndingStory;
   final VoidCallback onPageTurn;
@@ -110,6 +112,7 @@ class _CollectionScreenState extends State<CollectionScreen> {
                 onReplaySicknessStory: widget.onReplaySicknessStory,
                 onReplayDoghouseUnlockStory: widget.onReplayDoghouseUnlockStory,
                 onReplayLuxuryUnlockStory: widget.onReplayLuxuryUnlockStory,
+                onReplayHomeBedtimeStory: widget.onReplayHomeBedtimeStory,
                 onReplayAbuseStory: widget.onReplayAbuseStory,
                 onReplaySickEndingStory: widget.onReplaySickEndingStory,
               ),
@@ -138,6 +141,7 @@ class _AlbumOverlay extends StatelessWidget {
     required this.onReplaySicknessStory,
     required this.onReplayDoghouseUnlockStory,
     required this.onReplayLuxuryUnlockStory,
+    required this.onReplayHomeBedtimeStory,
     required this.onReplayAbuseStory,
     required this.onReplaySickEndingStory,
   });
@@ -157,6 +161,7 @@ class _AlbumOverlay extends StatelessWidget {
   final VoidCallback onReplaySicknessStory;
   final VoidCallback onReplayDoghouseUnlockStory;
   final VoidCallback onReplayLuxuryUnlockStory;
+  final VoidCallback onReplayHomeBedtimeStory;
   final VoidCallback onReplayAbuseStory;
   final VoidCallback onReplaySickEndingStory;
 
@@ -195,6 +200,7 @@ class _AlbumOverlay extends StatelessWidget {
                 onReplaySicknessStory: onReplaySicknessStory,
                 onReplayDoghouseUnlockStory: onReplayDoghouseUnlockStory,
                 onReplayLuxuryUnlockStory: onReplayLuxuryUnlockStory,
+                onReplayHomeBedtimeStory: onReplayHomeBedtimeStory,
                 onReplayAbuseStory: onReplayAbuseStory,
                 onReplaySickEndingStory: onReplaySickEndingStory,
               ),
@@ -421,6 +427,7 @@ class _AlbumContent extends StatelessWidget {
     required this.onReplaySicknessStory,
     required this.onReplayDoghouseUnlockStory,
     required this.onReplayLuxuryUnlockStory,
+    required this.onReplayHomeBedtimeStory,
     required this.onReplayAbuseStory,
     required this.onReplaySickEndingStory,
   });
@@ -434,6 +441,7 @@ class _AlbumContent extends StatelessWidget {
   final VoidCallback onReplaySicknessStory;
   final VoidCallback onReplayDoghouseUnlockStory;
   final VoidCallback onReplayLuxuryUnlockStory;
+  final VoidCallback onReplayHomeBedtimeStory;
   final VoidCallback onReplayAbuseStory;
   final VoidCallback onReplaySickEndingStory;
 
@@ -534,6 +542,8 @@ class _AlbumContent extends StatelessWidget {
                                     onReplayDoghouseUnlockStory,
                                   'luxury-unlock-memory' =>
                                     onReplayLuxuryUnlockStory,
+                                  'home-bedtime-memory' =>
+                                    onReplayHomeBedtimeStory,
                                   'first-abuse-memory' => onReplayAbuseStory,
                                   'sick-ending-memory' =>
                                     onReplaySickEndingStory,
@@ -606,7 +616,9 @@ class _AchievementPreviewDialog extends StatelessWidget {
                           ),
                         ),
                       ),
-                      child: Icon(data.icon, color: data.accent, size: 88),
+                      child: data.showFallbackIcon
+                          ? Icon(data.icon, color: data.accent, size: 88)
+                          : const SizedBox.expand(),
                     )
                   : ColoredBox(
                       color: const Color(0xFFE8E0D1),
@@ -761,7 +773,9 @@ class _CardImage extends StatelessWidget {
             decoration: BoxDecoration(
               color: locked ? const Color(0xFFE6E1D8) : const Color(0xFFEAF2FF),
             ),
-            child: Icon(data.icon, color: data.accent, size: 30),
+            child: data.showFallbackIcon
+                ? Icon(data.icon, color: data.accent, size: 30)
+                : const SizedBox.expand(),
           ),
         if (locked)
           const DecoratedBox(
@@ -1050,6 +1064,7 @@ class _CollectionCardData {
     required this.icon,
     required this.accent,
     this.imageAsset,
+    this.showFallbackIcon = true,
   });
 
   final String id;
@@ -1059,6 +1074,7 @@ class _CollectionCardData {
   final IconData icon;
   final Color accent;
   final String? imageAsset;
+  final bool showFallbackIcon;
 
   _CollectionCardData copyWith({bool? unlocked}) {
     return _CollectionCardData(
@@ -1069,6 +1085,7 @@ class _CollectionCardData {
       icon: icon,
       accent: accent,
       imageAsset: imageAsset,
+      showFallbackIcon: showFallbackIcon,
     );
   }
 }
@@ -1118,6 +1135,15 @@ const _memoryEntries = <_CollectionCardData>[
     icon: Icons.castle_rounded,
     accent: gold,
     imageAsset: luxuryUnlockStoryPage2Asset,
+  ),
+  _CollectionCardData(
+    id: 'home-bedtime-memory',
+    title: '回家睡觉',
+    description: '小南河长大了，豪华狗窝已经装不下他。',
+    unlocked: false,
+    icon: Icons.bed_rounded,
+    accent: gold,
+    imageAsset: homeBedtimeStoryPage1Asset,
   ),
   _CollectionCardData(
     id: 'first-abuse-memory',
@@ -1185,6 +1211,15 @@ const _achievementEntries = <_CollectionCardData>[
     accent: Color(0xFF5C667A),
     imageAsset: roadsideOneAchievementAsset,
   ),
+  _CollectionCardData(
+    id: 'home-sweet-home',
+    title: '家',
+    description: 'Home, Sweet Home',
+    unlocked: false,
+    icon: Icons.home_rounded,
+    accent: gold,
+    showFallbackIcon: false,
+  ),
 ];
 
 const _decorationEntries = <_CollectionCardData>[
@@ -1214,5 +1249,13 @@ const _decorationEntries = <_CollectionCardData>[
     icon: Icons.castle_rounded,
     accent: gold,
     imageAsset: 'assets/images/backgrounds/yard_luxury_winter_day.webp',
+  ),
+  _CollectionCardData(
+    id: 'home-interior',
+    title: '家',
+    description: '从这天起，小南河睡在家里。',
+    unlocked: false,
+    icon: Icons.other_houses_rounded,
+    accent: gold,
   ),
 ];

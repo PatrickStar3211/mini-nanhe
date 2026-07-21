@@ -14,6 +14,7 @@ enum ReactionAction {
   create,
   perform,
   bath,
+  chores,
   outing,
 }
 
@@ -153,6 +154,12 @@ List<CharacterReaction> selectContextualReactions(
       if (context.hasLowTrust) return lowTrustBathReactions;
       if (context.isDirty) return dirtyBathReactions;
       return bathReactions;
+    case ReactionAction.chores:
+      final block = _activityBlock(context);
+      if (block != null) return block;
+      if (context.isTired) return tiredChoresReactions;
+      if (context.hasHighPressure) return highPressureChoresReactions;
+      return choresReactions;
     case ReactionAction.outing:
       final block = _activityBlock(context);
       if (block != null) return block;

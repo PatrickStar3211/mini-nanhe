@@ -193,6 +193,7 @@ void main() {
       ReactionAction.exercise: tiredExerciseReactions,
       ReactionAction.game: tiredGameReactions,
       ReactionAction.create: tiredCreateReactions,
+      ReactionAction.chores: tiredChoresReactions,
     };
 
     for (final entry in expected.entries) {
@@ -272,6 +273,7 @@ void main() {
         ReactionAction.game: gameReactions,
         ReactionAction.create: createReactions,
         ReactionAction.bath: bathReactions,
+        ReactionAction.chores: choresReactions,
       };
 
       for (final entry in expected.entries) {
@@ -321,6 +323,7 @@ void main() {
       ReactionAction.create: createReactions,
       ReactionAction.perform: performReactions,
       ReactionAction.bath: bathReactions,
+      ReactionAction.chores: choresReactions,
       ReactionAction.outing: outingReactions,
     };
 

@@ -15,6 +15,7 @@ import 'evolution_story_screen.dart';
 import 'feeding_story_screen.dart';
 import 'game_audio_controller.dart';
 import 'game_assets.dart';
+import 'home_bedtime_story_screen.dart';
 import 'luxury_unlock_story_screen.dart';
 import 'opening_story_screen.dart';
 import 'reaction_rules.dart';
@@ -101,6 +102,9 @@ class MiniNanheDebugState {
     this.exhaustionCount,
     this.injury,
     this.cleanliness,
+    this.growthStage,
+    this.homeBedtimeStoryCompleted,
+    this.homeInteriorUnlocked,
     this.feedEventTriggered,
     this.feedEventCompleted,
     this.feedEventResolvedCorrectly,
@@ -120,6 +124,9 @@ class MiniNanheDebugState {
   final int? exhaustionCount;
   final int? injury;
   final int? cleanliness;
+  final GrowthStage? growthStage;
+  final bool? homeBedtimeStoryCompleted;
+  final bool? homeInteriorUnlocked;
   final bool? feedEventTriggered;
   final bool? feedEventCompleted;
   final bool? feedEventResolvedCorrectly;
@@ -236,6 +243,9 @@ class _HomeScreenState extends State<HomeScreen> {
   bool _showingLuxuryUnlockStory = false;
   bool _luxuryUnlocked = false;
   bool _showingEvolutionStory = false;
+  bool _homeBedtimeStoryCompleted = false;
+  bool _homeInteriorUnlocked = false;
+  bool _showingHomeBedtimeStory = false;
   bool _feedEventResolvedCorrectly = false;
   bool _sicknessEventResolvedCorrectly = false;
   final Set<String> _permanentMemoryIds = {'opening-memory'};
@@ -286,6 +296,10 @@ class _HomeScreenState extends State<HomeScreen> {
     _exhaustionCount = debug.exhaustionCount ?? _exhaustionCount;
     _injury = debug.injury ?? _injury;
     _cleanliness = debug.cleanliness ?? _cleanliness;
+    _growthStage = debug.growthStage ?? _growthStage;
+    _homeBedtimeStoryCompleted =
+        debug.homeBedtimeStoryCompleted ?? _homeBedtimeStoryCompleted;
+    _homeInteriorUnlocked = debug.homeInteriorUnlocked ?? _homeInteriorUnlocked;
     _feedEventTriggered = debug.feedEventTriggered ?? _feedEventTriggered;
     _feedEventCompleted = debug.feedEventCompleted ?? _feedEventCompleted;
     _feedEventResolvedCorrectly =
@@ -475,6 +489,8 @@ class _HomeScreenState extends State<HomeScreen> {
       'actionPage': _actionPage,
       'growthStage': _growthStage.name,
       'yardHomeTier': _yardHomeTier.name,
+      'homeBedtimeStoryCompleted': _homeBedtimeStoryCompleted,
+      'homeInteriorUnlocked': _homeInteriorUnlocked,
       'hasBeenHit': _hasBeenHit,
       'hitCount': _hitCount,
       'bondLockedByPreEvolutionHit': _bondLockedByPreEvolutionHit,
@@ -548,6 +564,12 @@ class _HomeScreenState extends State<HomeScreen> {
     _yardHomeTier = _yardHomeFromName(
       _jsonString(state, 'yardHomeTier', YardHomeTier.box.name),
     );
+    _homeBedtimeStoryCompleted = _jsonBool(
+      state,
+      'homeBedtimeStoryCompleted',
+      false,
+    );
+    _homeInteriorUnlocked = _jsonBool(state, 'homeInteriorUnlocked', false);
     _hasBeenHit = _jsonBool(state, 'hasBeenHit', false);
     _hitCount = _jsonInt(state, 'hitCount', 0);
     _bondLockedByPreEvolutionHit = _jsonBool(
@@ -641,6 +663,7 @@ class _HomeScreenState extends State<HomeScreen> {
     _showingDoghouseUnlockStory = false;
     _luxuryUnlockStoryPending = false;
     _showingLuxuryUnlockStory = false;
+    _showingHomeBedtimeStory = false;
     _reaction = null;
     _isReacting = false;
     _applyTimedEvents(showStory: false);
@@ -783,6 +806,8 @@ class _HomeScreenState extends State<HomeScreen> {
       (_feedEventCompleted && !_feedEventResolvedCorrectly) ||
       (_sicknessEventCompleted && !_sicknessEventResolvedCorrectly);
   bool get _isEndingReached => _deathEndingReached || _isDead;
+  bool get _hasUnlockedChildhoodRoutine =>
+      _growthStage == GrowthStage.childhood && _homeInteriorUnlocked;
   bool get _isDaySevenRain =>
       _totalDaysTogether == 7 && _minuteOfDay >= _earliestWakeMinute;
   List<YardHomeTier> get _unlockedYardHomes => [
@@ -795,6 +820,7 @@ class _HomeScreenState extends State<HomeScreen> {
     'yard-box',
     if (_doghouseUnlocked) 'yard-doghouse',
     if (_luxuryUnlocked) 'yard-luxury',
+    if (_homeInteriorUnlocked) 'home-interior',
   };
   Set<String> get _unlockedMemoryIds => {
     ..._permanentMemoryIds,
@@ -803,6 +829,7 @@ class _HomeScreenState extends State<HomeScreen> {
     if (_sicknessEventCompleted) 'day-seven-sickness-memory',
     if (_doghouseUnlocked) 'doghouse-unlock-memory',
     if (_luxuryUnlocked) 'luxury-unlock-memory',
+    if (_homeBedtimeStoryCompleted) 'home-bedtime-memory',
     if (_firstHitEventTriggered) 'first-abuse-memory',
   };
   Set<String> get _unlockedAchievementIds => {
@@ -812,6 +839,7 @@ class _HomeScreenState extends State<HomeScreen> {
     if (_sicknessEventCompleted && !_sicknessEventResolvedCorrectly)
       'hot-water-cure',
     if (_hitCount >= _deathHitThreshold || _deathPending) 'roadside-one',
+    if (_homeBedtimeStoryCompleted) 'home-sweet-home',
   };
   int get _maxEnergy {
     final enduranceBonus =
@@ -1454,7 +1482,7 @@ class _HomeScreenState extends State<HomeScreen> {
               toName: '小南河',
               fromAsset: miniNanheHappyAsset,
               toAsset: childNanheAsset,
-              resultText: '恭喜，迷你南河進化為了小南河',
+              resultText: '恭喜，迷你南河进化为了小南河',
             ),
             onFinished: (storyContext) => Navigator.of(storyContext).pop(),
           );
@@ -1643,6 +1671,18 @@ class _HomeScreenState extends State<HomeScreen> {
       return;
     }
 
+    if (_growthStage == GrowthStage.childhood &&
+        _luxuryUnlocked &&
+        !_homeBedtimeStoryCompleted &&
+        !_showingHomeBedtimeStory) {
+      unawaited(_showHomeBedtimeStory(startSleepAfter: true));
+      return;
+    }
+
+    _beginSleep();
+  }
+
+  void _beginSleep() {
     final reaction = sleepReactions[_random.nextInt(sleepReactions.length)];
     setState(() {
       _reaction = reaction;
@@ -1656,6 +1696,35 @@ class _HomeScreenState extends State<HomeScreen> {
     });
   }
 
+  Future<void> _showHomeBedtimeStory({bool startSleepAfter = false}) async {
+    if (_showingHomeBedtimeStory) return;
+    _showingHomeBedtimeStory = true;
+    unawaited(_precacheStoryAssets(homeBedtimeStoryAssets));
+
+    await Navigator.of(context).push(
+      PageRouteBuilder<void>(
+        pageBuilder: (_, animation, secondaryAnimation) {
+          return HomeBedtimeStoryScreen(
+            onFinished: (storyContext) => Navigator.of(storyContext).pop(),
+          );
+        },
+        transitionDuration: const Duration(milliseconds: 450),
+        transitionsBuilder: (_, animation, secondaryAnimation, child) {
+          return FadeTransition(opacity: animation, child: child);
+        },
+      ),
+    );
+
+    if (!mounted) return;
+    setState(() {
+      _showingHomeBedtimeStory = false;
+      _homeBedtimeStoryCompleted = true;
+      _permanentMemoryIds.add('home-bedtime-memory');
+      _permanentAchievementIds.add('home-sweet-home');
+    });
+    if (startSleepAfter) _beginSleep();
+  }
+
   void _completeSleepUntilTomorrow() {
     final wakeMinute = max(
       _earliestWakeMinute,
@@ -1666,6 +1735,10 @@ class _HomeScreenState extends State<HomeScreen> {
       _advanceOneDay();
       _totalDaysTogether += 1;
       _applyNextDayUnlocks();
+      if (_homeBedtimeStoryCompleted && !_homeInteriorUnlocked) {
+        _homeInteriorUnlocked = true;
+        _permanentDecorationIds.add('home-interior');
+      }
       _minuteOfDay = wakeMinute;
       _pressure = _clampPercent(_pressure - 4);
       _healthValue = _clampPercent(_healthValue + 3);
@@ -2094,6 +2167,18 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
+  void _chores() {
+    _applyAction(
+      _contextualResponses(ReactionAction.chores),
+      energyDelta: -4,
+      cleanlinessDelta: 5,
+      skillDelta: 1,
+      durationMinutes: _minutesPerTraining,
+      canEndEarlyForTimedStory: true,
+      isPhysicalAction: true,
+    );
+  }
+
   void _outing() {
     _applyAction(
       _contextualResponses(ReactionAction.outing),
@@ -2324,6 +2409,24 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
+  void _replayHomeBedtimeStory() {
+    widget.audioController.playPageTurn();
+    unawaited(_precacheStoryAssets(homeBedtimeStoryAssets));
+    Navigator.of(context).push(
+      PageRouteBuilder<void>(
+        pageBuilder: (_, animation, secondaryAnimation) {
+          return HomeBedtimeStoryScreen(
+            onFinished: (storyContext) => Navigator.of(storyContext).pop(),
+          );
+        },
+        transitionDuration: const Duration(milliseconds: 450),
+        transitionsBuilder: (_, animation, secondaryAnimation, child) {
+          return FadeTransition(opacity: animation, child: child);
+        },
+      ),
+    );
+  }
+
   void _replayAbuseStory() {
     widget.audioController.playPageTurn();
     unawaited(_precacheStoryAssets(abuseStoryAssets));
@@ -2460,6 +2563,12 @@ class _HomeScreenState extends State<HomeScreen> {
       _showingLuxuryUnlockStory = false;
       _luxuryUnlocked = true;
       _showingEvolutionStory = false;
+      _homeBedtimeStoryCompleted = false;
+      _homeInteriorUnlocked = false;
+      _showingHomeBedtimeStory = false;
+      _permanentMemoryIds.remove('home-bedtime-memory');
+      _permanentAchievementIds.remove('home-sweet-home');
+      _permanentDecorationIds.remove('home-interior');
       _feedEventResolvedCorrectly = true;
       _sicknessEventResolvedCorrectly = true;
       _permanentDecorationIds.addAll({'yard-doghouse', 'yard-luxury'});
@@ -2581,6 +2690,9 @@ class _HomeScreenState extends State<HomeScreen> {
       _showingLuxuryUnlockStory = false;
       _luxuryUnlocked = false;
       _showingEvolutionStory = false;
+      _homeBedtimeStoryCompleted = false;
+      _homeInteriorUnlocked = false;
+      _showingHomeBedtimeStory = false;
       _feedEventResolvedCorrectly = false;
       _sicknessEventResolvedCorrectly = false;
       _strength = 1;
@@ -2659,6 +2771,7 @@ class _HomeScreenState extends State<HomeScreen> {
         onReplaySicknessStory: _replaySicknessStory,
         onReplayDoghouseUnlockStory: _replayDoghouseUnlockStory,
         onReplayLuxuryUnlockStory: _replayLuxuryUnlockStory,
+        onReplayHomeBedtimeStory: _replayHomeBedtimeStory,
         onReplayAbuseStory: _replayAbuseStory,
         onReplaySickEndingStory: _replaySickEndingStory,
         onPageTurn: widget.audioController.playPageTurn,
@@ -2694,6 +2807,7 @@ class _HomeScreenState extends State<HomeScreen> {
       _ => _CompanionPage(
         totalDaysTogether: _totalDaysTogether,
         growthStage: _growthStage,
+        childhoodRoutineUnlocked: _hasUnlockedChildhoodRoutine,
         season: _season,
         year: _year,
         month: _month,
@@ -2790,6 +2904,10 @@ class _HomeScreenState extends State<HomeScreen> {
           widget.audioController.playRegularInteraction();
           _bath();
         },
+        onChores: () {
+          widget.audioController.playRegularInteraction();
+          _chores();
+        },
         onOuting: () {
           widget.audioController.playRegularInteraction();
           _outing();
@@ -2873,6 +2991,7 @@ class _CompanionPage extends StatelessWidget {
   const _CompanionPage({
     required this.totalDaysTogether,
     required this.growthStage,
+    required this.childhoodRoutineUnlocked,
     required this.season,
     required this.year,
     required this.month,
@@ -2927,6 +3046,7 @@ class _CompanionPage extends StatelessWidget {
     required this.onCreate,
     required this.onPerform,
     required this.onBath,
+    required this.onChores,
     required this.onOuting,
     required this.onHit,
     required this.onSleep,
@@ -2934,6 +3054,7 @@ class _CompanionPage extends StatelessWidget {
 
   final int totalDaysTogether;
   final GrowthStage growthStage;
+  final bool childhoodRoutineUnlocked;
   final String season;
   final int year;
   final int month;
@@ -2988,6 +3109,7 @@ class _CompanionPage extends StatelessWidget {
   final VoidCallback onCreate;
   final VoidCallback onPerform;
   final VoidCallback onBath;
+  final VoidCallback onChores;
   final VoidCallback onOuting;
   final VoidCallback onHit;
   final VoidCallback onSleep;
@@ -3041,6 +3163,8 @@ class _CompanionPage extends StatelessWidget {
                     onEvolution: onEvolution,
                   );
             final actions = _ActionPanel(
+              growthStage: growthStage,
+              childhoodRoutineUnlocked: childhoodRoutineUnlocked,
               isEndingReached: isEndingReached,
               isSickEndingCareActive: isSickEndingCareActive,
               isForcedSleep: isForcedSleep,
@@ -3065,6 +3189,7 @@ class _CompanionPage extends StatelessWidget {
               onCreate: onCreate,
               onPerform: onPerform,
               onBath: onBath,
+              onChores: onChores,
               onOuting: onOuting,
               onHit: onHit,
               onSleep: onSleep,
@@ -4319,6 +4444,8 @@ class _StatusValueRow extends StatelessWidget {
 
 class _ActionPanel extends StatelessWidget {
   const _ActionPanel({
+    required this.growthStage,
+    required this.childhoodRoutineUnlocked,
     required this.isEndingReached,
     required this.isSickEndingCareActive,
     required this.isForcedSleep,
@@ -4343,6 +4470,7 @@ class _ActionPanel extends StatelessWidget {
     required this.onCreate,
     required this.onPerform,
     required this.onBath,
+    required this.onChores,
     required this.onOuting,
     required this.onHit,
     required this.onSleep,
@@ -4350,6 +4478,8 @@ class _ActionPanel extends StatelessWidget {
     required this.onCareSickEnding,
   });
 
+  final GrowthStage growthStage;
+  final bool childhoodRoutineUnlocked;
   final bool isEndingReached;
   final bool isSickEndingCareActive;
   final bool isForcedSleep;
@@ -4374,6 +4504,7 @@ class _ActionPanel extends StatelessWidget {
   final VoidCallback onCreate;
   final VoidCallback onPerform;
   final VoidCallback onBath;
+  final VoidCallback onChores;
   final VoidCallback onOuting;
   final VoidCallback onHit;
   final VoidCallback onSleep;
@@ -4477,10 +4608,11 @@ class _ActionPanel extends StatelessWidget {
   }
 
   Widget _dailyPage() {
+    final usesChildhoodRoutine = childhoodRoutineUnlocked;
     final restOrSleepButton = canSleep
         ? _ActionButton(
             key: const Key('sleep-button'),
-            label: '睡覺',
+            label: '睡觉',
             emphasized: true,
             onPressed: onSleep,
           )
@@ -4490,32 +4622,40 @@ class _ActionPanel extends StatelessWidget {
             onPressed: onRest,
           );
     final primaryActions = <Widget>[
+      if (usesChildhoodRoutine && hasUnlockedAllDailyActions)
+        _ActionButton(
+          key: const Key('outing-button'),
+          label: '外出',
+          special: true,
+          onPressed: onOuting,
+        ),
       _ActionButton(
         key: const Key('chat-button'),
         label: '聊天',
-        emphasized: true,
         onPressed: onChat,
       ),
       _ActionButton(
         key: const Key('pet-button'),
-        label: '撫摸',
+        label: '抚摸',
         onPressed: onPet,
       ),
       _ActionButton(
         key: const Key('observe-button'),
-        label: '觀察',
+        label: '观察',
         onPressed: onObserve,
       ),
-      restOrSleepButton,
+      if (!usesChildhoodRoutine || !hasUnlockedAllDailyActions)
+        restOrSleepButton,
     ];
     final unlockedExtraActions = <Widget>[
+      if (usesChildhoodRoutine && hasUnlockedAllDailyActions) restOrSleepButton,
       if (hasUnlockedAllDailyActions)
         _ActionButton(
           key: const Key('play-button'),
           label: '玩耍',
           onPressed: onPlay,
         ),
-      if (hasUnlockedAllDailyActions)
+      if (!usesChildhoodRoutine && hasUnlockedAllDailyActions)
         _ActionButton(
           key: const Key('walk-button'),
           label: '散步',
@@ -4524,7 +4664,7 @@ class _ActionPanel extends StatelessWidget {
       if (hasUnlockedFeed)
         _ActionButton(
           key: const Key('feed-button'),
-          label: '喂食',
+          label: growthStage == GrowthStage.childhood ? '吃饭' : '喂食',
           onPressed: onFeed,
         ),
       if (hasUnlockedHit)
@@ -4548,6 +4688,7 @@ class _ActionPanel extends StatelessWidget {
   }
 
   Widget _trainingPage() {
+    final usesChildhoodRoutine = childhoodRoutineUnlocked;
     return Column(
       children: [
         _ActionButtonRow(
@@ -4555,7 +4696,6 @@ class _ActionPanel extends StatelessWidget {
             _ActionButton(
               key: const Key('study-button'),
               label: '学习',
-              emphasized: true,
               onPressed: onStudy,
             ),
             _ActionButton(
@@ -4583,16 +4723,30 @@ class _ActionPanel extends StatelessWidget {
               label: '表演',
               onPressed: onPerform,
             ),
-            _ActionButton(
-              key: const Key('bath-button'),
-              label: '洗澡',
-              onPressed: onBath,
-            ),
-            _ActionButton(
-              key: const Key('outing-button'),
-              label: '外出',
-              onPressed: onOuting,
-            ),
+            if (usesChildhoodRoutine)
+              _ActionButton(
+                key: const Key('chores-button'),
+                label: '做家务',
+                onPressed: onChores,
+              )
+            else
+              _ActionButton(
+                key: const Key('bath-button'),
+                label: '洗澡',
+                onPressed: onBath,
+              ),
+            if (usesChildhoodRoutine)
+              _ActionButton(
+                key: const Key('bath-button'),
+                label: '洗澡',
+                onPressed: onBath,
+              )
+            else
+              _ActionButton(
+                key: const Key('outing-button'),
+                label: '外出',
+                onPressed: onOuting,
+              ),
             _ActionButton(
               key: const Key('rest-button'),
               label: '休息',
@@ -4629,12 +4783,14 @@ class _ActionButton extends StatelessWidget {
     required this.label,
     this.onPressed,
     this.emphasized = false,
+    this.special = false,
     this.destructive = false,
   });
 
   final String label;
   final VoidCallback? onPressed;
   final bool emphasized;
+  final bool special;
   final bool destructive;
 
   @override
@@ -4647,6 +4803,19 @@ class _ActionButton extends StatelessWidget {
         style: FilledButton.styleFrom(
           foregroundColor: const Color(0xFF9B1C1C),
           backgroundColor: const Color(0xFFFFE1E1),
+          minimumSize: const Size(0, 42),
+          padding: const EdgeInsets.symmetric(horizontal: 6),
+        ),
+        child: child,
+      );
+    }
+
+    if (special) {
+      return FilledButton(
+        onPressed: onPressed,
+        style: FilledButton.styleFrom(
+          foregroundColor: ink,
+          backgroundColor: gold,
           minimumSize: const Size(0, 42),
           padding: const EdgeInsets.symmetric(horizontal: 6),
         ),

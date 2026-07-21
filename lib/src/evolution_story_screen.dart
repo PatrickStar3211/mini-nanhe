@@ -248,7 +248,7 @@ class _EvolutionCaption extends StatelessWidget {
     return switch (phase) {
       0 => '${config.fromName}的样子好像要发生变化了……',
       1 => '${config.fromName}被耀眼的光芒包围了！',
-      2 => '光芒中的轮廓正在变成${config.toName}。',
+      2 => '光芒中的轮廓正在变化',
       _ => config.resultText,
     };
   }

@@ -64,6 +64,10 @@ const luxuryUnlockStoryPage1Asset =
     'assets/images/story/luxury/luxury_unlock_page_1.webp';
 const luxuryUnlockStoryPage2Asset =
     'assets/images/story/luxury/luxury_unlock_page_2.webp';
+const homeBedtimeStoryPage1Asset =
+    'assets/images/story/home/home_bedtime_page_1.webp';
+const homeBedtimeStoryPage2Asset =
+    'assets/images/story/home/home_bedtime_page_2.webp';
 const abuseStoryPage1Asset = 'assets/images/story/abuse/abuse_page_1.png';
 const roadsideOneAchievementAsset =
     'assets/images/collection/achievement_roadside_one.webp';
@@ -114,6 +118,11 @@ const luxuryUnlockStoryAssets = <String>[
   luxuryUnlockStoryPage2Asset,
 ];
 
+const homeBedtimeStoryAssets = <String>[
+  homeBedtimeStoryPage1Asset,
+  homeBedtimeStoryPage2Asset,
+];
+
 const abuseStoryAssets = <String>[
   abuseStoryPage1Asset,
   roadsideOneAchievementAsset,
@@ -152,5 +161,6 @@ const deferredPreloadAssets = <String>[
   ...sickEndingStoryAssets,
   ...doghouseUnlockStoryAssets,
   ...luxuryUnlockStoryAssets,
+  ...homeBedtimeStoryAssets,
   ...abuseStoryAssets,
 ];

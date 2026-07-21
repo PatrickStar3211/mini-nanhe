@@ -7,8 +7,10 @@ import 'package:mini_nanhe/main.dart';
 import 'package:mini_nanhe/src/character_reaction.dart';
 import 'package:mini_nanhe/src/app_version.dart';
 import 'package:mini_nanhe/src/game_audio_controller.dart';
+import 'package:mini_nanhe/src/game_assets.dart';
 import 'package:mini_nanhe/src/home_screen.dart';
 import 'package:mini_nanhe/src/opening_story_screen.dart';
+import 'package:mini_nanhe/src/theme.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 MiniNanheApp _testApp({
@@ -171,7 +173,7 @@ void main() {
     expect(find.byKey(const Key('observe-button')), findsOneWidget);
     expect(find.byKey(const Key('daily-rest-button')), findsOneWidget);
     expect(find.byKey(const Key('play-button')), findsNothing);
-    expect(find.byKey(const Key('walk-button')), findsNothing);
+    expect(find.byKey(const Key('outing-button')), findsNothing);
     expect(find.byKey(const Key('feed-button')), findsNothing);
     expect(find.byKey(const Key('hit-button')), findsNothing);
     expect(find.byKey(const Key('sleep-button')), findsNothing);
@@ -299,19 +301,25 @@ void main() {
 
     expect(find.text('迷你期 · 第 61 天'), findsOneWidget);
     expect(find.byKey(const Key('evolution-button')), findsOneWidget);
+    expect(find.text('喂食'), findsOneWidget);
+    expect(find.text('吃饭'), findsNothing);
 
     await tester.tap(find.byKey(const Key('evolution-button')));
     await tester.pumpAndSettle();
     expect(find.byKey(const Key('evolution-story-tap-area')), findsOneWidget);
 
-    expect(find.text('恭喜，迷你南河進化為了小南河'), findsNothing);
+    expect(find.text('恭喜，迷你南河进化为了小南河'), findsNothing);
 
     for (var i = 0; i < 3; i += 1) {
       await tester.tap(find.byKey(const Key('evolution-story-tap-area')));
       await tester.pumpAndSettle();
+      if (i == 1) {
+        expect(find.text('光芒中的轮廓正在变化'), findsOneWidget);
+        expect(find.textContaining('小南河'), findsNothing);
+      }
     }
 
-    expect(find.text('恭喜，迷你南河進化為了小南河'), findsOneWidget);
+    expect(find.text('恭喜，迷你南河进化为了小南河'), findsOneWidget);
 
     await tester.tap(find.byKey(const Key('evolution-story-tap-area')));
     await tester.pumpAndSettle();
@@ -319,6 +327,8 @@ void main() {
     expect(find.text('幼年期 · 第 61 天'), findsOneWidget);
     expect(find.text('南河会自己走了。'), findsOneWidget);
     expect(find.byKey(const Key('evolution-button')), findsNothing);
+    expect(find.text('吃饭'), findsOneWidget);
+    expect(find.text('喂食'), findsNothing);
   });
 
   testWidgets(
@@ -340,6 +350,139 @@ void main() {
       expect(find.textContaining('想再吃一点'), findsNothing);
     },
   );
+
+  testWidgets('first childhood bedtime unlocks home routine next morning', (
+    tester,
+  ) async {
+    await _pumpLoadedApp(
+      tester,
+      debugInitialState: const MiniNanheDebugState(
+        totalDaysTogether: 61,
+        minuteOfDay: 22 * 60,
+        affectionLevel: 2,
+        growthStage: GrowthStage.childhood,
+        doghouseUnlocked: true,
+        luxuryUnlocked: true,
+      ),
+    );
+
+    expect(find.byKey(const Key('walk-button')), findsOneWidget);
+    expect(find.byKey(const Key('outing-button')), findsNothing);
+
+    await tester.tap(find.byKey(const Key('sleep-button')));
+    await tester.pumpAndSettle();
+
+    final storyTapArea = find.byKey(const Key('home-bedtime-story-tap-area'));
+    expect(storyTapArea, findsOneWidget);
+    Image storyImage() =>
+        tester.widget<Image>(find.byKey(const Key('home-bedtime-story-image')));
+    expect(
+      (storyImage().image as AssetImage).assetName,
+      homeBedtimeStoryPage1Asset,
+    );
+
+    await tester.tap(storyTapArea);
+    await tester.pumpAndSettle();
+    expect(
+      (storyImage().image as AssetImage).assetName,
+      homeBedtimeStoryPage1Asset,
+    );
+
+    await tester.tap(storyTapArea);
+    await tester.pumpAndSettle();
+    expect(
+      (storyImage().image as AssetImage).assetName,
+      homeBedtimeStoryPage1Asset,
+    );
+
+    await tester.tap(storyTapArea);
+    await tester.pumpAndSettle();
+    expect(
+      (storyImage().image as AssetImage).assetName,
+      homeBedtimeStoryPage2Asset,
+    );
+
+    await tester.tap(storyTapArea);
+    await tester.pumpAndSettle();
+    expect(
+      (storyImage().image as AssetImage).assetName,
+      homeBedtimeStoryPage2Asset,
+    );
+
+    await tester.tap(storyTapArea);
+    await tester.pumpAndSettle();
+
+    expect(find.byKey(const Key('reaction-bubble')), findsOneWidget);
+    expect(find.byKey(const Key('walk-button')), findsOneWidget);
+    expect(find.byKey(const Key('outing-button')), findsNothing);
+
+    await tester.tap(find.byKey(const Key('reaction-bubble')));
+    await tester.pumpAndSettle();
+
+    expect(find.text('幼年期 · 第 62 天'), findsOneWidget);
+    expect(find.byKey(const Key('walk-button')), findsNothing);
+    expect(find.byKey(const Key('outing-button')), findsOneWidget);
+
+    await tester.tap(find.byKey(const Key('action-page-down')));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const Key('chores-button')), findsOneWidget);
+    expect(find.byKey(const Key('outing-button')), findsNothing);
+
+    await tester.tap(find.text('收藏'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('collection-page-next')));
+    await tester.pumpAndSettle();
+    final memoryCard = find.byKey(
+      const Key('collection-card-home-bedtime-memory'),
+    );
+    expect(memoryCard, findsOneWidget);
+    await tester.tap(memoryCard);
+    await tester.pumpAndSettle();
+    expect(storyTapArea, findsOneWidget);
+    for (var index = 0; index < 5; index++) {
+      await tester.tap(storyTapArea);
+      await tester.pumpAndSettle();
+    }
+
+    await tester.tap(find.byKey(const Key('collection-tab-成就')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('collection-page-next')));
+    await tester.pumpAndSettle();
+    final achievementCard = find.byKey(
+      const Key('collection-card-home-sweet-home'),
+    );
+    expect(achievementCard, findsOneWidget);
+    await tester.tap(achievementCard);
+    await tester.pumpAndSettle();
+    final achievementPreview = find.byKey(
+      const Key('achievement-preview-home-sweet-home'),
+    );
+    expect(achievementPreview, findsOneWidget);
+    expect(
+      find.byKey(const Key('achievement-preview-description-home-sweet-home')),
+      findsOneWidget,
+    );
+    expect(
+      find.descendant(
+        of: achievementPreview,
+        matching: find.byIcon(Icons.home_rounded),
+      ),
+      findsNothing,
+    );
+    await tester.tap(
+      find.byKey(const Key('achievement-preview-close-home-sweet-home')),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byKey(const Key('collection-tab-装饰')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('collection-page-next')));
+    await tester.pumpAndSettle();
+    expect(
+      find.byKey(const Key('collection-card-home-interior')),
+      findsOneWidget,
+    );
+  });
 
   testWidgets('first feeding asks the player to choose food', (tester) async {
     await _pumpLoadedApp(
@@ -1340,8 +1483,21 @@ void main() {
   ) async {
     await _pumpLoadedApp(
       tester,
-      debugInitialState: const MiniNanheDebugState(doghouseUnlocked: true),
+      debugInitialState: const MiniNanheDebugState(
+        doghouseUnlocked: true,
+        affectionLevel: 2,
+      ),
     );
+
+    final chatButton = tester.widget<FilledButton>(
+      find.descendant(
+        of: find.byKey(const Key('chat-button')),
+        matching: find.byType(FilledButton),
+      ),
+    );
+    expect(chatButton.style?.backgroundColor?.resolve({}), isNot(gold));
+    expect(find.byKey(const Key('walk-button')), findsOneWidget);
+    expect(find.byKey(const Key('outing-button')), findsNothing);
 
     await tester.tap(find.byKey(const Key('pet-button')));
     await tester.pump(const Duration(milliseconds: 200));
@@ -1360,8 +1516,31 @@ void main() {
     expect(find.byKey(const Key('create-button')), findsOneWidget);
     expect(find.byKey(const Key('perform-button')), findsOneWidget);
     expect(find.byKey(const Key('bath-button')), findsOneWidget);
+    expect(find.byKey(const Key('chores-button')), findsNothing);
     expect(find.byKey(const Key('outing-button')), findsOneWidget);
     expect(find.byKey(const Key('rest-button')), findsOneWidget);
+
+    final performPosition = tester.getTopLeft(
+      find.byKey(const Key('perform-button')),
+    );
+    final bathPosition = tester.getTopLeft(
+      find.byKey(const Key('bath-button')),
+    );
+    final trainingOutingPosition = tester.getTopLeft(
+      find.byKey(const Key('outing-button')),
+    );
+    expect(performPosition.dy, bathPosition.dy);
+    expect(bathPosition.dy, trainingOutingPosition.dy);
+    expect(performPosition.dx, lessThan(bathPosition.dx));
+    expect(bathPosition.dx, lessThan(trainingOutingPosition.dx));
+
+    final studyButton = tester.widget<FilledButton>(
+      find.descendant(
+        of: find.byKey(const Key('study-button')),
+        matching: find.byType(FilledButton),
+      ),
+    );
+    expect(studyButton.style?.backgroundColor?.resolve({}), isNot(gold));
 
     await tester.tap(find.byKey(const Key('rest-button')));
     await tester.pump(const Duration(milliseconds: 200));
@@ -1383,6 +1562,63 @@ void main() {
     expect(find.text('6/25'), findsOneWidget);
     expect(find.text('冬 | 第1年 · 1月1日 | 09:00 | 晴'), findsOneWidget);
     expect(find.textContaining('有点困'), findsOneWidget);
+  });
+
+  testWidgets('chores raises skill and slightly improves cleanliness', (
+    tester,
+  ) async {
+    await _pumpLoadedApp(
+      tester,
+      debugInitialState: const MiniNanheDebugState(
+        doghouseUnlocked: true,
+        affectionLevel: 2,
+        cleanliness: 80,
+        growthStage: GrowthStage.childhood,
+        homeInteriorUnlocked: true,
+      ),
+    );
+
+    final outingPosition = tester.getTopLeft(
+      find.byKey(const Key('outing-button')),
+    );
+    final chatPosition = tester.getTopLeft(
+      find.byKey(const Key('chat-button')),
+    );
+    expect(find.byKey(const Key('walk-button')), findsNothing);
+    expect(outingPosition.dy, chatPosition.dy);
+    expect(outingPosition.dx, lessThan(chatPosition.dx));
+
+    final outingButton = tester.widget<FilledButton>(
+      find.descendant(
+        of: find.byKey(const Key('outing-button')),
+        matching: find.byType(FilledButton),
+      ),
+    );
+    expect(outingButton.style?.backgroundColor?.resolve({}), gold);
+
+    await tester.tap(find.byKey(const Key('action-page-down')));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const Key('outing-button')), findsNothing);
+    final performPosition = tester.getTopLeft(
+      find.byKey(const Key('perform-button')),
+    );
+    final choresPosition = tester.getTopLeft(
+      find.byKey(const Key('chores-button')),
+    );
+    final bathPosition = tester.getTopLeft(
+      find.byKey(const Key('bath-button')),
+    );
+    expect(performPosition.dy, choresPosition.dy);
+    expect(choresPosition.dy, bathPosition.dy);
+    expect(performPosition.dx, lessThan(choresPosition.dx));
+    expect(choresPosition.dx, lessThan(bathPosition.dx));
+
+    await tester.tap(find.byKey(const Key('chores-button')));
+    await tester.pump(const Duration(milliseconds: 200));
+
+    expect(find.text('技巧+1'), findsOneWidget);
+    expect(find.text('85%'), findsOneWidget);
+    expect(find.text('21/25'), findsOneWidget);
   });
 
   testWidgets('training actions show stacked core stat popups only', (
@@ -1492,19 +1728,27 @@ void main() {
     expect(find.byKey(const Key('sickness-story-tap-area')), findsOneWidget);
   });
 
-  testWidgets('daily play and walk do not grow core stats', (tester) async {
+  testWidgets('childhood outing replaces walk', (tester) async {
     await _pumpLoadedApp(
       tester,
-      debugInitialState: const MiniNanheDebugState(affectionLevel: 2),
+      debugInitialState: const MiniNanheDebugState(
+        affectionLevel: 2,
+        growthStage: GrowthStage.childhood,
+        homeInteriorUnlocked: true,
+      ),
     );
 
     await tester.tap(find.byKey(const Key('play-button')));
     await tester.pump(const Duration(milliseconds: 200));
     expect(find.text('技巧+1'), findsNothing);
 
-    await tester.tap(find.byKey(const Key('walk-button')));
+    expect(find.byKey(const Key('walk-button')), findsNothing);
+    expect(find.byKey(const Key('outing-button')), findsOneWidget);
+
+    await tester.tap(find.byKey(const Key('outing-button')));
     await tester.pump(const Duration(milliseconds: 200));
-    expect(find.text('耐力+1'), findsNothing);
+    expect(find.text('魅力+1'), findsOneWidget);
+    expect(find.text('冬 | 第1年 · 1月1日 | 07:30 | 晴'), findsOneWidget);
   });
 
   testWidgets('daily rest replaces sleep before night', (tester) async {
