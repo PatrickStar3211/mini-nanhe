@@ -2827,6 +2827,44 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
+  Future<void> _confirmStartNewGame() async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) {
+        return AlertDialog(
+          title: const Text('重新开始？'),
+          content: const Text('当前游戏进度将重新开始，但现有存档不会被删除。'),
+          actions: [
+            TextButton(
+              key: const Key('restart-game-cancel-button'),
+              onPressed: () => Navigator.of(dialogContext).pop(false),
+              child: const Text('取消'),
+            ),
+            FilledButton(
+              key: const Key('restart-game-confirm-button'),
+              onPressed: () => Navigator.of(dialogContext).pop(true),
+              child: const Text('确认重新开始'),
+            ),
+          ],
+        );
+      },
+    );
+    if (!mounted || confirmed != true) return;
+
+    setState(() {
+      _permanentMemoryIds
+        ..clear()
+        ..add('opening-memory');
+      _permanentAchievementIds
+        ..clear()
+        ..add('rainy-day');
+      _permanentDecorationIds
+        ..clear()
+        ..add('yard-box');
+    });
+    await _resetRunAndReplayOpening();
+  }
+
   Future<void> _openLocationSelection() async {
     widget.audioController.playPageTurn();
     final location = await Navigator.of(context).push<CompanionLocation>(
@@ -2925,6 +2963,7 @@ class _HomeScreenState extends State<HomeScreen> {
         onLoadSlot: _loadGameFromSlot,
         onExportSlot: _exportSaveSlot,
         onImportSave: _showImportSaveDialog,
+        onRestartGame: _confirmStartNewGame,
         onVersionLongPress: () => setState(() => _showDebugTools = true),
         onDebugTimelineChanged: _setDebugTimeline,
         onDebugAffectionLevelChanged: _setDebugAffectionLevel,
@@ -5306,6 +5345,7 @@ class _SettingsPage extends StatelessWidget {
     required this.onLoadSlot,
     required this.onExportSlot,
     required this.onImportSave,
+    required this.onRestartGame,
     required this.onVersionLongPress,
     required this.onDebugTimelineChanged,
     required this.onDebugAffectionLevelChanged,
@@ -5334,6 +5374,7 @@ class _SettingsPage extends StatelessWidget {
   final ValueChanged<int> onLoadSlot;
   final ValueChanged<int> onExportSlot;
   final VoidCallback onImportSave;
+  final VoidCallback onRestartGame;
   final VoidCallback onVersionLongPress;
   final void Function({required int totalDaysTogether, required int minute})
   onDebugTimelineChanged;
@@ -5429,6 +5470,18 @@ class _SettingsPage extends StatelessWidget {
             onLoadSlot: onLoadSlot,
             onExportSlot: onExportSlot,
             onImportSave: onImportSave,
+          ),
+          const SizedBox(height: 8),
+          OutlinedButton.icon(
+            key: const Key('restart-game-button'),
+            onPressed: onRestartGame,
+            style: OutlinedButton.styleFrom(
+              foregroundColor: const Color(0xFF9B3F3F),
+              side: const BorderSide(color: Color(0xFFD9A3A3)),
+              minimumSize: const Size.fromHeight(46),
+            ),
+            icon: const Icon(Icons.restart_alt_rounded),
+            label: const Text('重新开始'),
           ),
           if (showDebugTools) ...[
             const SizedBox(height: 8),

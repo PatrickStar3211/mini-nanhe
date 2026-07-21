@@ -1082,6 +1082,53 @@ void main() {
     expect(find.text('3/100'), findsOneWidget);
   });
 
+  testWidgets('restart requires confirmation and preserves save slots', (
+    tester,
+  ) async {
+    await _pumpLoadedApp(tester);
+
+    await tester.tap(find.byKey(const Key('pet-button')));
+    await tester.pump(const Duration(milliseconds: 200));
+    await tester.tap(find.text('设置'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('save-slot-0-save')));
+    await tester.pumpAndSettle();
+
+    final preferences = await SharedPreferences.getInstance();
+    final savedGame = preferences.getString('mini_nanhe_save_slot_0');
+    expect(savedGame, isNotNull);
+
+    await tester.scrollUntilVisible(
+      find.byKey(const Key('restart-game-button')),
+      240,
+      scrollable: find.byType(Scrollable).first,
+    );
+    await tester.tap(find.byKey(const Key('restart-game-button')));
+    await tester.pumpAndSettle();
+    expect(find.text('重新开始？'), findsOneWidget);
+    expect(find.text('当前游戏进度将重新开始，但现有存档不会被删除。'), findsOneWidget);
+
+    await tester.tap(find.byKey(const Key('restart-game-cancel-button')));
+    await tester.pumpAndSettle();
+    expect(find.text('重新开始？'), findsNothing);
+    expect(preferences.getString('mini_nanhe_save_slot_0'), equals(savedGame));
+
+    await tester.tap(find.byKey(const Key('restart-game-button')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('restart-game-confirm-button')));
+    await tester.pumpAndSettle();
+
+    expect(find.byKey(const Key('opening-story-tap-area')), findsOneWidget);
+    expect(preferences.getString('mini_nanhe_save_slot_0'), equals(savedGame));
+
+    for (var tap = 0; tap < 8; tap += 1) {
+      await tester.tap(find.byKey(const Key('opening-story-tap-area')));
+      await tester.pumpAndSettle();
+    }
+    expect(find.text('迷你期 · 第 1 天'), findsOneWidget);
+    expect(find.text('冬 | 第1年 · 1月1日 | 06:00 | 晴'), findsOneWidget);
+  });
+
   testWidgets('save code can import into a slot', (tester) async {
     await _pumpLoadedApp(tester);
 
