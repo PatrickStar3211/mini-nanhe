@@ -3,6 +3,10 @@ const loadingRainyBoxAsset = 'assets/images/loading_rainy_box.png';
 const yardBackgroundAssetDirectory = 'assets/images/backgrounds';
 const miniNanheOriginalAsset = 'assets/images/mini_nanhe.png';
 const miniNanheTransparentAsset = 'assets/images/mini_nanhe_transparent.png';
+const phoneDemaciaGuardianWallpaperAsset =
+    'assets/images/phone/demacia_guardian_wallpaper.png';
+const phonePpIconAsset = 'assets/images/phone/pp_icon.png';
+const phoneZhangmengIconAsset = 'assets/images/phone/zhangmeng_icon.png';
 
 const miniNanheCalmAsset = 'assets/images/nanhe_emotions/mini_nanhe_calm.png';
 const miniNanheHappyAsset = 'assets/images/nanhe_emotions/mini_nanhe_happy.png';

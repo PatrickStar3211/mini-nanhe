@@ -42,6 +42,8 @@ const _endurancePerMaxEnergy = 4;
 const _feedUnlockMinute = 12 * 60;
 const _daySevenSickMinute = 16 * 60;
 const _sickEndingTriggerMinute = 22 * 60;
+const _daysPerCommonYear = 365;
+const _daysInMonth = <int>[31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
 
 enum YardHomeTier { box, doghouse, luxury }
 
@@ -66,6 +68,19 @@ String _formatMinuteLabel(int minuteOfDay) {
   final minute = normalizedMinute % 60;
   return '${hour.toString().padLeft(2, '0')}:'
       '${minute.toString().padLeft(2, '0')}';
+}
+
+int _zeroBasedCalendarDay(int year, int month, int day) {
+  final daysBeforeYear = (year - 1) * _daysPerCommonYear;
+  final daysBeforeMonth = _daysInMonth
+      .take(month - 1)
+      .fold<int>(0, (total, days) => total + days);
+  return daysBeforeYear + daysBeforeMonth + day - 1;
+}
+
+String _weekdayLabelForDate(int year, int month, int day) {
+  const labels = <String>['星期一', '星期二', '星期三', '星期四', '星期五', '星期六', '星期日'];
+  return labels[_zeroBasedCalendarDay(year, month, day) % labels.length];
 }
 
 const _sickEndingCareReactions = <CharacterReaction>[
@@ -212,6 +227,7 @@ class _HomeScreenState extends State<HomeScreen> {
   int _minuteOfDay = 6 * 60;
   int _energy = _initialMaxEnergy;
   int _money = 0;
+  int _lastChoresDay = -1;
   int _affectionLevel = 1;
   int _affectionProgress = 0;
   int _trustLevel = 1;
@@ -269,12 +285,6 @@ class _HomeScreenState extends State<HomeScreen> {
   int _art = 1;
   int _skill = 1;
   int _endurance = 1;
-  int _curiosity = 0;
-  int _selfDiscipline = 0;
-  int _rebellion = 0;
-  int _dependence = 0;
-  int _confidence = 0;
-  int _gentleness = 0;
   double _musicVolume = 0.7;
   double _soundEffectVolume = 0.8;
   double _voiceVolume = 0.9;
@@ -297,7 +307,9 @@ class _HomeScreenState extends State<HomeScreen> {
     unawaited(_loadSaveSlotSummaries());
     final debug = widget.debugInitialState;
     if (debug == null) return;
-    _totalDaysTogether = debug.totalDaysTogether ?? _totalDaysTogether;
+    if (debug.totalDaysTogether != null) {
+      _setCalendarFromTotalDays(debug.totalDaysTogether!);
+    }
     _minuteOfDay = debug.minuteOfDay ?? _minuteOfDay;
     _affectionLevel = debug.affectionLevel ?? _affectionLevel;
     _affectionProgress = debug.affectionProgress ?? _affectionProgress;
@@ -497,6 +509,7 @@ class _HomeScreenState extends State<HomeScreen> {
       'minuteOfDay': _minuteOfDay,
       'energy': _energy,
       'money': _money,
+      'lastChoresDay': _lastChoresDay,
       'affectionLevel': _affectionLevel,
       'affectionProgress': _affectionProgress,
       'trustLevel': _trustLevel,
@@ -539,12 +552,6 @@ class _HomeScreenState extends State<HomeScreen> {
       'art': _art,
       'skill': _skill,
       'endurance': _endurance,
-      'curiosity': _curiosity,
-      'selfDiscipline': _selfDiscipline,
-      'rebellion': _rebellion,
-      'dependence': _dependence,
-      'confidence': _confidence,
-      'gentleness': _gentleness,
       'musicVolume': _musicVolume,
       'soundEffectVolume': _soundEffectVolume,
       'voiceVolume': _voiceVolume,
@@ -572,6 +579,7 @@ class _HomeScreenState extends State<HomeScreen> {
       _initialMaxEnergy,
     ).clamp(0, _maxStatValue);
     _money = max(0, _jsonInt(state, 'money', 0));
+    _lastChoresDay = _jsonInt(state, 'lastChoresDay', -1);
     _affectionLevel = _clampStat(_jsonInt(state, 'affectionLevel', 1));
     _affectionProgress = _jsonInt(state, 'affectionProgress', 0).clamp(0, 99);
     _trustLevel = _clampStat(_jsonInt(state, 'trustLevel', 1));
@@ -660,12 +668,6 @@ class _HomeScreenState extends State<HomeScreen> {
     _art = _clampStat(_jsonInt(state, 'art', 1));
     _skill = _clampStat(_jsonInt(state, 'skill', 1));
     _endurance = _clampStat(_jsonInt(state, 'endurance', 1));
-    _curiosity = _clampPercent(_jsonInt(state, 'curiosity', 0));
-    _selfDiscipline = _clampPercent(_jsonInt(state, 'selfDiscipline', 0));
-    _rebellion = _clampPercent(_jsonInt(state, 'rebellion', 0));
-    _dependence = _clampPercent(_jsonInt(state, 'dependence', 0));
-    _confidence = _clampPercent(_jsonInt(state, 'confidence', 0));
-    _gentleness = _clampPercent(_jsonInt(state, 'gentleness', 0));
     _musicVolume = _jsonDouble(state, 'musicVolume', 0.7).clamp(0, 1);
     _soundEffectVolume = _jsonDouble(
       state,
@@ -1064,23 +1066,6 @@ class _HomeScreenState extends State<HomeScreen> {
     return ['生病'];
   }
 
-  List<String> get _tendencyLabels {
-    final scores = <String, int>{
-      '学习': _intelligence + _curiosity + _selfDiscipline,
-      '创作': _art + _curiosity + _gentleness,
-      '表现': _charm + _skill + _confidence,
-      '亲密':
-          _dependence +
-          _gentleness +
-          max(0, _affectionLevel - 1) * 8 +
-          max(0, _trustLevel - 1) * 8,
-      '警戒': _rebellion + _injury + (_pressure ~/ 2) + (_hasLowTrust ? 10 : 0),
-    };
-    final ranked = scores.entries.where((entry) => entry.value >= 15).toList()
-      ..sort((a, b) => b.value.compareTo(a.value));
-    return ranked.take(3).map((entry) => entry.key).toList();
-  }
-
   String get _characterAsset {
     if (_isEndingReached) return miniNanheDeadAsset;
     if (_selectedAppearance == NanheAppearance.childhood &&
@@ -1300,6 +1285,7 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   List<_StatPopup> _buildStatPopups({
+    required int moneyDelta,
     required int strengthDelta,
     required int intelligenceDelta,
     required int charmDelta,
@@ -1308,6 +1294,7 @@ class _HomeScreenState extends State<HomeScreen> {
     required int enduranceDelta,
   }) {
     final deltas = <String, int>{
+      '金钱': moneyDelta,
       '力量': strengthDelta,
       '智力': intelligenceDelta,
       '魅力': charmDelta,
@@ -1328,6 +1315,7 @@ class _HomeScreenState extends State<HomeScreen> {
   void _applyAction(
     List<CharacterReaction> responses, {
     int energyDelta = -1,
+    int moneyDelta = 0,
     int affectionDelta = 0,
     int trustDelta = 0,
     int pressureDelta = 0,
@@ -1340,12 +1328,6 @@ class _HomeScreenState extends State<HomeScreen> {
     int artDelta = 0,
     int skillDelta = 0,
     int enduranceDelta = 0,
-    int curiosityDelta = 0,
-    int selfDisciplineDelta = 0,
-    int rebellionDelta = 0,
-    int dependenceDelta = 0,
-    int confidenceDelta = 0,
-    int gentlenessDelta = 0,
     bool advancesTime = true,
     int durationMinutes = _minutesPerInteraction,
     bool canEndEarlyForTimedStory = false,
@@ -1386,6 +1368,7 @@ class _HomeScreenState extends State<HomeScreen> {
       _cleanliness = _clampPercent(_cleanliness + cleanlinessDelta);
       _healthValue = _clampPercent(_healthValue + healthDelta);
       _injury = _clampPercent(_injury + injuryDelta);
+      final previousMoney = _money;
       final previousStrength = _strength;
       final previousIntelligence = _intelligence;
       final previousCharm = _charm;
@@ -1398,13 +1381,8 @@ class _HomeScreenState extends State<HomeScreen> {
       _art = _clampStat(_art + artDelta);
       _skill = _clampStat(_skill + skillDelta);
       _endurance = _clampStat(_endurance + enduranceDelta);
+      _money = max(0, _money + moneyDelta);
       _energy = (_energy + actualEnergyDelta).clamp(0, _maxEnergy);
-      _curiosity = _clampPercent(_curiosity + curiosityDelta);
-      _selfDiscipline = _clampPercent(_selfDiscipline + selfDisciplineDelta);
-      _rebellion = _clampPercent(_rebellion + rebellionDelta);
-      _dependence = _clampPercent(_dependence + dependenceDelta);
-      _confidence = _clampPercent(_confidence + confidenceDelta);
-      _gentleness = _clampPercent(_gentleness + gentlenessDelta);
       if (advancesTime) _advanceMinutes(actualDurationMinutes);
       _applyTimedEvents();
       if (settleExhaustedTimedStory) _settleExhaustedTimedStory();
@@ -1413,6 +1391,7 @@ class _HomeScreenState extends State<HomeScreen> {
       if (!_deathEndingReached) {
         _queueStatPopups(
           _buildStatPopups(
+            moneyDelta: _money - previousMoney,
             strengthDelta: _strength - previousStrength,
             intelligenceDelta: _intelligence - previousIntelligence,
             charmDelta: _charm - previousCharm,
@@ -1535,7 +1514,6 @@ class _HomeScreenState extends State<HomeScreen> {
       pressureDelta: 10,
       healthDelta: -2,
       injuryDelta: 5,
-      rebellionDelta: 3,
       settleExhaustedTimedStory: false,
       isPhysicalAction: true,
       voiceDelay: const Duration(milliseconds: 180),
@@ -1611,7 +1589,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
   void _advanceOneDay() {
     _day += 1;
-    if (_day > 30) {
+    if (_day > _daysInMonth[_month - 1]) {
       _day = 1;
       _month += 1;
     }
@@ -1863,7 +1841,6 @@ class _HomeScreenState extends State<HomeScreen> {
       _contextualResponses(ReactionAction.observe),
       energyDelta: -1,
       affectionDelta: _affectionGainPerQuietInteraction,
-      curiosityDelta: 2,
     );
   }
 
@@ -1881,8 +1858,6 @@ class _HomeScreenState extends State<HomeScreen> {
       affectionDelta: _affectionGainPerQuietInteraction,
       trustDelta: 1,
       pressureDelta: -1,
-      curiosityDelta: 1,
-      gentlenessDelta: 1,
     );
   }
 
@@ -1893,8 +1868,6 @@ class _HomeScreenState extends State<HomeScreen> {
       affectionDelta: _affectionGainPerInteraction,
       trustDelta: 1,
       pressureDelta: -2,
-      dependenceDelta: 1,
-      gentlenessDelta: 1,
     );
   }
 
@@ -1905,7 +1878,6 @@ class _HomeScreenState extends State<HomeScreen> {
       affectionDelta: 2,
       trustDelta: 1,
       pressureDelta: -4,
-      confidenceDelta: 1,
       isPhysicalAction: true,
     );
   }
@@ -1918,7 +1890,6 @@ class _HomeScreenState extends State<HomeScreen> {
       trustDelta: 1,
       pressureDelta: -5,
       healthDelta: 1,
-      curiosityDelta: 1,
       isPhysicalAction: true,
     );
   }
@@ -1955,7 +1926,6 @@ class _HomeScreenState extends State<HomeScreen> {
       trustDelta: 1,
       pressureDelta: -1,
       healthDelta: 1,
-      gentlenessDelta: 1,
     );
   }
 
@@ -1986,7 +1956,6 @@ class _HomeScreenState extends State<HomeScreen> {
       _changeTrust(isCorrectChoice ? 2 : 0);
       _pressure = _clampPercent(_pressure + (isCorrectChoice ? -2 : 2));
       _healthValue = _clampPercent(_healthValue + (isCorrectChoice ? 2 : 0));
-      _gentleness = _clampPercent(_gentleness + 1);
       _energy = (_energy - 1).clamp(0, _maxEnergy);
       _advanceMinutes(_minutesPerInteraction);
       _applyTimedEvents();
@@ -2167,7 +2136,6 @@ class _HomeScreenState extends State<HomeScreen> {
       energyDelta: 2,
       pressureDelta: -3,
       healthDelta: 1,
-      selfDisciplineDelta: 1,
     );
   }
 
@@ -2179,8 +2147,6 @@ class _HomeScreenState extends State<HomeScreen> {
       trustDelta: 1,
       pressureDelta: 6,
       intelligenceDelta: 1,
-      curiosityDelta: 1,
-      selfDisciplineDelta: 1,
       durationMinutes: _minutesPerTraining,
       canEndEarlyForTimedStory: true,
     );
@@ -2189,7 +2155,7 @@ class _HomeScreenState extends State<HomeScreen> {
   void _exercise() {
     _applyAction(
       _contextualResponses(ReactionAction.exercise),
-      energyDelta: -10,
+      energyDelta: -12,
       affectionDelta: 1,
       trustDelta: 1,
       pressureDelta: 8,
@@ -2197,8 +2163,6 @@ class _HomeScreenState extends State<HomeScreen> {
       healthDelta: 1,
       strengthDelta: 1,
       enduranceDelta: 1,
-      selfDisciplineDelta: 1,
-      confidenceDelta: 1,
       durationMinutes: _minutesPerTraining,
       canEndEarlyForTimedStory: true,
       isPhysicalAction: true,
@@ -2213,9 +2177,7 @@ class _HomeScreenState extends State<HomeScreen> {
       trustDelta: 1,
       pressureDelta: 4,
       cleanlinessDelta: -3,
-      intelligenceDelta: 1,
       skillDelta: 1,
-      confidenceDelta: 1,
       durationMinutes: _minutesPerTraining,
       canEndEarlyForTimedStory: true,
     );
@@ -2224,13 +2186,11 @@ class _HomeScreenState extends State<HomeScreen> {
   void _create() {
     _applyAction(
       _contextualResponses(ReactionAction.create),
-      energyDelta: -7,
+      energyDelta: -8,
       affectionDelta: 1,
       trustDelta: 1,
       pressureDelta: 2,
-      charmDelta: 1,
       artDelta: 1,
-      curiosityDelta: 1,
       durationMinutes: _minutesPerTraining,
       canEndEarlyForTimedStory: true,
     );
@@ -2244,8 +2204,6 @@ class _HomeScreenState extends State<HomeScreen> {
       trustDelta: 1,
       pressureDelta: 8,
       charmDelta: 1,
-      artDelta: 1,
-      confidenceDelta: 2,
       durationMinutes: _minutesPerTraining,
       canEndEarlyForTimedStory: true,
       isPhysicalAction: true,
@@ -2263,15 +2221,19 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   void _chores() {
+    if (_lastChoresDay == _totalDaysTogether) return;
+    final canStart = !_sleepPending && !_isForcedSleep;
     _applyAction(
       _contextualResponses(ReactionAction.chores),
-      energyDelta: -4,
-      cleanlinessDelta: 5,
-      skillDelta: 1,
+      energyDelta: -8,
+      moneyDelta: 10,
       durationMinutes: _minutesPerTraining,
       canEndEarlyForTimedStory: true,
       isPhysicalAction: true,
     );
+    if (canStart) {
+      setState(() => _lastChoresDay = _totalDaysTogether);
+    }
   }
 
   void _careSickEnding() {
@@ -2687,9 +2649,14 @@ class _HomeScreenState extends State<HomeScreen> {
     final clampedDays = totalDaysTogether.clamp(1, _maxStatValue);
     final zeroBasedDay = clampedDays - 1;
     _totalDaysTogether = clampedDays;
-    _year = (zeroBasedDay ~/ 360) + 1;
-    _month = ((zeroBasedDay % 360) ~/ 30) + 1;
-    _day = (zeroBasedDay % 30) + 1;
+    _year = (zeroBasedDay ~/ _daysPerCommonYear) + 1;
+    var remainingDay = zeroBasedDay % _daysPerCommonYear;
+    _month = 1;
+    while (remainingDay >= _daysInMonth[_month - 1]) {
+      remainingDay -= _daysInMonth[_month - 1];
+      _month += 1;
+    }
+    _day = remainingDay + 1;
   }
 
   void _toggleMusicMute() {
@@ -2738,6 +2705,7 @@ class _HomeScreenState extends State<HomeScreen> {
       _minuteOfDay = 6 * 60;
       _energy = _initialMaxEnergy;
       _money = 0;
+      _lastChoresDay = -1;
       _affectionLevel = 1;
       _affectionProgress = 0;
       _trustLevel = 1;
@@ -2792,12 +2760,6 @@ class _HomeScreenState extends State<HomeScreen> {
       _art = 1;
       _skill = 1;
       _endurance = 1;
-      _curiosity = 0;
-      _selfDiscipline = 0;
-      _rebellion = 0;
-      _dependence = 0;
-      _confidence = 0;
-      _gentleness = 0;
       _showDebugTools = false;
       _cancelStatPopupTimers();
       _statPopups.clear();
@@ -2901,7 +2863,6 @@ class _HomeScreenState extends State<HomeScreen> {
         pressure: _pressure,
         cleanliness: _cleanliness,
         healthLabel: _healthLabel,
-        tendencyLabels: _tendencyLabels,
         characterAsset: _characterAsset,
         strength: _strength,
         intelligence: _intelligence,
@@ -2910,11 +2871,7 @@ class _HomeScreenState extends State<HomeScreen> {
         skill: _skill,
         endurance: _endurance,
       ),
-      2 => const _PlaceholderPage(
-        title: '手机',
-        icon: Icons.smartphone_rounded,
-        pageKey: Key('phone-page'),
-      ),
+      2 => const _PhoneShell(),
       3 => const _PlaceholderPage(
         title: '战斗',
         icon: Icons.sports_martial_arts_rounded,
@@ -3068,10 +3025,12 @@ class _HomeScreenState extends State<HomeScreen> {
           widget.audioController.playRegularInteraction();
           _bath();
         },
-        onChores: () {
-          widget.audioController.playRegularInteraction();
-          _chores();
-        },
+        onChores: _lastChoresDay == _totalDaysTogether
+            ? null
+            : () {
+                widget.audioController.playRegularInteraction();
+                _chores();
+              },
         onOuting: () {
           _openLocationSelection();
         },
@@ -3118,6 +3077,207 @@ class _HomeScreenState extends State<HomeScreen> {
           ),
           NavigationDestination(icon: Icon(Icons.tune_rounded), label: '设置'),
         ],
+      ),
+    );
+  }
+}
+
+class _PhoneShell extends StatefulWidget {
+  const _PhoneShell();
+
+  @override
+  State<_PhoneShell> createState() => _PhoneShellState();
+}
+
+class _PhoneShellState extends State<_PhoneShell> {
+  final _navigatorKey = GlobalKey<NavigatorState>();
+
+  void _returnToPhoneHome() {
+    _navigatorKey.currentState?.popUntil((route) => route.isFirst);
+  }
+
+  void _goBack() {
+    _navigatorKey.currentState?.maybePop();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      children: [
+        Expanded(
+          child: Navigator(
+            key: _navigatorKey,
+            onGenerateRoute: (_) =>
+                MaterialPageRoute<void>(builder: (_) => const _PhoneHomePage()),
+          ),
+        ),
+        _PhoneNavigationBar(onHome: _returnToPhoneHome, onBack: _goBack),
+      ],
+    );
+  }
+}
+
+class _PhoneHomePage extends StatelessWidget {
+  const _PhoneHomePage();
+
+  @override
+  Widget build(BuildContext context) {
+    return DecoratedBox(
+      key: const Key('phone-page'),
+      decoration: const BoxDecoration(
+        color: Color(0xFFB9D8F1),
+        image: DecorationImage(
+          image: AssetImage(phoneDemaciaGuardianWallpaperAsset),
+          fit: BoxFit.cover,
+        ),
+      ),
+      child: const Padding(
+        key: Key('phone-empty-app-area'),
+        padding: EdgeInsets.fromLTRB(22, 20, 22, 0),
+        child: Align(
+          alignment: Alignment.topLeft,
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              _PhoneAppIcon(
+                key: Key('phone-pp-app'),
+                assetName: phonePpIconAsset,
+                label: 'PP',
+              ),
+              SizedBox(width: 22),
+              _PhoneAppIcon(
+                key: Key('phone-zhangmeng-app'),
+                assetName: phoneZhangmengIconAsset,
+                label: '掌盟',
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _PhoneAppIcon extends StatelessWidget {
+  const _PhoneAppIcon({
+    super.key,
+    required this.assetName,
+    required this.label,
+  });
+
+  final String assetName;
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      width: 76,
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          ClipRRect(
+            borderRadius: BorderRadius.circular(18),
+            child: Image.asset(
+              assetName,
+              width: 72,
+              height: 72,
+              fit: BoxFit.cover,
+            ),
+          ),
+          const SizedBox(height: 5),
+          Text(
+            label,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: const TextStyle(
+              color: Colors.white,
+              fontSize: 13,
+              fontWeight: FontWeight.w700,
+              shadows: [Shadow(color: Color(0xCC000000), blurRadius: 4)],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _PhoneNavigationBar extends StatelessWidget {
+  const _PhoneNavigationBar({required this.onHome, required this.onBack});
+
+  final VoidCallback onHome;
+  final VoidCallback onBack;
+
+  @override
+  Widget build(BuildContext context) {
+    return ColoredBox(
+      color: const Color(0xCC111A26),
+      child: SafeArea(
+        top: false,
+        child: SizedBox(
+          height: 62,
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+            children: [
+              _PhoneNavigationButton(
+                key: const Key('phone-home-button'),
+                icon: Icons.circle_outlined,
+                label: '回到主頁',
+                onPressed: onHome,
+              ),
+              _PhoneNavigationButton(
+                key: const Key('phone-back-button'),
+                icon: Icons.arrow_back_rounded,
+                label: '返回',
+                onPressed: onBack,
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _PhoneNavigationButton extends StatelessWidget {
+  const _PhoneNavigationButton({
+    super.key,
+    required this.icon,
+    required this.label,
+    required this.onPressed,
+  });
+
+  final IconData icon;
+  final String label;
+  final VoidCallback onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    return Semantics(
+      button: true,
+      label: label,
+      child: InkWell(
+        borderRadius: BorderRadius.circular(18),
+        onTap: onPressed,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 26, vertical: 6),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(icon, color: Colors.white, size: 25),
+              const SizedBox(height: 2),
+              Text(
+                label,
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 10,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }
@@ -3278,7 +3438,7 @@ class _CompanionPage extends StatelessWidget {
   final VoidCallback onCreate;
   final VoidCallback onPerform;
   final VoidCallback onBath;
-  final VoidCallback onChores;
+  final VoidCallback? onChores;
   final VoidCallback onOuting;
   final VoidCallback onHit;
   final VoidCallback onSleep;
@@ -3292,7 +3452,7 @@ class _CompanionPage extends StatelessWidget {
         child: LayoutBuilder(
           builder: (context, constraints) {
             const horizontalPadding = 16.0;
-            const fixedContentHeight = 254.0;
+            const fixedContentHeight = 282.0;
             final contentWidth = constraints.maxWidth - (horizontalPadding * 2);
             final availableStageHeight =
                 constraints.maxHeight - fixedContentHeight;
@@ -3544,7 +3704,9 @@ class _CalendarCard extends StatelessWidget {
           const SizedBox(width: 8),
           Expanded(
             child: Text(
-              '$season | 第$year年 · $month月$day日 | $timeLabel | $weatherLabel',
+              '$season | 第$year年 · $month月$day日 · '
+              '${_weekdayLabelForDate(year, month, day)} | '
+              '$timeLabel | $weatherLabel',
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
               style: const TextStyle(fontWeight: FontWeight.w700),
@@ -3970,34 +4132,101 @@ class _LocationSelectionPage extends StatelessWidget {
         child: Center(
           child: ConstrainedBox(
             constraints: const BoxConstraints(maxWidth: 420),
-            child: Padding(
+            child: ListView(
+              shrinkWrap: true,
               padding: const EdgeInsets.all(24),
-              child: Row(
-                children: [
-                  Expanded(
-                    child: FilledButton.tonal(
-                      key: const Key('location-home-button'),
-                      onPressed: homeUnlocked
-                          ? () => Navigator.of(
-                              context,
-                            ).pop(CompanionLocation.home)
-                          : null,
-                      child: const Text('家'),
+              children: [
+                Row(
+                  children: [
+                    Expanded(
+                      child: FilledButton.tonalIcon(
+                        key: const Key('location-home-button'),
+                        onPressed: homeUnlocked
+                            ? () => Navigator.of(
+                                context,
+                              ).pop(CompanionLocation.home)
+                            : null,
+                        icon: const Icon(Icons.home_rounded),
+                        label: const Text('家'),
+                      ),
                     ),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: FilledButton.tonal(
-                      key: const Key('location-garden-button'),
-                      onPressed: () =>
-                          Navigator.of(context).pop(CompanionLocation.garden),
-                      child: const Text('花园'),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: FilledButton.tonalIcon(
+                        key: const Key('location-garden-button'),
+                        onPressed: () =>
+                            Navigator.of(context).pop(CompanionLocation.garden),
+                        icon: const Icon(Icons.local_florist_rounded),
+                        label: const Text('花园'),
+                      ),
                     ),
-                  ),
-                ],
-              ),
+                  ],
+                ),
+                const SizedBox(height: 28),
+                Text('幼年期地点规划', style: Theme.of(context).textTheme.titleMedium),
+                const SizedBox(height: 6),
+                Text(
+                  '场景与专属互动尚在开发，完成后开放。',
+                  style: Theme.of(
+                    context,
+                  ).textTheme.bodySmall?.copyWith(color: mutedInk),
+                ),
+                const SizedBox(height: 12),
+                const _PlannedLocationTile(
+                  tileKey: Key('location-school-button'),
+                  icon: Icons.school_rounded,
+                  label: '小学',
+                  plannedFeature: '上课、考试与同学互动',
+                ),
+                const SizedBox(height: 10),
+                const _PlannedLocationTile(
+                  tileKey: Key('location-shopping-street-button'),
+                  icon: Icons.storefront_rounded,
+                  label: '商店街',
+                  plannedFeature: '购物、设备与金钱用途',
+                ),
+                const SizedBox(height: 10),
+                const _PlannedLocationTile(
+                  tileKey: Key('location-hospital-button'),
+                  icon: Icons.local_hospital_rounded,
+                  label: '医院',
+                  plannedFeature: '治疗生病与受伤状态',
+                ),
+              ],
             ),
           ),
+        ),
+      ),
+    );
+  }
+}
+
+class _PlannedLocationTile extends StatelessWidget {
+  const _PlannedLocationTile({
+    required this.tileKey,
+    required this.icon,
+    required this.label,
+    required this.plannedFeature,
+  });
+
+  final Key tileKey;
+  final IconData icon;
+  final String label;
+  final String plannedFeature;
+
+  @override
+  Widget build(BuildContext context) {
+    return Card(
+      key: tileKey,
+      elevation: 0,
+      color: blueMist.withValues(alpha: 0.72),
+      child: ListTile(
+        leading: Icon(icon, color: deepBlue),
+        title: Text(label),
+        subtitle: Text(plannedFeature),
+        trailing: const Text(
+          '开发中',
+          style: TextStyle(color: mutedInk, fontWeight: FontWeight.w700),
         ),
       ),
     );
@@ -4719,7 +4948,6 @@ class _StatusPage extends StatelessWidget {
     required this.pressure,
     required this.cleanliness,
     required this.healthLabel,
-    required this.tendencyLabels,
     required this.characterAsset,
     required this.strength,
     required this.intelligence,
@@ -4740,7 +4968,6 @@ class _StatusPage extends StatelessWidget {
   final int pressure;
   final int cleanliness;
   final String healthLabel;
-  final List<String> tendencyLabels;
   final String characterAsset;
   final int strength;
   final int intelligence;
@@ -4834,24 +5061,6 @@ class _StatusPage extends StatelessWidget {
               _StatusValueRow(label: '艺术', value: '$art'),
               _StatusValueRow(label: '技巧', value: '$skill'),
               _StatusValueRow(label: '耐力', value: '$endurance'),
-            ],
-          ),
-          const SizedBox(height: 10),
-          _StatusValueCard(
-            title: '倾向',
-            children: [
-              if (tendencyLabels.isEmpty)
-                const _StatusValueRow(label: '目前倾向', value: '尚未形成')
-              else
-                for (var index = 0; index < tendencyLabels.length; index += 1)
-                  _StatusValueRow(
-                    label: switch (index) {
-                      0 => '主要倾向',
-                      1 => '次要倾向',
-                      _ => '其他倾向',
-                    },
-                    value: tendencyLabels[index],
-                  ),
             ],
           ),
         ],
@@ -4974,7 +5183,7 @@ class _ActionPanel extends StatelessWidget {
   final VoidCallback onCreate;
   final VoidCallback onPerform;
   final VoidCallback onBath;
-  final VoidCallback onChores;
+  final VoidCallback? onChores;
   final VoidCallback onOuting;
   final VoidCallback onHit;
   final VoidCallback onSleep;
@@ -5083,12 +5292,14 @@ class _ActionPanel extends StatelessWidget {
         ? _ActionButton(
             key: const Key('sleep-button'),
             label: '睡觉',
+            detail: '体力恢复至上限',
             emphasized: true,
             onPressed: onSleep,
           )
         : _ActionButton(
             key: const Key('daily-rest-button'),
             label: '休息',
+            detail: '体力+2',
             onPressed: onRest,
           );
     final primaryActions = <Widget>[
@@ -5096,22 +5307,26 @@ class _ActionPanel extends StatelessWidget {
         _ActionButton(
           key: const Key('outing-button'),
           label: '外出',
+          detail: '选择地点',
           special: true,
           onPressed: onOuting,
         ),
       _ActionButton(
         key: const Key('chat-button'),
         label: '聊天',
+        detail: '体力-1',
         onPressed: onChat,
       ),
       _ActionButton(
         key: const Key('pet-button'),
         label: '抚摸',
+        detail: '体力-1',
         onPressed: onPet,
       ),
       _ActionButton(
         key: const Key('observe-button'),
         label: '观察',
+        detail: '体力-1',
         onPressed: onObserve,
       ),
       if (!usesChildhoodRoutine || !hasUnlockedAllDailyActions)
@@ -5123,24 +5338,28 @@ class _ActionPanel extends StatelessWidget {
         _ActionButton(
           key: const Key('play-button'),
           label: '玩耍',
+          detail: '体力-2',
           onPressed: onPlay,
         ),
       if (!usesChildhoodRoutine && hasUnlockedAllDailyActions)
         _ActionButton(
           key: const Key('walk-button'),
           label: '散步',
+          detail: '体力-2',
           onPressed: onWalk,
         ),
       if (hasUnlockedFeed)
         _ActionButton(
           key: const Key('feed-button'),
           label: growthStage == GrowthStage.childhood ? '吃饭' : '喂食',
+          detail: '体力-1',
           onPressed: onFeed,
         ),
       if (hasUnlockedHit)
         _ActionButton(
           key: const Key('hit-button'),
           label: '殴打',
+          detail: '体力-1 · 健康-2',
           destructive: true,
           onPressed: onHit,
         ),
@@ -5166,21 +5385,25 @@ class _ActionPanel extends StatelessWidget {
             _ActionButton(
               key: const Key('study-button'),
               label: '学习',
+              detail: '体力-8 · 智力+1',
               onPressed: onStudy,
             ),
             _ActionButton(
               key: const Key('exercise-button'),
               label: '运动',
+              detail: '体力-12 · 力量+1 · 耐力+1',
               onPressed: onExercise,
             ),
             _ActionButton(
               key: const Key('game-button'),
               label: '打游戏',
+              detail: '体力-8 · 技巧+1',
               onPressed: onGame,
             ),
             _ActionButton(
               key: const Key('create-button'),
               label: '创作',
+              detail: '体力-8 · 艺术+1',
               onPressed: onCreate,
             ),
           ],
@@ -5191,35 +5414,41 @@ class _ActionPanel extends StatelessWidget {
             _ActionButton(
               key: const Key('perform-button'),
               label: '表演',
+              detail: '体力-8 · 魅力+1',
               onPressed: onPerform,
             ),
             if (usesChildhoodRoutine)
               _ActionButton(
                 key: const Key('chores-button'),
                 label: '做家务',
+                detail: onChores == null ? '今日已完成' : '体力-8 · 金钱+10',
                 onPressed: onChores,
               )
             else
               _ActionButton(
                 key: const Key('bath-button'),
                 label: '洗澡',
+                detail: '体力-1 · 清洁+35',
                 onPressed: onBath,
               ),
             if (usesChildhoodRoutine)
               _ActionButton(
                 key: const Key('bath-button'),
                 label: '洗澡',
+                detail: '体力-1 · 清洁+35',
                 onPressed: onBath,
               )
             else
               _ActionButton(
                 key: const Key('outing-button'),
                 label: '外出',
+                detail: '选择地点',
                 onPressed: onOuting,
               ),
             _ActionButton(
               key: const Key('rest-button'),
               label: '休息',
+              detail: '体力+2',
               onPressed: onRest,
             ),
           ],
@@ -5251,6 +5480,7 @@ class _ActionButton extends StatelessWidget {
   const _ActionButton({
     super.key,
     required this.label,
+    this.detail,
     this.onPressed,
     this.emphasized = false,
     this.special = false,
@@ -5258,6 +5488,7 @@ class _ActionButton extends StatelessWidget {
   });
 
   final String label;
+  final String? detail;
   final VoidCallback? onPressed;
   final bool emphasized;
   final bool special;
@@ -5265,7 +5496,23 @@ class _ActionButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final child = Text(label, maxLines: 1, overflow: TextOverflow.ellipsis);
+    final child = Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Text(label, maxLines: 1, overflow: TextOverflow.ellipsis),
+        if (detail != null) ...[
+          const SizedBox(height: 1),
+          Text(
+            detail!,
+            maxLines: 2,
+            textAlign: TextAlign.center,
+            overflow: TextOverflow.ellipsis,
+            style: const TextStyle(fontSize: 9, fontWeight: FontWeight.w600),
+          ),
+        ],
+      ],
+    );
+    final minimumHeight = detail == null ? 42.0 : 56.0;
 
     if (destructive) {
       return FilledButton.tonal(
@@ -5273,7 +5520,7 @@ class _ActionButton extends StatelessWidget {
         style: FilledButton.styleFrom(
           foregroundColor: const Color(0xFF9B1C1C),
           backgroundColor: const Color(0xFFFFE1E1),
-          minimumSize: const Size(0, 42),
+          minimumSize: Size(0, minimumHeight),
           padding: const EdgeInsets.symmetric(horizontal: 6),
         ),
         child: child,
@@ -5286,7 +5533,7 @@ class _ActionButton extends StatelessWidget {
         style: FilledButton.styleFrom(
           foregroundColor: ink,
           backgroundColor: gold,
-          minimumSize: const Size(0, 42),
+          minimumSize: Size(0, minimumHeight),
           padding: const EdgeInsets.symmetric(horizontal: 6),
         ),
         child: child,
@@ -5297,7 +5544,7 @@ class _ActionButton extends StatelessWidget {
       return FilledButton(
         onPressed: onPressed,
         style: FilledButton.styleFrom(
-          minimumSize: const Size(0, 42),
+          minimumSize: Size(0, minimumHeight),
           padding: const EdgeInsets.symmetric(horizontal: 6),
         ),
         child: child,
@@ -5307,7 +5554,7 @@ class _ActionButton extends StatelessWidget {
     return FilledButton.tonal(
       onPressed: onPressed,
       style: FilledButton.styleFrom(
-        minimumSize: const Size(0, 42),
+        minimumSize: Size(0, minimumHeight),
         padding: const EdgeInsets.symmetric(horizontal: 6),
       ),
       child: child,
