@@ -59,10 +59,29 @@ void main() {
       expect(chance(), 50);
       expect(chance(wins: 12), 38);
       expect(chance(losses: 12), 62);
-      expect(chance(wins: 100), 0);
-      expect(chance(losses: 100), 100);
+      expect(chance(wins: 100), LolRankRules.minWinChance);
+      expect(chance(losses: 100), LolRankRules.maxWinChance);
     },
   );
+
+  test('low ranks reward a large positive skill gap', () {
+    double chance({required int skill, required int totalLp}) {
+      return LolRankRules.calculateWinChance(
+        skill: skill,
+        position: LolRankPosition.fromTotalLp(totalLp),
+        pressure: 0,
+        healthCondition: LolHealthCondition.healthy,
+        injured: false,
+        consecutiveWins: 0,
+        consecutiveLosses: 0,
+        randomModifier: 0,
+      );
+    }
+
+    expect(chance(skill: 100, totalLp: 0), closeTo(89.75, 0.1));
+    expect(chance(skill: 100, totalLp: 1600), closeTo(71.45, 0.1));
+    expect(chance(skill: 130, totalLp: 2000), closeTo(66.36, 0.1));
+  });
 
   test('health pressure injury and random modifier affect win chance', () {
     final position = LolRankPosition.fromTotalLp(2800);

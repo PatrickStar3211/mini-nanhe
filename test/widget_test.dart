@@ -1159,6 +1159,42 @@ void main() {
     expect(find.textContaining('06:00'), findsOneWidget);
   });
 
+  testWidgets('zhangmeng stops ranked play at midnight', (tester) async {
+    await _pumpLoadedApp(
+      tester,
+      debugInitialState: const MiniNanheDebugState(
+        minuteOfDay: 23 * 60 + 30,
+        energy: 25,
+      ),
+    );
+
+    await tester.tap(find.text('手机'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('phone-zhangmeng-app')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('zhangmeng-start-ranked')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('zhangmeng-accept-match')));
+    await tester.pumpAndSettle();
+
+    expect(find.byKey(const Key('zhangmeng-result-page')), findsOneWidget);
+    expect(find.text('该睡觉了'), findsOneWidget);
+    final continueButton = tester.widget<FilledButton>(
+      find.descendant(
+        of: find.byKey(const Key('zhangmeng-continue-ranked')),
+        matching: find.byType(FilledButton),
+      ),
+    );
+    expect(continueButton.onPressed, isNull);
+
+    await tester.tap(find.byKey(const Key('zhangmeng-return-home')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('zhangmeng-start-ranked')));
+    await tester.pump();
+    expect(find.text('该睡觉了'), findsOneWidget);
+    expect(find.byKey(const Key('zhangmeng-match-found-page')), findsNothing);
+  });
+
   testWidgets('zhangmeng pages adapt to short and wide viewports', (
     tester,
   ) async {

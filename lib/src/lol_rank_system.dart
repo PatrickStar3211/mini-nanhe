@@ -86,6 +86,10 @@ class LolRankRules {
   static const proScore = 2000;
   static const orderSuccessChance = 0.95;
   static const orderFailureChance = 0.05;
+  static const minWinChance = 5.0;
+  static const maxWinChance = 95.0;
+  static const lowRankOverqualificationThreshold = 20.0;
+  static const maxLowRankOverqualificationBonus = 12.5;
 
   static const divisionTiers = <LolRankTier>[
     LolRankTier.iron,
@@ -154,6 +158,14 @@ class LolRankRules {
     final skillModifier = difference == 0
         ? 0.0
         : 30 * difference / (difference.abs() + scale);
+    final lowRankOverqualificationBonus =
+        position.tier.index <= LolRankTier.platinum.index &&
+            difference > lowRankOverqualificationThreshold
+        ? ((difference - lowRankOverqualificationThreshold) * 0.25).clamp(
+            0.0,
+            maxLowRankOverqualificationBonus,
+          )
+        : 0.0;
     final healthModifier = switch (healthCondition) {
       LolHealthCondition.veryHealthy => 5.0,
       LolHealthCondition.healthy => 0.0,
@@ -168,12 +180,13 @@ class LolRankRules {
 
     return (50 +
             skillModifier +
+            lowRankOverqualificationBonus +
             streakModifier +
             pressureModifier +
             healthModifier +
             injuryModifier +
             boundedRandomModifier)
-        .clamp(0.0, 100.0);
+        .clamp(minWinChance, maxWinChance);
   }
 
   static String winChanceLabel(double chance) {

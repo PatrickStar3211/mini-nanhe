@@ -235,6 +235,7 @@ class _LolMatchResult {
     required this.rankChangeLabel,
     required this.consecutiveWins,
     required this.consecutiveLosses,
+    required this.reachedMidnight,
   });
 
   final bool won;
@@ -243,6 +244,7 @@ class _LolMatchResult {
   final String rankChangeLabel;
   final int consecutiveWins;
   final int consecutiveLosses;
+  final bool reachedMidnight;
 }
 
 class HomeScreen extends StatefulWidget {
@@ -2413,16 +2415,17 @@ class _HomeScreenState extends State<HomeScreen> {
     return position.tier.index * 4 + position.division!.index;
   }
 
-  bool _prepareLolRankedMatch() {
+  String? _prepareLolRankedMatch() {
+    if (_isMidnight) return '该睡觉了';
     if (_sleepPending ||
         _isEndingReached ||
         _pendingLolRankedEnergyCost != null) {
-      return false;
+      return '有点累了，休息一会再玩吧';
     }
     final energyCost = -_effectiveEnergyDelta(-8, isPhysicalAction: false);
-    if (_energy < energyCost) return false;
+    if (_energy < energyCost) return '有点累了，休息一会再玩吧';
     _pendingLolRankedEnergyCost = energyCost;
-    return true;
+    return null;
   }
 
   void _cancelPreparedLolRankedMatch() {
@@ -2485,6 +2488,7 @@ class _HomeScreenState extends State<HomeScreen> {
       rankChangeLabel: rankChangeLabel,
       consecutiveWins: _lolConsecutiveWins,
       consecutiveLosses: _lolConsecutiveLosses,
+      reachedMidnight: _isMidnight,
     );
   }
 
@@ -3332,7 +3336,7 @@ class _PhoneShell extends StatefulWidget {
   final int consecutiveWins;
   final int consecutiveLosses;
   final List<_LolMatchRecord> matchHistory;
-  final bool Function() onPrepareRankedMatch;
+  final String? Function() onPrepareRankedMatch;
   final VoidCallback onCancelPreparedRankedMatch;
   final _LolMatchResult Function(double chance) onResolveMatch;
   final ValueChanged<bool> onNavigationLockChanged;
@@ -3413,10 +3417,11 @@ class _PhoneShellState extends State<_PhoneShell> {
   }
 
   void _openMatchFound() {
-    if (!widget.onPrepareRankedMatch()) {
+    final blockedMessage = widget.onPrepareRankedMatch();
+    if (blockedMessage != null) {
       ScaffoldMessenger.of(context)
         ..hideCurrentSnackBar()
-        ..showSnackBar(const SnackBar(content: Text('有点累了，休息一会再玩吧')));
+        ..showSnackBar(SnackBar(content: Text(blockedMessage)));
       return;
     }
     final position = LolRankPosition.fromTotalLp(_totalLp);
@@ -3469,6 +3474,14 @@ class _PhoneShellState extends State<_PhoneShell> {
         ),
       ),
     );
+    if (result.reachedMidnight) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
+        ScaffoldMessenger.of(context)
+          ..hideCurrentSnackBar()
+          ..showSnackBar(const SnackBar(content: Text('该睡觉了')));
+      });
+    }
   }
 
   void _openMatchFoundFromResult() {
@@ -3956,7 +3969,7 @@ class _ZhangmengResultPage extends StatelessWidget {
                 label: '继续排位',
                 icon: Icons.refresh_rounded,
                 primary: true,
-                onPressed: onContinueRanked,
+                onPressed: result.reachedMidnight ? null : onContinueRanked,
               ),
               const SizedBox(height: 12),
               _ZhangmengButton(
