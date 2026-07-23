@@ -335,6 +335,7 @@ class _HomeScreenState extends State<HomeScreen> {
   int _lolConsecutiveWins = 0;
   int _lolConsecutiveLosses = 0;
   final List<_LolMatchRecord> _lolMatchHistory = [];
+  int? _pendingLolRankedEnergyCost;
   bool _phoneNavigationLocked = false;
   double _musicVolume = 0.7;
   double _soundEffectVolume = 0.8;
@@ -2412,6 +2413,22 @@ class _HomeScreenState extends State<HomeScreen> {
     return position.tier.index * 4 + position.division!.index;
   }
 
+  bool _prepareLolRankedMatch() {
+    if (_sleepPending ||
+        _isEndingReached ||
+        _pendingLolRankedEnergyCost != null) {
+      return false;
+    }
+    final energyCost = -_effectiveEnergyDelta(-8, isPhysicalAction: false);
+    if (_energy < energyCost) return false;
+    _pendingLolRankedEnergyCost = energyCost;
+    return true;
+  }
+
+  void _cancelPreparedLolRankedMatch() {
+    _pendingLolRankedEnergyCost = null;
+  }
+
   _LolMatchResult _resolveLolRankedMatch(double chance) {
     final beforePosition = LolRankPosition.fromTotalLp(_lolTotalLp);
     final won = _random.nextDouble() * 100 < chance;
@@ -2428,8 +2445,18 @@ class _HomeScreenState extends State<HomeScreen> {
         : afterIndex < beforeIndex
         ? '掉段'
         : '段位未变';
+    final energyCost =
+        _pendingLolRankedEnergyCost ??
+        -_effectiveEnergyDelta(-8, isPhysicalAction: false);
+    final durationMinutes = _effectiveActionDuration(
+      _minutesPerTraining,
+      canEndEarly: true,
+    );
 
     setState(() {
+      _pendingLolRankedEnergyCost = null;
+      _energy = (_energy - energyCost).clamp(0, _maxEnergy);
+      _advanceMinutes(durationMinutes);
       _lolTotalLp = afterTotalLp;
       _lolHistoricalPeakTotalLp = max(_lolHistoricalPeakTotalLp, _lolTotalLp);
       if (won) {
@@ -2445,6 +2472,10 @@ class _HomeScreenState extends State<HomeScreen> {
       if (_lolMatchHistory.length > 10) {
         _lolMatchHistory.removeRange(10, _lolMatchHistory.length);
       }
+      _applyTimedEvents();
+      _settleExhaustedTimedStory();
+      _applyHealthDeathIfNeeded();
+      _queueProgressionUnlocks();
     });
 
     return _LolMatchResult(
@@ -3050,12 +3081,13 @@ class _HomeScreenState extends State<HomeScreen> {
         pressure: _pressure,
         healthCondition: _lolHealthCondition,
         injured: _isInjured,
-        characterAsset: _characterAsset,
         totalLp: _lolTotalLp,
         historicalPeakTotalLp: _lolHistoricalPeakTotalLp,
         consecutiveWins: _lolConsecutiveWins,
         consecutiveLosses: _lolConsecutiveLosses,
         matchHistory: List.unmodifiable(_lolMatchHistory),
+        onPrepareRankedMatch: _prepareLolRankedMatch,
+        onCancelPreparedRankedMatch: _cancelPreparedLolRankedMatch,
         onResolveMatch: _resolveLolRankedMatch,
         onNavigationLockChanged: (locked) {
           if (_phoneNavigationLocked == locked) return;
@@ -3279,12 +3311,13 @@ class _PhoneShell extends StatefulWidget {
     required this.pressure,
     required this.healthCondition,
     required this.injured,
-    required this.characterAsset,
     required this.totalLp,
     required this.historicalPeakTotalLp,
     required this.consecutiveWins,
     required this.consecutiveLosses,
     required this.matchHistory,
+    required this.onPrepareRankedMatch,
+    required this.onCancelPreparedRankedMatch,
     required this.onResolveMatch,
     required this.onNavigationLockChanged,
   });
@@ -3294,12 +3327,13 @@ class _PhoneShell extends StatefulWidget {
   final int pressure;
   final LolHealthCondition healthCondition;
   final bool injured;
-  final String characterAsset;
   final int totalLp;
   final int historicalPeakTotalLp;
   final int consecutiveWins;
   final int consecutiveLosses;
   final List<_LolMatchRecord> matchHistory;
+  final bool Function() onPrepareRankedMatch;
+  final VoidCallback onCancelPreparedRankedMatch;
   final _LolMatchResult Function(double chance) onResolveMatch;
   final ValueChanged<bool> onNavigationLockChanged;
 
@@ -3379,6 +3413,12 @@ class _PhoneShellState extends State<_PhoneShell> {
   }
 
   void _openMatchFound() {
+    if (!widget.onPrepareRankedMatch()) {
+      ScaffoldMessenger.of(context)
+        ..hideCurrentSnackBar()
+        ..showSnackBar(const SnackBar(content: Text('有点累了，休息一会再玩吧')));
+      return;
+    }
     final position = LolRankPosition.fromTotalLp(_totalLp);
     final chance = LolRankRules.calculateWinChance(
       skill: widget.skill,
@@ -3437,6 +3477,7 @@ class _PhoneShellState extends State<_PhoneShell> {
   }
 
   void _declineMatch() {
+    widget.onCancelPreparedRankedMatch();
     _setNavigationLocked(false);
     _navigatorKey.currentState?.pop();
   }
@@ -3444,10 +3485,7 @@ class _PhoneShellState extends State<_PhoneShell> {
   void _openMatchHistory() {
     _navigatorKey.currentState?.push(
       MaterialPageRoute<void>(
-        builder: (_) => _ZhangmengHistoryPage(
-          characterAsset: widget.characterAsset,
-          matchHistory: _matchHistory,
-        ),
+        builder: (_) => _ZhangmengHistoryPage(matchHistory: _matchHistory),
       ),
     );
   }
@@ -3601,74 +3639,87 @@ class _ZhangmengHomePage extends StatelessWidget {
       key: const Key('zhangmeng-home-page'),
       child: SafeArea(
         bottom: false,
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(24, 24, 24, 76),
+        child: _ZhangmengAdaptiveScrollableInset(
           child: Column(
             children: [
               const _ZhangmengPageHeader(title: '掌盟'),
-              const SizedBox(height: 14),
-              _ZhangmengRankBadge(position: current, size: 126),
-              const SizedBox(height: 4),
-              const Text(
-                '当前段位',
-                style: TextStyle(
-                  color: Color(0xFF847761),
-                  fontSize: 12,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-              const SizedBox(height: 4),
-              Text(
-                current.displayLabel,
-                key: const Key('zhangmeng-current-rank'),
-                style: const TextStyle(
-                  color: Color(0xFF332C24),
-                  fontSize: 24,
-                  fontWeight: FontWeight.w900,
-                ),
-              ),
-              const SizedBox(height: 16),
-              _ZhangmengInfoCard(
-                child: Row(
+              Expanded(
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                   children: [
-                    Expanded(
-                      child: _ZhangmengSummaryItem(
-                        label: '历史最高',
-                        value: peak.displayLabel,
-                        valueKey: const Key('zhangmeng-historical-peak'),
+                    Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        _ZhangmengRankBadge(position: current, size: 118),
+                        const SizedBox(height: 2),
+                        const Text(
+                          '当前段位',
+                          style: TextStyle(
+                            color: Color(0xFF847761),
+                            fontSize: 12,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                        const SizedBox(height: 3),
+                        Text(
+                          current.displayLabel,
+                          key: const Key('zhangmeng-current-rank'),
+                          style: const TextStyle(
+                            color: Color(0xFF332C24),
+                            fontSize: 24,
+                            fontWeight: FontWeight.w900,
+                          ),
+                        ),
+                      ],
+                    ),
+                    _ZhangmengInfoCard(
+                      child: Row(
+                        children: [
+                          Expanded(
+                            child: _ZhangmengSummaryItem(
+                              label: '历史最高',
+                              value: peak.displayLabel,
+                              valueKey: const Key('zhangmeng-historical-peak'),
+                            ),
+                          ),
+                          Container(
+                            width: 1,
+                            height: 42,
+                            color: const Color(0xFFD9C9A9),
+                          ),
+                          Expanded(
+                            child: _ZhangmengSummaryItem(
+                              label: '最近战绩',
+                              value: matchHistory.isEmpty
+                                  ? '暂无记录'
+                                  : '$wins 胜 $losses 负',
+                              valueKey: const Key('zhangmeng-recent-summary'),
+                            ),
+                          ),
+                        ],
                       ),
                     ),
-                    Container(
-                      width: 1,
-                      height: 42,
-                      color: const Color(0xFFD9C9A9),
-                    ),
-                    Expanded(
-                      child: _ZhangmengSummaryItem(
-                        label: '最近战绩',
-                        value: matchHistory.isEmpty
-                            ? '暂无记录'
-                            : '$wins 胜 $losses 负',
-                        valueKey: const Key('zhangmeng-recent-summary'),
-                      ),
+                    Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        _ZhangmengButton(
+                          key: const Key('zhangmeng-start-ranked'),
+                          label: '开始排位',
+                          icon: Icons.sports_esports_rounded,
+                          primary: true,
+                          onPressed: onStartRanked,
+                        ),
+                        const SizedBox(height: 10),
+                        _ZhangmengButton(
+                          key: const Key('zhangmeng-open-history'),
+                          label: '战绩记录',
+                          icon: Icons.history_rounded,
+                          onPressed: onOpenHistory,
+                        ),
+                      ],
                     ),
                   ],
                 ),
-              ),
-              const Spacer(),
-              _ZhangmengButton(
-                key: const Key('zhangmeng-start-ranked'),
-                label: '开始排位',
-                icon: Icons.sports_esports_rounded,
-                primary: true,
-                onPressed: onStartRanked,
-              ),
-              const SizedBox(height: 12),
-              _ZhangmengButton(
-                key: const Key('zhangmeng-open-history'),
-                label: '战绩记录',
-                icon: Icons.history_rounded,
-                onPressed: onOpenHistory,
               ),
             ],
           ),
@@ -3739,97 +3790,105 @@ class _ZhangmengMatchFoundPageState extends State<_ZhangmengMatchFoundPage> {
         key: const Key('zhangmeng-match-found-page'),
         child: SafeArea(
           bottom: false,
-          child: Padding(
-            padding: const EdgeInsets.fromLTRB(24, 24, 24, 76),
+          child: _ZhangmengAdaptiveScrollableInset(
             child: Column(
               children: [
                 const _ZhangmengPageHeader(title: '排位赛'),
-                const Spacer(),
-                Container(
-                  width: 210,
-                  height: 210,
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    color: const Color(0xDDFDF9EF),
-                    border: Border.all(
-                      color: const Color(0xFFC6A35A),
-                      width: 2,
-                    ),
-                    boxShadow: const [
-                      BoxShadow(
-                        color: Color(0x2E9A7736),
-                        blurRadius: 26,
-                        spreadRadius: 5,
+                Expanded(
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                    children: [
+                      Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Container(
+                            key: const Key('zhangmeng-match-rank-frame'),
+                            width: 190,
+                            height: 190,
+                            decoration: BoxDecoration(
+                              shape: BoxShape.circle,
+                              color: const Color(0xDDFDF9EF),
+                              border: Border.all(
+                                color: const Color(0xFFC6A35A),
+                                width: 2,
+                              ),
+                              boxShadow: const [
+                                BoxShadow(
+                                  color: Color(0x2E9A7736),
+                                  blurRadius: 26,
+                                  spreadRadius: 5,
+                                ),
+                              ],
+                            ),
+                            alignment: Alignment.center,
+                            child: _ZhangmengRankBadge(
+                              position: widget.position,
+                              size: 138,
+                              verticalCorrection: -17,
+                            ),
+                          ),
+                          const SizedBox(height: 18),
+                          const Text(
+                            '对局已找到',
+                            style: TextStyle(
+                              color: Color(0xFF332C24),
+                              fontSize: 30,
+                              fontWeight: FontWeight.w900,
+                            ),
+                          ),
+                          const SizedBox(height: 7),
+                          Text(
+                            '本场胜算：${widget.winChanceLabel}',
+                            key: const Key('zhangmeng-win-chance'),
+                            style: const TextStyle(
+                              color: Color(0xFF75664F),
+                              fontSize: 16,
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                        ],
+                      ),
+                      Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          if (_decisionMade) ...[
+                            const SizedBox(
+                              width: 22,
+                              height: 22,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2.2,
+                                color: Color(0xFF9B7433),
+                              ),
+                            ),
+                            const SizedBox(height: 8),
+                            const Text(
+                              '正在确认……',
+                              key: Key('zhangmeng-decision-pending'),
+                              style: TextStyle(
+                                color: Color(0xFF75664F),
+                                fontWeight: FontWeight.w700,
+                              ),
+                            ),
+                            const SizedBox(height: 12),
+                          ],
+                          _ZhangmengButton(
+                            key: const Key('zhangmeng-accept-match'),
+                            label: '接受',
+                            icon: Icons.check_rounded,
+                            primary: true,
+                            onPressed: _decisionMade ? null : _accept,
+                          ),
+                          const SizedBox(height: 10),
+                          _ZhangmengButton(
+                            key: const Key('zhangmeng-decline-match'),
+                            label: '拒绝',
+                            icon: Icons.close_rounded,
+                            onPressed: _decisionMade ? null : _decline,
+                          ),
+                        ],
                       ),
                     ],
                   ),
-                  alignment: Alignment.center,
-                  child: _ZhangmengRankBadge(
-                    position: widget.position,
-                    size: 150,
-                  ),
-                ),
-                const SizedBox(height: 24),
-                const Text(
-                  '对局已找到',
-                  style: TextStyle(
-                    color: Color(0xFF332C24),
-                    fontSize: 30,
-                    fontWeight: FontWeight.w900,
-                  ),
-                ),
-                const SizedBox(height: 8),
-                Text(
-                  '本场胜算：${widget.winChanceLabel}',
-                  key: const Key('zhangmeng-win-chance'),
-                  style: const TextStyle(
-                    color: Color(0xFF75664F),
-                    fontSize: 16,
-                    fontWeight: FontWeight.w700,
-                  ),
-                ),
-                const Spacer(),
-                if (_decisionMade) ...[
-                  const SizedBox(
-                    width: 22,
-                    height: 22,
-                    child: CircularProgressIndicator(
-                      strokeWidth: 2.2,
-                      color: Color(0xFF9B7433),
-                    ),
-                  ),
-                  const SizedBox(height: 10),
-                  const Text(
-                    '正在确认……',
-                    key: Key('zhangmeng-decision-pending'),
-                    style: TextStyle(
-                      color: Color(0xFF75664F),
-                      fontWeight: FontWeight.w700,
-                    ),
-                  ),
-                  const SizedBox(height: 18),
-                ],
-                Row(
-                  children: [
-                    Expanded(
-                      child: _ZhangmengButton(
-                        key: const Key('zhangmeng-accept-match'),
-                        label: '接受',
-                        icon: Icons.check_rounded,
-                        primary: true,
-                        onPressed: _decisionMade ? null : _accept,
-                      ),
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: _ZhangmengButton(
-                        key: const Key('zhangmeng-decline-match'),
-                        label: '拒绝',
-                        icon: Icons.close_rounded,
-                        onPressed: _decisionMade ? null : _decline,
-                      ),
-                    ),
-                  ],
                 ),
               ],
             ),
@@ -3863,8 +3922,7 @@ class _ZhangmengResultPage extends StatelessWidget {
       key: const Key('zhangmeng-result-page'),
       child: SafeArea(
         bottom: false,
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(24, 24, 24, 76),
+        child: _ZhangmengAdaptiveScrollableInset(
           child: Column(
             children: [
               const _ZhangmengPageHeader(title: '排位结果'),
@@ -3938,12 +3996,8 @@ class _ZhangmengResultPage extends StatelessWidget {
 }
 
 class _ZhangmengHistoryPage extends StatelessWidget {
-  const _ZhangmengHistoryPage({
-    required this.characterAsset,
-    required this.matchHistory,
-  });
+  const _ZhangmengHistoryPage({required this.matchHistory});
 
-  final String characterAsset;
   final List<_LolMatchRecord> matchHistory;
 
   @override
@@ -3952,8 +4006,8 @@ class _ZhangmengHistoryPage extends StatelessWidget {
       key: const Key('zhangmeng-history-page'),
       child: SafeArea(
         bottom: false,
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(24, 24, 24, 70),
+        child: _ZhangmengAdaptiveInset(
+          bottomInset: 70,
           child: Column(
             children: [
               const _ZhangmengPageHeader(title: '战绩记录'),
@@ -3978,7 +4032,6 @@ class _ZhangmengHistoryPage extends StatelessWidget {
                           final match = matchHistory[index];
                           return _ZhangmengHistoryRow(
                             key: Key('zhangmeng-history-row-$index'),
-                            characterAsset: characterAsset,
                             match: match,
                           );
                         },
@@ -3992,14 +4045,81 @@ class _ZhangmengHistoryPage extends StatelessWidget {
   }
 }
 
-class _ZhangmengHistoryRow extends StatelessWidget {
-  const _ZhangmengHistoryRow({
-    super.key,
-    required this.characterAsset,
-    required this.match,
+double _zhangmengHorizontalInset(double width) {
+  final proportionalInset = (width * 0.1).clamp(20.0, 44.0);
+  final centeredInset = max(0.0, (width - 430) / 2);
+  return max(proportionalInset, centeredInset);
+}
+
+class _ZhangmengAdaptiveScrollableInset extends StatelessWidget {
+  const _ZhangmengAdaptiveScrollableInset({required this.child});
+
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final horizontalInset = _zhangmengHorizontalInset(constraints.maxWidth);
+        final topInset = (constraints.maxHeight * 0.03).clamp(12.0, 24.0);
+        return Padding(
+          padding: EdgeInsets.fromLTRB(
+            horizontalInset,
+            topInset,
+            horizontalInset,
+            76,
+          ),
+          child: LayoutBuilder(
+            builder: (context, innerConstraints) {
+              return SingleChildScrollView(
+                physics: const ClampingScrollPhysics(),
+                child: ConstrainedBox(
+                  constraints: BoxConstraints(
+                    minHeight: innerConstraints.maxHeight,
+                  ),
+                  child: IntrinsicHeight(child: child),
+                ),
+              );
+            },
+          ),
+        );
+      },
+    );
+  }
+}
+
+class _ZhangmengAdaptiveInset extends StatelessWidget {
+  const _ZhangmengAdaptiveInset({
+    required this.child,
+    required this.bottomInset,
   });
 
-  final String characterAsset;
+  final Widget child;
+  final double bottomInset;
+
+  @override
+  Widget build(BuildContext context) {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final horizontalInset = _zhangmengHorizontalInset(constraints.maxWidth);
+        final topInset = (constraints.maxHeight * 0.03).clamp(12.0, 24.0);
+        return Padding(
+          padding: EdgeInsets.fromLTRB(
+            horizontalInset,
+            topInset,
+            horizontalInset,
+            bottomInset,
+          ),
+          child: child,
+        );
+      },
+    );
+  }
+}
+
+class _ZhangmengHistoryRow extends StatelessWidget {
+  const _ZhangmengHistoryRow({super.key, required this.match});
+
   final _LolMatchRecord match;
 
   @override
@@ -4024,9 +4144,10 @@ class _ZhangmengHistoryRow extends StatelessWidget {
       child: Row(
         children: [
           CircleAvatar(
+            key: const Key('zhangmeng-history-logo'),
             radius: 27,
             backgroundColor: const Color(0xFFF8F4EB),
-            backgroundImage: AssetImage(characterAsset),
+            backgroundImage: const AssetImage(miniNanheOriginalAsset),
           ),
           const SizedBox(width: 14),
           Text(
@@ -4101,10 +4222,15 @@ class _ZhangmengPageHeader extends StatelessWidget {
 }
 
 class _ZhangmengRankBadge extends StatelessWidget {
-  const _ZhangmengRankBadge({required this.position, required this.size});
+  const _ZhangmengRankBadge({
+    required this.position,
+    required this.size,
+    this.verticalCorrection = 0,
+  });
 
   final LolRankPosition position;
   final double size;
+  final double verticalCorrection;
 
   @override
   Widget build(BuildContext context) {
@@ -4130,7 +4256,10 @@ class _ZhangmengRankBadge extends StatelessWidget {
           minHeight: sheetHeight,
           maxHeight: sheetHeight,
           child: Transform.translate(
-            offset: Offset(-column * size, -row * cellHeight),
+            offset: Offset(
+              -column * size,
+              -row * cellHeight + verticalCorrection,
+            ),
             child: Image.asset(
               spriteAsset,
               width: sheetWidth,

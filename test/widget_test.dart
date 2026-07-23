@@ -935,6 +935,11 @@ void main() {
       expect(find.byKey(const Key('zhangmeng-recent-summary')), findsOneWidget);
       expect(find.text('暂无记录'), findsOneWidget);
       expect(find.textContaining('技巧'), findsNothing);
+      final homeButtonRect = tester.getRect(
+        find.byKey(const Key('zhangmeng-start-ranked')),
+      );
+      expect(homeButtonRect.left, greaterThanOrEqualTo(40));
+      expect(homeButtonRect.right, lessThanOrEqualTo(390));
 
       await tester.tap(find.byKey(const Key('zhangmeng-start-ranked')));
       await tester.pumpAndSettle();
@@ -944,6 +949,15 @@ void main() {
       );
       expect(find.text('对局已找到'), findsOneWidget);
       expect(find.textContaining('本场胜算：'), findsOneWidget);
+      final acceptRect = tester.getRect(
+        find.byKey(const Key('zhangmeng-accept-match')),
+      );
+      final declineRect = tester.getRect(
+        find.byKey(const Key('zhangmeng-decline-match')),
+      );
+      expect(acceptRect.top, lessThan(declineRect.top));
+      expect(acceptRect.left, declineRect.left);
+      expect(acceptRect.right, declineRect.right);
 
       await tester.tap(find.text('陪伴'));
       await tester.pumpAndSettle();
@@ -987,6 +1001,13 @@ void main() {
       expect(find.byKey(const Key('zhangmeng-history-page')), findsOneWidget);
       expect(find.byKey(const Key('zhangmeng-history-row-0')), findsOneWidget);
       expect(find.byKey(const Key('zhangmeng-history-row-1')), findsNothing);
+      final historyLogo = tester.widget<CircleAvatar>(
+        find.byKey(const Key('zhangmeng-history-logo')),
+      );
+      expect(
+        (historyLogo.backgroundImage! as AssetImage).assetName,
+        miniNanheOriginalAsset,
+      );
     },
   );
 
@@ -1042,6 +1063,118 @@ void main() {
       expect(find.byKey(const Key('zhangmeng-result-page')), findsNothing);
     },
   );
+
+  testWidgets('zhangmeng ranked play consumes game energy and time', (
+    tester,
+  ) async {
+    await _pumpLoadedApp(
+      tester,
+      debugInitialState: const MiniNanheDebugState(
+        minuteOfDay: 6 * 60,
+        energy: 25,
+      ),
+    );
+
+    await tester.tap(find.text('手机'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('phone-zhangmeng-app')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('zhangmeng-start-ranked')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('zhangmeng-accept-match')));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('状态'));
+    await tester.pumpAndSettle();
+    expect(find.text('17/25'), findsOneWidget);
+
+    await tester.tap(find.text('陪伴'));
+    await tester.pumpAndSettle();
+    expect(find.textContaining('07:00'), findsOneWidget);
+  });
+
+  testWidgets('zhangmeng blocks ranked play when energy is insufficient', (
+    tester,
+  ) async {
+    await _pumpLoadedApp(
+      tester,
+      debugInitialState: const MiniNanheDebugState(energy: 7),
+    );
+
+    await tester.tap(find.text('手机'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('phone-zhangmeng-app')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('zhangmeng-start-ranked')));
+    await tester.pump();
+
+    expect(find.text('有点累了，休息一会再玩吧'), findsOneWidget);
+    expect(find.byKey(const Key('zhangmeng-home-page')), findsOneWidget);
+    expect(find.byKey(const Key('zhangmeng-match-found-page')), findsNothing);
+  });
+
+  testWidgets('zhangmeng decline does not consume energy or time', (
+    tester,
+  ) async {
+    await _pumpLoadedApp(
+      tester,
+      debugInitialState: const MiniNanheDebugState(
+        minuteOfDay: 6 * 60,
+        energy: 25,
+      ),
+    );
+
+    await tester.tap(find.text('手机'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('phone-zhangmeng-app')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('zhangmeng-start-ranked')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('zhangmeng-decline-match')));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('状态'));
+    await tester.pumpAndSettle();
+    expect(find.text('25/25'), findsOneWidget);
+
+    await tester.tap(find.text('陪伴'));
+    await tester.pumpAndSettle();
+    expect(find.textContaining('06:00'), findsOneWidget);
+  });
+
+  testWidgets('zhangmeng pages adapt to short and wide viewports', (
+    tester,
+  ) async {
+    await _pumpLoadedApp(tester);
+    tester.view.physicalSize = const Size(568, 320);
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('手机'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('phone-zhangmeng-app')));
+    await tester.pumpAndSettle();
+    expect(tester.takeException(), isNull);
+
+    final startRanked = find.byKey(const Key('zhangmeng-start-ranked'));
+    await tester.ensureVisible(startRanked);
+    await tester.tap(startRanked);
+    await tester.pumpAndSettle();
+    expect(tester.takeException(), isNull);
+
+    final decline = find.byKey(const Key('zhangmeng-decline-match'));
+    await tester.ensureVisible(decline);
+    await tester.tap(decline);
+    await tester.pumpAndSettle();
+
+    tester.view.physicalSize = const Size(1200, 800);
+    await tester.pumpAndSettle();
+    final history = find.byKey(const Key('zhangmeng-open-history'));
+    await tester.ensureVisible(history);
+    expect(tester.getSize(history).width, lessThanOrEqualTo(430));
+    await tester.tap(history);
+    await tester.pumpAndSettle();
+    expect(tester.takeException(), isNull);
+  });
 
   testWidgets('zhangmeng art and ranked sound assets are bundled', (
     tester,
