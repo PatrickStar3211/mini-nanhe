@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
@@ -16,9 +17,10 @@ import 'package:shared_preferences/shared_preferences.dart';
 MiniNanheApp _testApp({
   bool? forcePortraitShell,
   MiniNanheDebugState? debugInitialState,
+  GameAudioController? audioController,
 }) {
   return MiniNanheApp(
-    audioController: GameAudioController.disabled(),
+    audioController: audioController ?? GameAudioController.disabled(),
     forcePortraitShell: forcePortraitShell,
     debugInitialState: debugInitialState,
   );
@@ -45,17 +47,44 @@ Future<void> _waitForEnterButton(WidgetTester tester) async {
 Future<void> _pumpLoadedApp(
   WidgetTester tester, {
   MiniNanheDebugState? debugInitialState,
+  GameAudioController? audioController,
 }) async {
   _mockOpeningStorySeen();
   tester.view.physicalSize = const Size(430, 900);
   tester.view.devicePixelRatio = 1;
   addTearDown(tester.view.resetPhysicalSize);
   addTearDown(tester.view.resetDevicePixelRatio);
-  await tester.pumpWidget(_testApp(debugInitialState: debugInitialState));
+  await tester.pumpWidget(
+    _testApp(
+      debugInitialState: debugInitialState,
+      audioController: audioController,
+    ),
+  );
   await _waitForEnterButton(tester);
   await tester.tap(find.byKey(const Key('enter-game-button')));
   await tester.pumpAndSettle();
   await tester.pump();
+}
+
+class _ControllableRankedAudioController extends GameAudioController {
+  _ControllableRankedAudioController() : super.disabled();
+
+  final acceptStarted = Completer<void>();
+  final acceptFinished = Completer<void>();
+  final declineStarted = Completer<void>();
+  final declineFinished = Completer<void>();
+
+  @override
+  Future<void> playRankedAccept() async {
+    acceptStarted.complete();
+    await acceptFinished.future;
+  }
+
+  @override
+  Future<void> playRankedDecline() async {
+    declineStarted.complete();
+    await declineFinished.future;
+  }
 }
 
 Finder _negativeMoodFinder() {
@@ -961,16 +990,66 @@ void main() {
     },
   );
 
+  testWidgets(
+    'zhangmeng waits for accept and decline sounds before navigation',
+    (tester) async {
+      final audioController = _ControllableRankedAudioController();
+      await _pumpLoadedApp(tester, audioController: audioController);
+
+      await tester.tap(find.text('手机'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const Key('phone-zhangmeng-app')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const Key('zhangmeng-start-ranked')));
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.byKey(const Key('zhangmeng-accept-match')));
+      await tester.pump();
+      expect(audioController.acceptStarted.isCompleted, isTrue);
+      expect(
+        find.byKey(const Key('zhangmeng-match-found-page')),
+        findsOneWidget,
+      );
+      expect(
+        find.byKey(const Key('zhangmeng-decision-pending')),
+        findsOneWidget,
+      );
+      expect(find.byKey(const Key('zhangmeng-result-page')), findsNothing);
+
+      audioController.acceptFinished.complete();
+      await tester.pumpAndSettle();
+      expect(find.byKey(const Key('zhangmeng-result-page')), findsOneWidget);
+
+      await tester.tap(find.byKey(const Key('zhangmeng-return-home')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const Key('zhangmeng-start-ranked')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const Key('zhangmeng-decline-match')));
+      await tester.pump();
+      expect(audioController.declineStarted.isCompleted, isTrue);
+      expect(
+        find.byKey(const Key('zhangmeng-match-found-page')),
+        findsOneWidget,
+      );
+      expect(
+        find.byKey(const Key('zhangmeng-decision-pending')),
+        findsOneWidget,
+      );
+
+      audioController.declineFinished.complete();
+      await tester.pumpAndSettle();
+      expect(find.byKey(const Key('zhangmeng-home-page')), findsOneWidget);
+      expect(find.byKey(const Key('zhangmeng-result-page')), findsNothing);
+    },
+  );
+
   testWidgets('zhangmeng art and ranked sound assets are bundled', (
     tester,
   ) async {
     const assets = <String>[
-      phoneZhangmengHomeBackgroundAsset,
-      phoneZhangmengMatchFoundAsset,
-      phoneZhangmengResultBackgroundAsset,
-      phoneZhangmengHistoryBackgroundAsset,
-      phoneZhangmengAcceptButtonAsset,
-      phoneZhangmengRejectButtonAsset,
+      phoneZhangmengBackgroundAsset,
+      phoneZhangmengRankBadgesCleanAsset,
+      phoneZhangmengRankBadgesVividAsset,
       'assets/audio/phone/queuing.mp3',
       'assets/audio/phone/accept.mp3',
       'assets/audio/phone/decline.mp3',

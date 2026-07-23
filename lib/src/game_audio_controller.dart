@@ -212,8 +212,10 @@ class GameAudioController {
       await player.stop();
       await player.setAudioContext(_effectAudioContext);
       await player.setReleaseMode(ReleaseMode.stop);
+      final completed = player.onPlayerComplete.first;
       await player.play(AssetSource(assetPath), volume: soundEffectVolume);
       _ensureBgmContinues();
+      await completed;
     } catch (_) {}
   }
 
