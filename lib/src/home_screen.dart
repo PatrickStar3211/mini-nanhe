@@ -3801,33 +3801,11 @@ class _ZhangmengMatchFoundPageState extends State<_ZhangmengMatchFoundPage> {
                       Column(
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          Container(
-                            key: const Key('zhangmeng-match-rank-frame'),
-                            width: 190,
-                            height: 190,
-                            decoration: BoxDecoration(
-                              shape: BoxShape.circle,
-                              color: const Color(0xDDFDF9EF),
-                              border: Border.all(
-                                color: const Color(0xFFC6A35A),
-                                width: 2,
-                              ),
-                              boxShadow: const [
-                                BoxShadow(
-                                  color: Color(0x2E9A7736),
-                                  blurRadius: 26,
-                                  spreadRadius: 5,
-                                ),
-                              ],
-                            ),
-                            alignment: Alignment.center,
-                            child: _ZhangmengRankBadge(
-                              position: widget.position,
-                              size: 138,
-                              verticalCorrection: -17,
-                            ),
+                          _ZhangmengRankBadge(
+                            position: widget.position,
+                            size: 142,
                           ),
-                          const SizedBox(height: 18),
+                          const SizedBox(height: 4),
                           const Text(
                             '对局已找到',
                             style: TextStyle(
@@ -4222,15 +4200,10 @@ class _ZhangmengPageHeader extends StatelessWidget {
 }
 
 class _ZhangmengRankBadge extends StatelessWidget {
-  const _ZhangmengRankBadge({
-    required this.position,
-    required this.size,
-    this.verticalCorrection = 0,
-  });
+  const _ZhangmengRankBadge({required this.position, required this.size});
 
   final LolRankPosition position;
   final double size;
-  final double verticalCorrection;
 
   @override
   Widget build(BuildContext context) {
@@ -4240,6 +4213,20 @@ class _ZhangmengRankBadge extends StatelessWidget {
     final sheetWidth = size * 5;
     final sheetHeight = sheetWidth / 2;
     final cellHeight = sheetHeight / 2;
+    const horizontalCorrections = <double>[
+      -0.056,
+      -0.035,
+      -0.014,
+      0,
+      -0.004,
+      -0.028,
+      -0.035,
+      -0.021,
+      0,
+      -0.007,
+    ];
+    final horizontalCorrection = size * horizontalCorrections[index];
+    final verticalCorrection = size * (row == 0 ? -0.15 : 0.03);
     final spriteAsset = position.tier == LolRankTier.master
         ? phoneZhangmengRankBadgesVividAsset
         : phoneZhangmengRankBadgesCleanAsset;
@@ -4257,7 +4244,7 @@ class _ZhangmengRankBadge extends StatelessWidget {
           maxHeight: sheetHeight,
           child: Transform.translate(
             offset: Offset(
-              -column * size,
+              -column * size + horizontalCorrection,
               -row * cellHeight + verticalCorrection,
             ),
             child: Image.asset(

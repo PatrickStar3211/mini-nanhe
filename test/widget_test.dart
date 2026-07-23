@@ -949,6 +949,7 @@ void main() {
       );
       expect(find.text('对局已找到'), findsOneWidget);
       expect(find.textContaining('本场胜算：'), findsOneWidget);
+      expect(find.byKey(const Key('zhangmeng-match-rank-frame')), findsNothing);
       final acceptRect = tester.getRect(
         find.byKey(const Key('zhangmeng-accept-match')),
       );
@@ -958,6 +959,15 @@ void main() {
       expect(acceptRect.top, lessThan(declineRect.top));
       expect(acceptRect.left, declineRect.left);
       expect(acceptRect.right, declineRect.right);
+      final matchPageCenter = tester
+          .getRect(find.byKey(const Key('zhangmeng-match-found-page')))
+          .center
+          .dx;
+      final rankBadgeCenter = tester
+          .getRect(find.byKey(const Key('zhangmeng-rank-badge-platinum')))
+          .center
+          .dx;
+      expect(rankBadgeCenter, closeTo(matchPageCenter, 0.1));
 
       await tester.tap(find.text('陪伴'));
       await tester.pumpAndSettle();
