@@ -17,6 +17,7 @@ import 'game_audio_controller.dart';
 import 'game_assets.dart';
 import 'home_bedtime_story_screen.dart';
 import 'luxury_unlock_story_screen.dart';
+import 'lol_rank_system.dart';
 import 'opening_story_screen.dart';
 import 'reaction_rules.dart';
 import 'sick_ending_story_screen.dart';
@@ -133,6 +134,11 @@ class MiniNanheDebugState {
     this.sicknessEventResolvedCorrectly,
     this.doghouseUnlocked,
     this.luxuryUnlocked,
+    this.skill,
+    this.lolTotalLp,
+    this.lolHistoricalPeakTotalLp,
+    this.lolConsecutiveWins,
+    this.lolConsecutiveLosses,
   });
 
   final int? totalDaysTogether;
@@ -156,6 +162,11 @@ class MiniNanheDebugState {
   final bool? sicknessEventResolvedCorrectly;
   final bool? doghouseUnlocked;
   final bool? luxuryUnlocked;
+  final int? skill;
+  final int? lolTotalLp;
+  final int? lolHistoricalPeakTotalLp;
+  final int? lolConsecutiveWins;
+  final int? lolConsecutiveLosses;
 }
 
 class _SaveSlotSummary {
@@ -198,6 +209,40 @@ class _StatPopup {
 
   final int id;
   final String label;
+}
+
+class _LolMatchRecord {
+  const _LolMatchRecord({required this.won, required this.lpDelta});
+
+  factory _LolMatchRecord.fromJson(Map<String, dynamic> json) {
+    return _LolMatchRecord(
+      won: json['won'] is bool && json['won'] as bool,
+      lpDelta: json['lpDelta'] is num ? (json['lpDelta'] as num).round() : 0,
+    );
+  }
+
+  final bool won;
+  final int lpDelta;
+
+  Map<String, Object?> toJson() => {'won': won, 'lpDelta': lpDelta};
+}
+
+class _LolMatchResult {
+  const _LolMatchResult({
+    required this.won,
+    required this.lpDelta,
+    required this.afterPosition,
+    required this.rankChangeLabel,
+    required this.consecutiveWins,
+    required this.consecutiveLosses,
+  });
+
+  final bool won;
+  final int lpDelta;
+  final LolRankPosition afterPosition;
+  final String rankChangeLabel;
+  final int consecutiveWins;
+  final int consecutiveLosses;
 }
 
 class HomeScreen extends StatefulWidget {
@@ -285,6 +330,12 @@ class _HomeScreenState extends State<HomeScreen> {
   int _art = 1;
   int _skill = 1;
   int _endurance = 1;
+  int _lolTotalLp = 0;
+  int _lolHistoricalPeakTotalLp = 0;
+  int _lolConsecutiveWins = 0;
+  int _lolConsecutiveLosses = 0;
+  final List<_LolMatchRecord> _lolMatchHistory = [];
+  bool _phoneNavigationLocked = false;
   double _musicVolume = 0.7;
   double _soundEffectVolume = 0.8;
   double _voiceVolume = 0.9;
@@ -347,6 +398,20 @@ class _HomeScreenState extends State<HomeScreen> {
     }
     _doghouseUnlocked = debug.doghouseUnlocked ?? _doghouseUnlocked;
     _luxuryUnlocked = debug.luxuryUnlocked ?? _luxuryUnlocked;
+    _skill = _clampStat(debug.skill ?? _skill);
+    _lolTotalLp = max(0, debug.lolTotalLp ?? _lolTotalLp);
+    _lolHistoricalPeakTotalLp = max(
+      _lolTotalLp,
+      debug.lolHistoricalPeakTotalLp ?? _lolHistoricalPeakTotalLp,
+    );
+    _lolConsecutiveWins = max(
+      0,
+      debug.lolConsecutiveWins ?? _lolConsecutiveWins,
+    );
+    _lolConsecutiveLosses = max(
+      0,
+      debug.lolConsecutiveLosses ?? _lolConsecutiveLosses,
+    );
     if (_luxuryUnlocked) {
       _doghouseUnlocked = true;
       _yardHomeTier = YardHomeTier.luxury;
@@ -552,6 +617,13 @@ class _HomeScreenState extends State<HomeScreen> {
       'art': _art,
       'skill': _skill,
       'endurance': _endurance,
+      'lolTotalLp': _lolTotalLp,
+      'lolHistoricalPeakTotalLp': _lolHistoricalPeakTotalLp,
+      'lolConsecutiveWins': _lolConsecutiveWins,
+      'lolConsecutiveLosses': _lolConsecutiveLosses,
+      'lolMatchHistory': _lolMatchHistory
+          .map((record) => record.toJson())
+          .toList(),
       'musicVolume': _musicVolume,
       'soundEffectVolume': _soundEffectVolume,
       'voiceVolume': _voiceVolume,
@@ -668,6 +740,16 @@ class _HomeScreenState extends State<HomeScreen> {
     _art = _clampStat(_jsonInt(state, 'art', 1));
     _skill = _clampStat(_jsonInt(state, 'skill', 1));
     _endurance = _clampStat(_jsonInt(state, 'endurance', 1));
+    _lolTotalLp = max(0, _jsonInt(state, 'lolTotalLp', 0));
+    _lolHistoricalPeakTotalLp = max(
+      _lolTotalLp,
+      _jsonInt(state, 'lolHistoricalPeakTotalLp', _lolTotalLp),
+    );
+    _lolConsecutiveWins = max(0, _jsonInt(state, 'lolConsecutiveWins', 0));
+    _lolConsecutiveLosses = max(0, _jsonInt(state, 'lolConsecutiveLosses', 0));
+    _lolMatchHistory
+      ..clear()
+      ..addAll(_jsonLolMatchHistory(state, 'lolMatchHistory'));
     _musicVolume = _jsonDouble(state, 'musicVolume', 0.7).clamp(0, 1);
     _soundEffectVolume = _jsonDouble(
       state,
@@ -757,6 +839,23 @@ class _HomeScreenState extends State<HomeScreen> {
     final value = source[key];
     if (value is! List) return fallback;
     return value.whereType<String>().toList();
+  }
+
+  List<_LolMatchRecord> _jsonLolMatchHistory(
+    Map<String, dynamic> source,
+    String key,
+  ) {
+    final value = source[key];
+    if (value is! List) return const [];
+    return value
+        .whereType<Map>()
+        .map(
+          (entry) => _LolMatchRecord.fromJson(
+            entry.map((key, value) => MapEntry(key.toString(), value)),
+          ),
+        )
+        .take(10)
+        .toList();
   }
 
   YardHomeTier _yardHomeFromName(String name) {
@@ -2287,7 +2386,75 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   void _selectDestination(int index) {
-    setState(() => _selectedDestination = index);
+    if (_selectedDestination == 2 &&
+        _phoneNavigationLocked &&
+        index != _selectedDestination) {
+      return;
+    }
+    setState(() {
+      _selectedDestination = index;
+      if (index != 2) _phoneNavigationLocked = false;
+    });
+  }
+
+  LolHealthCondition get _lolHealthCondition {
+    if (_isSick || _healthValue < 30) return LolHealthCondition.sick;
+    if (_healthValue < 50) return LolHealthCondition.unhealthy;
+    if (_healthValue < 70) return LolHealthCondition.subHealthy;
+    if (_healthValue < 90) return LolHealthCondition.healthy;
+    return LolHealthCondition.veryHealthy;
+  }
+
+  int _lolRankProgressIndex(LolRankPosition position) {
+    if (position.tier == LolRankTier.challenger) return 30;
+    if (position.tier == LolRankTier.grandmaster) return 29;
+    if (position.tier == LolRankTier.master) return 28;
+    return position.tier.index * 4 + position.division!.index;
+  }
+
+  _LolMatchResult _resolveLolRankedMatch(double chance) {
+    final beforePosition = LolRankPosition.fromTotalLp(_lolTotalLp);
+    final won = _random.nextDouble() * 100 < chance;
+    final lpDelta = LolRankRules.lpDeltaForRoll(
+      won: won,
+      roll: _random.nextInt(6),
+    );
+    final afterTotalLp = max(0, _lolTotalLp + lpDelta);
+    final afterPosition = LolRankPosition.fromTotalLp(afterTotalLp);
+    final beforeIndex = _lolRankProgressIndex(beforePosition);
+    final afterIndex = _lolRankProgressIndex(afterPosition);
+    final rankChangeLabel = afterIndex > beforeIndex
+        ? '晋级'
+        : afterIndex < beforeIndex
+        ? '掉段'
+        : '段位未变';
+
+    setState(() {
+      _lolTotalLp = afterTotalLp;
+      _lolHistoricalPeakTotalLp = max(_lolHistoricalPeakTotalLp, _lolTotalLp);
+      if (won) {
+        _lolConsecutiveWins += 1;
+        _lolConsecutiveLosses = 0;
+        _pressure = _clampPercent(_pressure - _lolConsecutiveWins * 2);
+      } else {
+        _lolConsecutiveLosses += 1;
+        _lolConsecutiveWins = 0;
+        _pressure = _clampPercent(_pressure + _lolConsecutiveLosses * 2);
+      }
+      _lolMatchHistory.insert(0, _LolMatchRecord(won: won, lpDelta: lpDelta));
+      if (_lolMatchHistory.length > 10) {
+        _lolMatchHistory.removeRange(10, _lolMatchHistory.length);
+      }
+    });
+
+    return _LolMatchResult(
+      won: won,
+      lpDelta: lpDelta,
+      afterPosition: afterPosition,
+      rankChangeLabel: rankChangeLabel,
+      consecutiveWins: _lolConsecutiveWins,
+      consecutiveLosses: _lolConsecutiveLosses,
+    );
   }
 
   void _replayOpeningStory() {
@@ -2760,6 +2927,12 @@ class _HomeScreenState extends State<HomeScreen> {
       _art = 1;
       _skill = 1;
       _endurance = 1;
+      _lolTotalLp = 0;
+      _lolHistoricalPeakTotalLp = 0;
+      _lolConsecutiveWins = 0;
+      _lolConsecutiveLosses = 0;
+      _lolMatchHistory.clear();
+      _phoneNavigationLocked = false;
       _showDebugTools = false;
       _cancelStatPopupTimers();
       _statPopups.clear();
@@ -2871,7 +3044,24 @@ class _HomeScreenState extends State<HomeScreen> {
         skill: _skill,
         endurance: _endurance,
       ),
-      2 => const _PhoneShell(),
+      2 => _PhoneShell(
+        audioController: widget.audioController,
+        skill: _skill,
+        pressure: _pressure,
+        healthCondition: _lolHealthCondition,
+        injured: _isInjured,
+        characterAsset: _characterAsset,
+        totalLp: _lolTotalLp,
+        historicalPeakTotalLp: _lolHistoricalPeakTotalLp,
+        consecutiveWins: _lolConsecutiveWins,
+        consecutiveLosses: _lolConsecutiveLosses,
+        matchHistory: List.unmodifiable(_lolMatchHistory),
+        onResolveMatch: _resolveLolRankedMatch,
+        onNavigationLockChanged: (locked) {
+          if (_phoneNavigationLocked == locked) return;
+          setState(() => _phoneNavigationLocked = locked);
+        },
+      ),
       3 => const _PlaceholderPage(
         title: '战斗',
         icon: Icons.sports_martial_arts_rounded,
@@ -3083,7 +3273,35 @@ class _HomeScreenState extends State<HomeScreen> {
 }
 
 class _PhoneShell extends StatefulWidget {
-  const _PhoneShell();
+  const _PhoneShell({
+    required this.audioController,
+    required this.skill,
+    required this.pressure,
+    required this.healthCondition,
+    required this.injured,
+    required this.characterAsset,
+    required this.totalLp,
+    required this.historicalPeakTotalLp,
+    required this.consecutiveWins,
+    required this.consecutiveLosses,
+    required this.matchHistory,
+    required this.onResolveMatch,
+    required this.onNavigationLockChanged,
+  });
+
+  final GameAudioController audioController;
+  final int skill;
+  final int pressure;
+  final LolHealthCondition healthCondition;
+  final bool injured;
+  final String characterAsset;
+  final int totalLp;
+  final int historicalPeakTotalLp;
+  final int consecutiveWins;
+  final int consecutiveLosses;
+  final List<_LolMatchRecord> matchHistory;
+  final _LolMatchResult Function(double chance) onResolveMatch;
+  final ValueChanged<bool> onNavigationLockChanged;
 
   @override
   State<_PhoneShell> createState() => _PhoneShellState();
@@ -3091,34 +3309,177 @@ class _PhoneShell extends StatefulWidget {
 
 class _PhoneShellState extends State<_PhoneShell> {
   final _navigatorKey = GlobalKey<NavigatorState>();
+  final _random = Random();
+  bool _navigationLocked = false;
+  late int _totalLp;
+  late int _historicalPeakTotalLp;
+  late int _consecutiveWins;
+  late int _consecutiveLosses;
+  late List<_LolMatchRecord> _matchHistory;
+
+  @override
+  void initState() {
+    super.initState();
+    _syncRankedState();
+  }
+
+  @override
+  void didUpdateWidget(covariant _PhoneShell oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    _syncRankedState();
+  }
+
+  void _syncRankedState() {
+    _totalLp = widget.totalLp;
+    _historicalPeakTotalLp = widget.historicalPeakTotalLp;
+    _consecutiveWins = widget.consecutiveWins;
+    _consecutiveLosses = widget.consecutiveLosses;
+    _matchHistory = List.of(widget.matchHistory);
+  }
+
+  void _setNavigationLocked(bool locked) {
+    if (_navigationLocked == locked) return;
+    setState(() => _navigationLocked = locked);
+    widget.onNavigationLockChanged(locked);
+  }
 
   void _returnToPhoneHome() {
+    if (_navigationLocked) return;
     _navigatorKey.currentState?.popUntil((route) => route.isFirst);
   }
 
   void _goBack() {
+    if (_navigationLocked) return;
     _navigatorKey.currentState?.maybePop();
+  }
+
+  void _openZhangmeng() {
+    _navigatorKey.currentState?.push(
+      MaterialPageRoute<void>(builder: (_) => _buildZhangmengHome()),
+    );
+  }
+
+  Widget _buildZhangmengHome() {
+    return _ZhangmengHomePage(
+      totalLp: _totalLp,
+      historicalPeakTotalLp: _historicalPeakTotalLp,
+      matchHistory: _matchHistory,
+      onStartRanked: _openMatchFound,
+      onOpenHistory: _openMatchHistory,
+    );
+  }
+
+  void _returnToZhangmengHome() {
+    final navigator = _navigatorKey.currentState;
+    if (navigator == null) return;
+    navigator.popUntil((route) => route.isFirst);
+    navigator.push(
+      MaterialPageRoute<void>(builder: (_) => _buildZhangmengHome()),
+    );
+  }
+
+  void _openMatchFound() {
+    final position = LolRankPosition.fromTotalLp(_totalLp);
+    final chance = LolRankRules.calculateWinChance(
+      skill: widget.skill,
+      position: position,
+      pressure: widget.pressure,
+      healthCondition: widget.healthCondition,
+      injured: widget.injured,
+      consecutiveWins: _consecutiveWins,
+      consecutiveLosses: _consecutiveLosses,
+      randomModifier: _random.nextDouble() * 10 - 5,
+    );
+    _setNavigationLocked(true);
+    _navigatorKey.currentState?.push(
+      MaterialPageRoute<void>(
+        builder: (_) => _ZhangmengMatchFoundPage(
+          audioController: widget.audioController,
+          winChanceLabel: LolRankRules.winChanceLabel(chance),
+          onAccept: () => _acceptMatch(chance),
+          onDecline: _declineMatch,
+        ),
+      ),
+    );
+  }
+
+  void _acceptMatch(double chance) {
+    final result = widget.onResolveMatch(chance);
+    setState(() {
+      _totalLp = max(0, _totalLp + result.lpDelta);
+      _historicalPeakTotalLp = max(_historicalPeakTotalLp, _totalLp);
+      _consecutiveWins = result.consecutiveWins;
+      _consecutiveLosses = result.consecutiveLosses;
+      _matchHistory.insert(
+        0,
+        _LolMatchRecord(won: result.won, lpDelta: result.lpDelta),
+      );
+      if (_matchHistory.length > 10) {
+        _matchHistory.removeRange(10, _matchHistory.length);
+      }
+    });
+    _setNavigationLocked(false);
+    _navigatorKey.currentState?.pushReplacement(
+      MaterialPageRoute<void>(
+        builder: (_) => _ZhangmengResultPage(
+          result: result,
+          onContinueRanked: _openMatchFoundFromResult,
+          onReturnHome: _returnToZhangmengHome,
+        ),
+      ),
+    );
+  }
+
+  void _openMatchFoundFromResult() {
+    _navigatorKey.currentState?.pop();
+    _openMatchFound();
+  }
+
+  void _declineMatch() {
+    _setNavigationLocked(false);
+    _navigatorKey.currentState?.pop();
+  }
+
+  void _openMatchHistory() {
+    _navigatorKey.currentState?.push(
+      MaterialPageRoute<void>(
+        builder: (_) => _ZhangmengHistoryPage(
+          characterAsset: widget.characterAsset,
+          matchHistory: _matchHistory,
+        ),
+      ),
+    );
   }
 
   @override
   Widget build(BuildContext context) {
-    return Column(
+    return Stack(
+      fit: StackFit.expand,
       children: [
-        Expanded(
-          child: Navigator(
-            key: _navigatorKey,
-            onGenerateRoute: (_) =>
-                MaterialPageRoute<void>(builder: (_) => const _PhoneHomePage()),
+        Navigator(
+          key: _navigatorKey,
+          onGenerateRoute: (_) => MaterialPageRoute<void>(
+            builder: (_) => _PhoneHomePage(onOpenZhangmeng: _openZhangmeng),
           ),
         ),
-        _PhoneNavigationBar(onHome: _returnToPhoneHome, onBack: _goBack),
+        Positioned(
+          left: 0,
+          right: 0,
+          bottom: 0,
+          child: _PhoneNavigationBar(
+            onHome: _returnToPhoneHome,
+            onBack: _goBack,
+          ),
+        ),
       ],
     );
   }
 }
 
 class _PhoneHomePage extends StatelessWidget {
-  const _PhoneHomePage();
+  const _PhoneHomePage({required this.onOpenZhangmeng});
+
+  final VoidCallback onOpenZhangmeng;
 
   @override
   Widget build(BuildContext context) {
@@ -3131,25 +3492,26 @@ class _PhoneHomePage extends StatelessWidget {
           fit: BoxFit.cover,
         ),
       ),
-      child: const Padding(
-        key: Key('phone-empty-app-area'),
-        padding: EdgeInsets.fromLTRB(22, 20, 22, 0),
+      child: Padding(
+        key: const Key('phone-empty-app-area'),
+        padding: const EdgeInsets.fromLTRB(22, 20, 22, 0),
         child: Align(
           alignment: Alignment.topLeft,
           child: Row(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              _PhoneAppIcon(
+              const _PhoneAppIcon(
                 key: Key('phone-pp-app'),
                 assetName: phonePpIconAsset,
                 label: 'PP',
               ),
-              SizedBox(width: 22),
+              const SizedBox(width: 22),
               _PhoneAppIcon(
-                key: Key('phone-zhangmeng-app'),
+                key: const Key('phone-zhangmeng-app'),
                 assetName: phoneZhangmengIconAsset,
                 label: '掌盟',
+                onTap: onOpenZhangmeng,
               ),
             ],
           ),
@@ -3164,40 +3526,590 @@ class _PhoneAppIcon extends StatelessWidget {
     super.key,
     required this.assetName,
     required this.label,
+    this.onTap,
   });
 
   final String assetName;
   final String label;
+  final VoidCallback? onTap;
 
   @override
   Widget build(BuildContext context) {
+    return Semantics(
+      button: onTap != null,
+      label: label,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(18),
+        child: SizedBox(
+          width: 76,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              ClipRRect(
+                borderRadius: BorderRadius.circular(18),
+                child: Image.asset(
+                  assetName,
+                  width: 72,
+                  height: 72,
+                  fit: BoxFit.cover,
+                ),
+              ),
+              const SizedBox(height: 5),
+              Text(
+                label,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 13,
+                  fontWeight: FontWeight.w700,
+                  shadows: [Shadow(color: Color(0xCC000000), blurRadius: 4)],
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _ZhangmengHomePage extends StatelessWidget {
+  const _ZhangmengHomePage({
+    required this.totalLp,
+    required this.historicalPeakTotalLp,
+    required this.matchHistory,
+    required this.onStartRanked,
+    required this.onOpenHistory,
+  });
+
+  final int totalLp;
+  final int historicalPeakTotalLp;
+  final List<_LolMatchRecord> matchHistory;
+  final VoidCallback onStartRanked;
+  final VoidCallback onOpenHistory;
+
+  @override
+  Widget build(BuildContext context) {
+    final current = LolRankPosition.fromTotalLp(totalLp);
+    final peak = LolRankPosition.fromTotalLp(historicalPeakTotalLp);
+    final wins = matchHistory.where((match) => match.won).length;
+    final losses = matchHistory.length - wins;
+    return _ZhangmengBackground(
+      key: const Key('zhangmeng-home-page'),
+      assetName: phoneZhangmengHomeBackgroundAsset,
+      child: SafeArea(
+        bottom: false,
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(22, 38, 22, 74),
+          child: Column(
+            children: [
+              const Text(
+                '掌盟',
+                style: TextStyle(
+                  color: Color(0xFF493A28),
+                  fontSize: 27,
+                  fontWeight: FontWeight.w900,
+                  letterSpacing: 2,
+                ),
+              ),
+              const SizedBox(height: 28),
+              _ZhangmengInfoCard(
+                child: Column(
+                  children: [
+                    const Text(
+                      '当前段位',
+                      style: TextStyle(color: Color(0xFF78664C), fontSize: 13),
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      current.displayLabel,
+                      key: const Key('zhangmeng-current-rank'),
+                      style: const TextStyle(
+                        color: Color(0xFF3D3225),
+                        fontSize: 24,
+                        fontWeight: FontWeight.w900,
+                      ),
+                    ),
+                    const Divider(height: 30),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        const Text('历史最高', style: TextStyle(fontSize: 14)),
+                        Text(
+                          peak.displayLabel,
+                          key: const Key('zhangmeng-historical-peak'),
+                          style: const TextStyle(fontWeight: FontWeight.w800),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 10),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        const Text('最近战绩', style: TextStyle(fontSize: 14)),
+                        Text(
+                          matchHistory.isEmpty ? '暂无记录' : '$wins 胜 $losses 负',
+                          key: const Key('zhangmeng-recent-summary'),
+                          style: const TextStyle(fontWeight: FontWeight.w800),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+              const Spacer(),
+              _ZhangmengImageButton(
+                key: const Key('zhangmeng-start-ranked'),
+                assetName: phoneZhangmengStartRankedButtonAsset,
+                semanticLabel: '开始排位',
+                onPressed: onStartRanked,
+              ),
+              const SizedBox(height: 10),
+              _ZhangmengImageButton(
+                key: const Key('zhangmeng-open-history'),
+                assetName: phoneZhangmengHistoryButtonAsset,
+                semanticLabel: '战绩记录',
+                onPressed: onOpenHistory,
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _ZhangmengMatchFoundPage extends StatefulWidget {
+  const _ZhangmengMatchFoundPage({
+    required this.audioController,
+    required this.winChanceLabel,
+    required this.onAccept,
+    required this.onDecline,
+  });
+
+  final GameAudioController audioController;
+  final String winChanceLabel;
+  final VoidCallback onAccept;
+  final VoidCallback onDecline;
+
+  @override
+  State<_ZhangmengMatchFoundPage> createState() =>
+      _ZhangmengMatchFoundPageState();
+}
+
+class _ZhangmengMatchFoundPageState extends State<_ZhangmengMatchFoundPage> {
+  bool _decisionMade = false;
+
+  @override
+  void initState() {
+    super.initState();
+    unawaited(widget.audioController.playRankedQueueFound());
+  }
+
+  Future<void> _accept() async {
+    if (_decisionMade) return;
+    _decisionMade = true;
+    await widget.audioController.playRankedAccept();
+    widget.onAccept();
+  }
+
+  Future<void> _decline() async {
+    if (_decisionMade) return;
+    _decisionMade = true;
+    await widget.audioController.playRankedDecline();
+    widget.onDecline();
+  }
+
+  @override
+  void dispose() {
+    if (!_decisionMade) {
+      unawaited(widget.audioController.stopRankedQueueFound());
+    }
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return PopScope(
+      canPop: false,
+      child: ColoredBox(
+        key: const Key('zhangmeng-match-found-page'),
+        color: const Color(0xFFE8E0D2),
+        child: SafeArea(
+          bottom: false,
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(20, 30, 20, 72),
+            child: Column(
+              children: [
+                const Spacer(),
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(28),
+                  child: Image.asset(
+                    phoneZhangmengMatchFoundAsset,
+                    width: 330,
+                    height: 330,
+                    fit: BoxFit.cover,
+                  ),
+                ),
+                const SizedBox(height: 20),
+                const Text(
+                  '对局已找到',
+                  style: TextStyle(
+                    color: Color(0xFF443727),
+                    fontSize: 28,
+                    fontWeight: FontWeight.w900,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  '本场胜算：${widget.winChanceLabel}',
+                  key: const Key('zhangmeng-win-chance'),
+                  style: const TextStyle(
+                    color: Color(0xFF725E40),
+                    fontSize: 16,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+                const Spacer(),
+                Row(
+                  children: [
+                    Expanded(
+                      child: _ZhangmengImageButton(
+                        key: const Key('zhangmeng-accept-match'),
+                        assetName: phoneZhangmengAcceptButtonAsset,
+                        semanticLabel: '接受',
+                        onPressed: _accept,
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: _ZhangmengImageButton(
+                        key: const Key('zhangmeng-decline-match'),
+                        assetName: phoneZhangmengRejectButtonAsset,
+                        semanticLabel: '拒绝',
+                        onPressed: _decline,
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _ZhangmengResultPage extends StatelessWidget {
+  const _ZhangmengResultPage({
+    required this.result,
+    required this.onContinueRanked,
+    required this.onReturnHome,
+  });
+
+  final _LolMatchResult result;
+  final VoidCallback onContinueRanked;
+  final VoidCallback onReturnHome;
+
+  @override
+  Widget build(BuildContext context) {
+    final streakLabel = result.won
+        ? '当前连胜：${result.consecutiveWins}'
+        : '当前连败：${result.consecutiveLosses}';
+    final deltaLabel = result.lpDelta >= 0
+        ? '+${result.lpDelta} LP'
+        : '${result.lpDelta} LP';
+    return _ZhangmengBackground(
+      key: const Key('zhangmeng-result-page'),
+      assetName: phoneZhangmengResultBackgroundAsset,
+      child: SafeArea(
+        bottom: false,
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(22, 34, 22, 72),
+          child: Column(
+            children: [
+              ClipRRect(
+                borderRadius: BorderRadius.circular(24),
+                child: Image.asset(
+                  result.won
+                      ? phoneZhangmengVictoryEmblemAsset
+                      : phoneZhangmengDefeatEmblemAsset,
+                  width: 190,
+                  height: 190,
+                  fit: BoxFit.cover,
+                ),
+              ),
+              Text(
+                result.won ? '胜利' : '失败',
+                key: const Key('zhangmeng-result-title'),
+                style: TextStyle(
+                  color: result.won
+                      ? const Color(0xFF9A6A1C)
+                      : const Color(0xFF57514A),
+                  fontSize: 35,
+                  fontWeight: FontWeight.w900,
+                ),
+              ),
+              const SizedBox(height: 16),
+              _ZhangmengInfoCard(
+                child: Column(
+                  children: [
+                    Text(
+                      deltaLabel,
+                      key: const Key('zhangmeng-lp-delta'),
+                      style: const TextStyle(
+                        fontSize: 25,
+                        fontWeight: FontWeight.w900,
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    Text(result.afterPosition.displayLabel),
+                    const SizedBox(height: 8),
+                    Text(
+                      result.rankChangeLabel,
+                      key: const Key('zhangmeng-rank-change'),
+                      style: const TextStyle(fontWeight: FontWeight.w800),
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      streakLabel,
+                      key: const Key('zhangmeng-streak'),
+                      style: const TextStyle(fontWeight: FontWeight.w800),
+                    ),
+                  ],
+                ),
+              ),
+              const Spacer(),
+              _ZhangmengImageButton(
+                key: const Key('zhangmeng-continue-ranked'),
+                assetName: phoneZhangmengContinueButtonAsset,
+                semanticLabel: '继续排位',
+                onPressed: onContinueRanked,
+              ),
+              const SizedBox(height: 10),
+              _ZhangmengImageButton(
+                key: const Key('zhangmeng-return-home'),
+                assetName: phoneZhangmengReturnHomeButtonAsset,
+                semanticLabel: '返回掌盟首页',
+                onPressed: onReturnHome,
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _ZhangmengHistoryPage extends StatelessWidget {
+  const _ZhangmengHistoryPage({
+    required this.characterAsset,
+    required this.matchHistory,
+  });
+
+  final String characterAsset;
+  final List<_LolMatchRecord> matchHistory;
+
+  @override
+  Widget build(BuildContext context) {
+    return _ZhangmengBackground(
+      key: const Key('zhangmeng-history-page'),
+      assetName: phoneZhangmengHistoryBackgroundAsset,
+      child: SafeArea(
+        bottom: false,
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(18, 30, 18, 66),
+          child: Column(
+            children: [
+              const Text(
+                '战绩记录',
+                style: TextStyle(
+                  color: Color(0xFF443727),
+                  fontSize: 27,
+                  fontWeight: FontWeight.w900,
+                ),
+              ),
+              const SizedBox(height: 18),
+              Expanded(
+                child: matchHistory.isEmpty
+                    ? const Center(
+                        child: Text(
+                          '暂无排位记录',
+                          key: Key('zhangmeng-history-empty'),
+                          style: TextStyle(
+                            color: Color(0xFF746751),
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                      )
+                    : ListView.separated(
+                        key: const Key('zhangmeng-history-list'),
+                        itemCount: min(10, matchHistory.length),
+                        separatorBuilder: (_, _) => const SizedBox(height: 8),
+                        itemBuilder: (context, index) {
+                          final match = matchHistory[index];
+                          return _ZhangmengHistoryRow(
+                            key: Key('zhangmeng-history-row-$index'),
+                            characterAsset: characterAsset,
+                            match: match,
+                          );
+                        },
+                      ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _ZhangmengHistoryRow extends StatelessWidget {
+  const _ZhangmengHistoryRow({
+    super.key,
+    required this.characterAsset,
+    required this.match,
+  });
+
+  final String characterAsset;
+  final _LolMatchRecord match;
+
+  @override
+  Widget build(BuildContext context) {
+    final deltaLabel = match.lpDelta >= 0
+        ? '+${match.lpDelta} LP'
+        : '${match.lpDelta} LP';
     return SizedBox(
-      width: 76,
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
+      height: 86,
+      child: Stack(
+        fit: StackFit.expand,
         children: [
           ClipRRect(
-            borderRadius: BorderRadius.circular(18),
+            borderRadius: BorderRadius.circular(16),
             child: Image.asset(
-              assetName,
-              width: 72,
-              height: 72,
+              match.won
+                  ? phoneZhangmengVictoryHistoryRowAsset
+                  : phoneZhangmengDefeatHistoryRowAsset,
               fit: BoxFit.cover,
             ),
           ),
-          const SizedBox(height: 5),
-          Text(
-            label,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: const TextStyle(
-              color: Colors.white,
-              fontSize: 13,
-              fontWeight: FontWeight.w700,
-              shadows: [Shadow(color: Color(0xCC000000), blurRadius: 4)],
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 11),
+            child: Row(
+              children: [
+                CircleAvatar(
+                  radius: 28,
+                  backgroundColor: const Color(0xFFF8F4EB),
+                  backgroundImage: AssetImage(characterAsset),
+                ),
+                const SizedBox(width: 16),
+                Text(
+                  match.won ? '胜利' : '失败',
+                  style: TextStyle(
+                    color: match.won
+                        ? const Color(0xFF8E641C)
+                        : const Color(0xFF4F4B46),
+                    fontSize: 21,
+                    fontWeight: FontWeight.w900,
+                  ),
+                ),
+                const Spacer(),
+                Text(
+                  deltaLabel,
+                  style: const TextStyle(fontWeight: FontWeight.w800),
+                ),
+              ],
             ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+class _ZhangmengBackground extends StatelessWidget {
+  const _ZhangmengBackground({
+    super.key,
+    required this.assetName,
+    required this.child,
+  });
+
+  final String assetName;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: const Color(0xFFE8E0D2),
+        image: DecorationImage(image: AssetImage(assetName), fit: BoxFit.cover),
+      ),
+      child: child,
+    );
+  }
+}
+
+class _ZhangmengInfoCard extends StatelessWidget {
+  const _ZhangmengInfoCard({required this.child});
+
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: const Color(0xEFFFFFFA),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: const Color(0xFFB99A5B), width: 1.4),
+        boxShadow: const [
+          BoxShadow(
+            color: Color(0x26000000),
+            blurRadius: 12,
+            offset: Offset(0, 5),
+          ),
+        ],
+      ),
+      child: child,
+    );
+  }
+}
+
+class _ZhangmengImageButton extends StatelessWidget {
+  const _ZhangmengImageButton({
+    super.key,
+    required this.assetName,
+    required this.semanticLabel,
+    required this.onPressed,
+  });
+
+  final String assetName;
+  final String semanticLabel;
+  final VoidCallback onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    return Semantics(
+      button: true,
+      label: semanticLabel,
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: onPressed,
+          borderRadius: BorderRadius.circular(18),
+          child: SizedBox(
+            height: 66,
+            width: double.infinity,
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(18),
+              child: Image.asset(assetName, fit: BoxFit.cover),
+            ),
+          ),
+        ),
       ),
     );
   }
@@ -3212,28 +4124,26 @@ class _PhoneNavigationBar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return ColoredBox(
-      color: const Color(0xCC111A26),
-      child: SafeArea(
-        top: false,
-        child: SizedBox(
-          height: 62,
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-            children: [
-              _PhoneNavigationButton(
-                key: const Key('phone-home-button'),
-                icon: Icons.circle_outlined,
-                label: '回到主頁',
-                onPressed: onHome,
-              ),
-              _PhoneNavigationButton(
-                key: const Key('phone-back-button'),
-                icon: Icons.arrow_back_rounded,
-                label: '返回',
-                onPressed: onBack,
-              ),
-            ],
-          ),
+      key: const Key('phone-system-navigation-overlay'),
+      color: const Color(0x70111820),
+      child: SizedBox(
+        height: 58,
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+          children: [
+            _PhoneNavigationButton(
+              key: const Key('phone-home-button'),
+              icon: Icons.circle_outlined,
+              label: '回到主页',
+              onPressed: onHome,
+            ),
+            _PhoneNavigationButton(
+              key: const Key('phone-back-button'),
+              icon: Icons.arrow_back_rounded,
+              label: '返回',
+              onPressed: onBack,
+            ),
+          ],
         ),
       ),
     );

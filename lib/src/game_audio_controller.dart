@@ -8,6 +8,9 @@ const _buttonEffectAsset = 'audio/button.mp3';
 const _pageTurnEffectAsset = 'audio/turn_page.mp3';
 const _punchEffectAsset = 'audio/punch.mp3';
 const _slapEffectAsset = 'audio/slap.mp3';
+const _rankedQueueEffectAsset = 'audio/phone/queuing.mp3';
+const _rankedAcceptEffectAsset = 'audio/phone/accept.mp3';
+const _rankedDeclineEffectAsset = 'audio/phone/decline.mp3';
 
 enum BgmTrack {
   cozyNanhe1('惬意南河1', 'audio/cozy_nanhe_1.mp3'),
@@ -52,6 +55,8 @@ class GameAudioController {
 
   AudioPlayer? _bgmPlayer;
   AudioPlayer? _voicePlayer;
+  AudioPlayer? _rankedQueuePlayer;
+  AudioPlayer? _rankedDecisionPlayer;
   AudioPool? _regularSfxPool;
   AudioPool? _pageTurnSfxPool;
   AudioPool? _punchSfxPool;
@@ -120,6 +125,8 @@ class GameAudioController {
 
   void setSoundEffectVolume(double value) {
     soundEffectVolume = value;
+    _rankedQueuePlayer?.setVolume(value).catchError((_) {});
+    _rankedDecisionPlayer?.setVolume(value).catchError((_) {});
   }
 
   void setVoiceVolume(double value) {
@@ -164,6 +171,50 @@ class GameAudioController {
       usePunch ? _punchSfxPool : _slapSfxPool,
       fallbackAsset: usePunch ? _punchEffectAsset : _slapEffectAsset,
     );
+  }
+
+  Future<void> playRankedQueueFound() async {
+    if (!_enabled || soundEffectVolume == 0) return;
+    try {
+      final player = _rankedQueuePlayer ??= AudioPlayer();
+      await player.stop();
+      await player.setAudioContext(_effectAudioContext);
+      await player.setReleaseMode(ReleaseMode.stop);
+      await player.play(
+        AssetSource(_rankedQueueEffectAsset),
+        volume: soundEffectVolume,
+      );
+      _ensureBgmContinues();
+    } catch (_) {}
+  }
+
+  Future<void> stopRankedQueueFound() async {
+    if (!_enabled) return;
+    try {
+      await _rankedQueuePlayer?.stop();
+    } catch (_) {}
+  }
+
+  Future<void> playRankedAccept() {
+    return _playRankedDecision(_rankedAcceptEffectAsset);
+  }
+
+  Future<void> playRankedDecline() {
+    return _playRankedDecision(_rankedDeclineEffectAsset);
+  }
+
+  Future<void> _playRankedDecision(String assetPath) async {
+    if (!_enabled) return;
+    try {
+      await _rankedQueuePlayer?.stop();
+      if (soundEffectVolume == 0) return;
+      final player = _rankedDecisionPlayer ??= AudioPlayer();
+      await player.stop();
+      await player.setAudioContext(_effectAudioContext);
+      await player.setReleaseMode(ReleaseMode.stop);
+      await player.play(AssetSource(assetPath), volume: soundEffectVolume);
+      _ensureBgmContinues();
+    } catch (_) {}
   }
 
   Future<AudioPool> _createEffectPool(String assetPath, int maxPlayers) {
@@ -219,6 +270,8 @@ class GameAudioController {
   void dispose() {
     _bgmPlayer?.dispose();
     _voicePlayer?.dispose();
+    _rankedQueuePlayer?.dispose();
+    _rankedDecisionPlayer?.dispose();
     _regularSfxPool?.dispose();
     _pageTurnSfxPool?.dispose();
     _punchSfxPool?.dispose();

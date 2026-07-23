@@ -825,9 +825,22 @@ void main() {
     expect(find.byKey(const Key('phone-zhangmeng-app')), findsOneWidget);
     expect(find.text('PP'), findsOneWidget);
     expect(find.text('掌盟'), findsOneWidget);
-    expect(find.text('回到主頁'), findsOneWidget);
+    expect(find.text('回到主页'), findsOneWidget);
+    expect(find.text('回到主頁'), findsNothing);
     expect(find.text('返回'), findsOneWidget);
     expect(find.byType(NavigationBar), findsOneWidget);
+
+    final phoneNavigationOverlay = tester.widget<ColoredBox>(
+      find.byKey(const Key('phone-system-navigation-overlay')),
+    );
+    expect(phoneNavigationOverlay.color, const Color(0x70111820));
+    expect(
+      find.ancestor(
+        of: find.byKey(const Key('phone-system-navigation-overlay')),
+        matching: find.byType(Stack),
+      ),
+      findsOneWidget,
+    );
 
     final phone = tester.widget<DecoratedBox>(
       find.byKey(const Key('phone-page')),
@@ -868,6 +881,104 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.byKey(const Key('phone-page')), findsNothing);
     expect(find.text('陪伴'), findsOneWidget);
+  });
+
+  testWidgets(
+    'zhangmeng ranked flow locks navigation, resolves matches, and records history',
+    (tester) async {
+      await _pumpLoadedApp(
+        tester,
+        debugInitialState: const MiniNanheDebugState(
+          skill: 120,
+          lolTotalLp: 1800,
+          lolHistoricalPeakTotalLp: 2100,
+        ),
+      );
+
+      await tester.tap(find.text('手机'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const Key('phone-zhangmeng-app')));
+      await tester.pumpAndSettle();
+
+      expect(find.byKey(const Key('zhangmeng-home-page')), findsOneWidget);
+      expect(find.text('铂金 II · 0 LP'), findsOneWidget);
+      expect(find.text('翡翠 III · 0 LP'), findsOneWidget);
+      expect(find.byKey(const Key('zhangmeng-recent-summary')), findsOneWidget);
+      expect(find.text('暂无记录'), findsOneWidget);
+      expect(find.textContaining('技巧'), findsNothing);
+
+      await tester.tap(find.byKey(const Key('zhangmeng-start-ranked')));
+      await tester.pumpAndSettle();
+      expect(
+        find.byKey(const Key('zhangmeng-match-found-page')),
+        findsOneWidget,
+      );
+      expect(find.text('对局已找到'), findsOneWidget);
+      expect(find.textContaining('本场胜算：'), findsOneWidget);
+
+      await tester.tap(find.text('陪伴'));
+      await tester.pumpAndSettle();
+      expect(
+        find.byKey(const Key('zhangmeng-match-found-page')),
+        findsOneWidget,
+      );
+      await tester.tap(find.byKey(const Key('phone-home-button')));
+      await tester.pumpAndSettle();
+      expect(
+        find.byKey(const Key('zhangmeng-match-found-page')),
+        findsOneWidget,
+      );
+      await tester.tap(find.byKey(const Key('phone-back-button')));
+      await tester.pumpAndSettle();
+      expect(
+        find.byKey(const Key('zhangmeng-match-found-page')),
+        findsOneWidget,
+      );
+
+      await tester.tap(find.byKey(const Key('zhangmeng-decline-match')));
+      await tester.pumpAndSettle();
+      expect(find.byKey(const Key('zhangmeng-home-page')), findsOneWidget);
+      expect(find.text('暂无记录'), findsOneWidget);
+
+      await tester.tap(find.byKey(const Key('zhangmeng-start-ranked')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const Key('zhangmeng-accept-match')));
+      await tester.pumpAndSettle();
+
+      expect(find.byKey(const Key('zhangmeng-result-page')), findsOneWidget);
+      expect(find.byKey(const Key('zhangmeng-result-title')), findsOneWidget);
+      expect(find.byKey(const Key('zhangmeng-lp-delta')), findsOneWidget);
+      expect(find.byKey(const Key('zhangmeng-rank-change')), findsOneWidget);
+      expect(find.byKey(const Key('zhangmeng-streak')), findsOneWidget);
+
+      await tester.tap(find.byKey(const Key('zhangmeng-return-home')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const Key('zhangmeng-open-history')));
+      await tester.pumpAndSettle();
+      expect(find.byKey(const Key('zhangmeng-history-page')), findsOneWidget);
+      expect(find.byKey(const Key('zhangmeng-history-row-0')), findsOneWidget);
+      expect(find.byKey(const Key('zhangmeng-history-row-1')), findsNothing);
+    },
+  );
+
+  testWidgets('zhangmeng art and ranked sound assets are bundled', (
+    tester,
+  ) async {
+    const assets = <String>[
+      phoneZhangmengHomeBackgroundAsset,
+      phoneZhangmengMatchFoundAsset,
+      phoneZhangmengResultBackgroundAsset,
+      phoneZhangmengHistoryBackgroundAsset,
+      phoneZhangmengAcceptButtonAsset,
+      phoneZhangmengRejectButtonAsset,
+      'assets/audio/phone/queuing.mp3',
+      'assets/audio/phone/accept.mp3',
+      'assets/audio/phone/decline.mp3',
+    ];
+    for (final asset in assets) {
+      final data = await rootBundle.load(asset);
+      expect(data.lengthInBytes, greaterThan(0), reason: asset);
+    }
   });
 
   testWidgets('battle placeholder opens from the bottom navigation', (

@@ -7,6 +7,35 @@ const phoneDemaciaGuardianWallpaperAsset =
     'assets/images/phone/demacia_guardian_wallpaper.png';
 const phonePpIconAsset = 'assets/images/phone/pp_icon.png';
 const phoneZhangmengIconAsset = 'assets/images/phone/zhangmeng_icon.png';
+const phoneZhangmengAssetDirectory = 'assets/images/phone/zhangmeng';
+const phoneZhangmengHomeBackgroundAsset =
+    '$phoneZhangmengAssetDirectory/home_background.png';
+const phoneZhangmengMatchFoundAsset =
+    '$phoneZhangmengAssetDirectory/match_found.png';
+const phoneZhangmengResultBackgroundAsset =
+    '$phoneZhangmengAssetDirectory/result_background.png';
+const phoneZhangmengHistoryBackgroundAsset =
+    '$phoneZhangmengAssetDirectory/history_background.png';
+const phoneZhangmengStartRankedButtonAsset =
+    '$phoneZhangmengAssetDirectory/button_start_ranked.png';
+const phoneZhangmengHistoryButtonAsset =
+    '$phoneZhangmengAssetDirectory/button_match_history.png';
+const phoneZhangmengAcceptButtonAsset =
+    '$phoneZhangmengAssetDirectory/button_accept.png';
+const phoneZhangmengRejectButtonAsset =
+    '$phoneZhangmengAssetDirectory/button_decline.png';
+const phoneZhangmengVictoryEmblemAsset =
+    '$phoneZhangmengAssetDirectory/emblem_victory.png';
+const phoneZhangmengDefeatEmblemAsset =
+    '$phoneZhangmengAssetDirectory/emblem_defeat.png';
+const phoneZhangmengContinueButtonAsset =
+    '$phoneZhangmengAssetDirectory/button_continue_ranked.png';
+const phoneZhangmengReturnHomeButtonAsset =
+    '$phoneZhangmengAssetDirectory/button_return_home.png';
+const phoneZhangmengVictoryHistoryRowAsset =
+    '$phoneZhangmengAssetDirectory/history_row_victory.png';
+const phoneZhangmengDefeatHistoryRowAsset =
+    '$phoneZhangmengAssetDirectory/history_row_defeat.png';
 
 const miniNanheCalmAsset = 'assets/images/nanhe_emotions/mini_nanhe_calm.png';
 const miniNanheHappyAsset = 'assets/images/nanhe_emotions/mini_nanhe_happy.png';
