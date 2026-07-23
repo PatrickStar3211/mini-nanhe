@@ -79,6 +79,8 @@ const homeBedtimeStoryPage1Asset =
     'assets/images/story/home/home_bedtime_page_1.webp';
 const homeBedtimeStoryPage2Asset =
     'assets/images/story/home/home_bedtime_page_2.webp';
+const homeSweetHomeAchievementAsset =
+    'assets/images/collection/achievement_home_sweet_home.png';
 const abuseStoryPage1Asset = 'assets/images/story/abuse/abuse_page_1.png';
 const roadsideOneAchievementAsset =
     'assets/images/collection/achievement_roadside_one.webp';
@@ -196,6 +198,7 @@ const deferredPreloadAssets = <String>[
   ...doghouseUnlockStoryAssets,
   ...luxuryUnlockStoryAssets,
   ...homeBedtimeStoryAssets,
+  homeSweetHomeAchievementAsset,
   ...homeBackgroundAssets,
   ...abuseStoryAssets,
 ];

@@ -572,6 +572,13 @@ void main() {
       ),
       findsNothing,
     );
+    final achievementImage = tester.widget<Image>(
+      find.descendant(of: achievementPreview, matching: find.byType(Image)),
+    );
+    expect(
+      (achievementImage.image as AssetImage).assetName,
+      homeSweetHomeAchievementAsset,
+    );
     await tester.tap(
       find.byKey(const Key('achievement-preview-close-home-sweet-home')),
     );

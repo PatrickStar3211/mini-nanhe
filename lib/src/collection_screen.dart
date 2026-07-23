@@ -1218,7 +1218,7 @@ const _achievementEntries = <_CollectionCardData>[
     unlocked: false,
     icon: Icons.home_rounded,
     accent: gold,
-    showFallbackIcon: false,
+    imageAsset: homeSweetHomeAchievementAsset,
   ),
 ];
 
