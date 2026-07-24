@@ -845,7 +845,7 @@ void main() {
     expect(find.text('20%'), findsOneWidget);
   });
 
-  testWidgets('phone opens an empty wallpaper desktop with system navigation', (
+  testWidgets('phone opens its app desktop with system navigation', (
     tester,
   ) async {
     await _pumpLoadedApp(tester);
@@ -858,6 +858,7 @@ void main() {
     expect(find.byKey(const Key('phone-home-button')), findsOneWidget);
     expect(find.byKey(const Key('phone-back-button')), findsOneWidget);
     expect(find.byKey(const Key('phone-pp-app')), findsOneWidget);
+    expect(find.byKey(const Key('phone-pp-unread')), findsOneWidget);
     expect(find.byKey(const Key('phone-zhangmeng-app')), findsOneWidget);
     expect(find.text('PP'), findsOneWidget);
     expect(find.text('掌盟'), findsOneWidget);
@@ -917,6 +918,76 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.byKey(const Key('phone-page')), findsNothing);
     expect(find.text('陪伴'), findsOneWidget);
+  });
+
+  testWidgets('PP shows unread messages and preserves the selected reply', (
+    tester,
+  ) async {
+    await _pumpLoadedApp(tester);
+
+    await tester.tap(find.text('手机'));
+    await tester.pumpAndSettle();
+    expect(
+      find.descendant(
+        of: find.byKey(const Key('phone-pp-unread')),
+        matching: find.text('4'),
+      ),
+      findsOneWidget,
+    );
+
+    await tester.tap(find.byKey(const Key('phone-pp-app')));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const Key('pp-home-page')), findsOneWidget);
+    expect(find.text('消息'), findsOneWidget);
+    expect(find.text('派大星博士教授先生'), findsOneWidget);
+    expect(
+      find.descendant(
+        of: find.byKey(const Key('pp-friend-unread')),
+        matching: find.text('4'),
+      ),
+      findsOneWidget,
+    );
+
+    await tester.tap(find.byKey(const Key('pp-friend-patrick')));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const Key('pp-chat-page')), findsOneWidget);
+    expect(find.byKey(const Key('pp-chat-list')), findsOneWidget);
+    expect(find.textContaining('欢迎使用PP'), findsOneWidget);
+    expect(find.textContaining('掌盟可以查看段位'), findsOneWidget);
+    expect(find.byKey(const Key('pp-input')), findsOneWidget);
+    expect(find.byKey(const Key('pp-reply-received')), findsOneWidget);
+    expect(find.byKey(const Key('pp-reply-understood')), findsOneWidget);
+
+    await tester.tap(find.byKey(const Key('pp-reply-received')));
+    await tester.pumpAndSettle();
+    expect(find.text('收到'), findsOneWidget);
+    expect(find.byKey(const Key('pp-reply-received')), findsNothing);
+    expect(find.byKey(const Key('pp-reply-understood')), findsNothing);
+
+    await tester.tap(find.byKey(const Key('phone-back-button')));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const Key('pp-home-page')), findsOneWidget);
+    expect(find.text('收到'), findsOneWidget);
+    expect(find.byKey(const Key('pp-friend-unread')), findsNothing);
+
+    await tester.tap(find.byKey(const Key('phone-back-button')));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const Key('phone-page')), findsOneWidget);
+    expect(find.byKey(const Key('phone-pp-unread')), findsNothing);
+
+    await tester.tap(find.text('设置'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('save-slot-0-save')));
+    await tester.pumpAndSettle();
+
+    final preferences = await SharedPreferences.getInstance();
+    final rawSave = preferences.getString('mini_nanhe_save_slot_0');
+    final save = jsonDecode(rawSave!) as Map<String, dynamic>;
+    final state = save['state'] as Map<String, dynamic>;
+    final messages = state['ppMessages'] as List<dynamic>;
+    expect(messages.length, 5);
+    expect((messages.last as Map<String, dynamic>)['text'], '收到');
+    expect(state['ppUnreadCount'], 0);
   });
 
   testWidgets(

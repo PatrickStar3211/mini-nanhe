@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:math';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -227,6 +228,49 @@ class _LolMatchRecord {
   Map<String, Object?> toJson() => {'won': won, 'lpDelta': lpDelta};
 }
 
+enum _PpMessageSender { patrick, nanhe }
+
+class _PpChatMessage {
+  const _PpChatMessage({required this.sender, required this.text});
+
+  factory _PpChatMessage.fromJson(Map<String, dynamic> json) {
+    final senderName = json['sender'];
+    return _PpChatMessage(
+      sender: _PpMessageSender.values.firstWhere(
+        (sender) => sender.name == senderName,
+        orElse: () => _PpMessageSender.patrick,
+      ),
+      text: json['text'] is String ? json['text'] as String : '',
+    );
+  }
+
+  final _PpMessageSender sender;
+  final String text;
+
+  bool get isNanhe => sender == _PpMessageSender.nanhe;
+
+  Map<String, Object?> toJson() => {'sender': sender.name, 'text': text};
+}
+
+const _initialPpMessages = <_PpChatMessage>[
+  _PpChatMessage(
+    sender: _PpMessageSender.patrick,
+    text: '嗨，小南河！欢迎使用PP，我是派大星博士教授先生。',
+  ),
+  _PpChatMessage(
+    sender: _PpMessageSender.patrick,
+    text: 'PP是通讯软件。朋友发来的消息、聊天和以后的接单信息，都会显示在这里。',
+  ),
+  _PpChatMessage(
+    sender: _PpMessageSender.patrick,
+    text: '掌盟可以查看段位、进行排位，也能回顾最近的战绩。',
+  ),
+  _PpChatMessage(
+    sender: _PpMessageSender.patrick,
+    text: '以后我还会通过PP告诉你更多功能，记得留意未读消息。',
+  ),
+];
+
 class _LolMatchResult {
   const _LolMatchResult({
     required this.won,
@@ -337,6 +381,8 @@ class _HomeScreenState extends State<HomeScreen> {
   int _lolConsecutiveWins = 0;
   int _lolConsecutiveLosses = 0;
   final List<_LolMatchRecord> _lolMatchHistory = [];
+  final List<_PpChatMessage> _ppMessages = List.of(_initialPpMessages);
+  int _ppUnreadCount = _initialPpMessages.length;
   int? _pendingLolRankedEnergyCost;
   bool _phoneNavigationLocked = false;
   double _musicVolume = 0.7;
@@ -627,6 +673,8 @@ class _HomeScreenState extends State<HomeScreen> {
       'lolMatchHistory': _lolMatchHistory
           .map((record) => record.toJson())
           .toList(),
+      'ppMessages': _ppMessages.map((message) => message.toJson()).toList(),
+      'ppUnreadCount': _ppUnreadCount,
       'musicVolume': _musicVolume,
       'soundEffectVolume': _soundEffectVolume,
       'voiceVolume': _voiceVolume,
@@ -753,6 +801,13 @@ class _HomeScreenState extends State<HomeScreen> {
     _lolMatchHistory
       ..clear()
       ..addAll(_jsonLolMatchHistory(state, 'lolMatchHistory'));
+    _ppMessages
+      ..clear()
+      ..addAll(_jsonPpMessages(state, 'ppMessages'));
+    _ppUnreadCount = max(
+      0,
+      _jsonInt(state, 'ppUnreadCount', _initialPpMessages.length),
+    );
     _musicVolume = _jsonDouble(state, 'musicVolume', 0.7).clamp(0, 1);
     _soundEffectVolume = _jsonDouble(
       state,
@@ -858,6 +913,23 @@ class _HomeScreenState extends State<HomeScreen> {
           ),
         )
         .take(10)
+        .toList();
+  }
+
+  List<_PpChatMessage> _jsonPpMessages(
+    Map<String, dynamic> source,
+    String key,
+  ) {
+    final value = source[key];
+    if (value is! List) return List.of(_initialPpMessages);
+    return value
+        .whereType<Map>()
+        .map(
+          (entry) => _PpChatMessage.fromJson(
+            entry.map((key, value) => MapEntry(key.toString(), value)),
+          ),
+        )
+        .where((message) => message.text.isNotEmpty)
         .toList();
   }
 
@@ -2967,6 +3039,10 @@ class _HomeScreenState extends State<HomeScreen> {
       _lolConsecutiveWins = 0;
       _lolConsecutiveLosses = 0;
       _lolMatchHistory.clear();
+      _ppMessages
+        ..clear()
+        ..addAll(_initialPpMessages);
+      _ppUnreadCount = _initialPpMessages.length;
       _phoneNavigationLocked = false;
       _showDebugTools = false;
       _cancelStatPopupTimers();
@@ -3056,6 +3132,15 @@ class _HomeScreenState extends State<HomeScreen> {
     setState(() => _selectedAppearance = appearance);
   }
 
+  void _updatePpConversation(List<_PpChatMessage> messages, int unreadCount) {
+    setState(() {
+      _ppMessages
+        ..clear()
+        ..addAll(messages);
+      _ppUnreadCount = max(0, unreadCount);
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
     final page = switch (_selectedDestination) {
@@ -3090,6 +3175,9 @@ class _HomeScreenState extends State<HomeScreen> {
         consecutiveWins: _lolConsecutiveWins,
         consecutiveLosses: _lolConsecutiveLosses,
         matchHistory: List.unmodifiable(_lolMatchHistory),
+        ppMessages: List.unmodifiable(_ppMessages),
+        ppUnreadCount: _ppUnreadCount,
+        onPpConversationChanged: _updatePpConversation,
         onPrepareRankedMatch: _prepareLolRankedMatch,
         onCancelPreparedRankedMatch: _cancelPreparedLolRankedMatch,
         onResolveMatch: _resolveLolRankedMatch,
@@ -3308,6 +3396,16 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 }
 
+class _PpConversationSnapshot {
+  const _PpConversationSnapshot({
+    required this.messages,
+    required this.unreadCount,
+  });
+
+  final List<_PpChatMessage> messages;
+  final int unreadCount;
+}
+
 class _PhoneShell extends StatefulWidget {
   const _PhoneShell({
     required this.audioController,
@@ -3320,6 +3418,9 @@ class _PhoneShell extends StatefulWidget {
     required this.consecutiveWins,
     required this.consecutiveLosses,
     required this.matchHistory,
+    required this.ppMessages,
+    required this.ppUnreadCount,
+    required this.onPpConversationChanged,
     required this.onPrepareRankedMatch,
     required this.onCancelPreparedRankedMatch,
     required this.onResolveMatch,
@@ -3336,6 +3437,9 @@ class _PhoneShell extends StatefulWidget {
   final int consecutiveWins;
   final int consecutiveLosses;
   final List<_LolMatchRecord> matchHistory;
+  final List<_PpChatMessage> ppMessages;
+  final int ppUnreadCount;
+  final void Function(List<_PpChatMessage>, int) onPpConversationChanged;
   final String? Function() onPrepareRankedMatch;
   final VoidCallback onCancelPreparedRankedMatch;
   final _LolMatchResult Function(double chance) onResolveMatch;
@@ -3354,17 +3458,34 @@ class _PhoneShellState extends State<_PhoneShell> {
   late int _consecutiveWins;
   late int _consecutiveLosses;
   late List<_LolMatchRecord> _matchHistory;
+  late final ValueNotifier<_PpConversationSnapshot> _ppConversation;
 
   @override
   void initState() {
     super.initState();
     _syncRankedState();
+    _ppConversation = ValueNotifier(
+      _PpConversationSnapshot(
+        messages: List.unmodifiable(widget.ppMessages),
+        unreadCount: widget.ppUnreadCount,
+      ),
+    );
   }
 
   @override
   void didUpdateWidget(covariant _PhoneShell oldWidget) {
     super.didUpdateWidget(oldWidget);
     _syncRankedState();
+    _ppConversation.value = _PpConversationSnapshot(
+      messages: List.unmodifiable(widget.ppMessages),
+      unreadCount: widget.ppUnreadCount,
+    );
+  }
+
+  @override
+  void dispose() {
+    _ppConversation.dispose();
+    super.dispose();
   }
 
   void _syncRankedState() {
@@ -3394,6 +3515,43 @@ class _PhoneShellState extends State<_PhoneShell> {
   void _openZhangmeng() {
     _navigatorKey.currentState?.push(
       MaterialPageRoute<void>(builder: (_) => _buildZhangmengHome()),
+    );
+  }
+
+  void _setPpConversation(List<_PpChatMessage> messages, int unreadCount) {
+    final snapshot = _PpConversationSnapshot(
+      messages: List.unmodifiable(messages),
+      unreadCount: max(0, unreadCount),
+    );
+    _ppConversation.value = snapshot;
+    widget.onPpConversationChanged(snapshot.messages, snapshot.unreadCount);
+  }
+
+  void _openPp() {
+    _navigatorKey.currentState?.push(
+      MaterialPageRoute<void>(
+        builder: (_) => _PpHomePage(
+          conversation: _ppConversation,
+          onOpenPatrick: _openPatrickChat,
+        ),
+      ),
+    );
+  }
+
+  void _openPatrickChat() {
+    final current = _ppConversation.value;
+    if (current.unreadCount > 0) {
+      _setPpConversation(current.messages, 0);
+    }
+    _navigatorKey.currentState?.push(
+      MaterialPageRoute<void>(
+        builder: (_) => _PpChatPage(
+          initialMessages: _ppConversation.value.messages,
+          onReply: (message) {
+            _setPpConversation(message, 0);
+          },
+        ),
+      ),
     );
   }
 
@@ -3511,7 +3669,11 @@ class _PhoneShellState extends State<_PhoneShell> {
         Navigator(
           key: _navigatorKey,
           onGenerateRoute: (_) => MaterialPageRoute<void>(
-            builder: (_) => _PhoneHomePage(onOpenZhangmeng: _openZhangmeng),
+            builder: (_) => _PhoneHomePage(
+              ppConversation: _ppConversation,
+              onOpenPp: _openPp,
+              onOpenZhangmeng: _openZhangmeng,
+            ),
           ),
         ),
         Positioned(
@@ -3529,8 +3691,14 @@ class _PhoneShellState extends State<_PhoneShell> {
 }
 
 class _PhoneHomePage extends StatelessWidget {
-  const _PhoneHomePage({required this.onOpenZhangmeng});
+  const _PhoneHomePage({
+    required this.ppConversation,
+    required this.onOpenPp,
+    required this.onOpenZhangmeng,
+  });
 
+  final ValueListenable<_PpConversationSnapshot> ppConversation;
+  final VoidCallback onOpenPp;
   final VoidCallback onOpenZhangmeng;
 
   @override
@@ -3553,10 +3721,15 @@ class _PhoneHomePage extends StatelessWidget {
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const _PhoneAppIcon(
-                key: Key('phone-pp-app'),
-                assetName: phonePpIconAsset,
-                label: 'PP',
+              ValueListenableBuilder<_PpConversationSnapshot>(
+                valueListenable: ppConversation,
+                builder: (context, conversation, _) => _PhoneAppIcon(
+                  key: const Key('phone-pp-app'),
+                  assetName: phonePpIconAsset,
+                  label: 'PP',
+                  unreadCount: conversation.unreadCount,
+                  onTap: onOpenPp,
+                ),
               ),
               const SizedBox(width: 22),
               _PhoneAppIcon(
@@ -3579,11 +3752,13 @@ class _PhoneAppIcon extends StatelessWidget {
     required this.assetName,
     required this.label,
     this.onTap,
+    this.unreadCount = 0,
   });
 
   final String assetName;
   final String label;
   final VoidCallback? onTap;
+  final int unreadCount;
 
   @override
   Widget build(BuildContext context) {
@@ -3598,14 +3773,26 @@ class _PhoneAppIcon extends StatelessWidget {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              ClipRRect(
-                borderRadius: BorderRadius.circular(18),
-                child: Image.asset(
-                  assetName,
-                  width: 72,
-                  height: 72,
-                  fit: BoxFit.cover,
-                ),
+              Stack(
+                clipBehavior: Clip.none,
+                children: [
+                  ClipRRect(
+                    borderRadius: BorderRadius.circular(18),
+                    child: Image.asset(
+                      assetName,
+                      width: 72,
+                      height: 72,
+                      fit: BoxFit.cover,
+                    ),
+                  ),
+                  if (unreadCount > 0)
+                    Positioned(
+                      key: const Key('phone-pp-unread'),
+                      top: -6,
+                      right: -7,
+                      child: _UnreadBadge(count: unreadCount),
+                    ),
+                ],
               ),
               const SizedBox(height: 5),
               Text(
@@ -3622,6 +3809,410 @@ class _PhoneAppIcon extends StatelessWidget {
             ],
           ),
         ),
+      ),
+    );
+  }
+}
+
+class _UnreadBadge extends StatelessWidget {
+  const _UnreadBadge({super.key, required this.count});
+
+  final int count;
+
+  @override
+  Widget build(BuildContext context) {
+    final label = count > 99 ? '99+' : '$count';
+    return Container(
+      constraints: const BoxConstraints(minWidth: 22, minHeight: 22),
+      padding: const EdgeInsets.symmetric(horizontal: 6),
+      alignment: Alignment.center,
+      decoration: BoxDecoration(
+        color: const Color(0xFFFF3B30),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: Colors.white, width: 1.5),
+      ),
+      child: Text(
+        label,
+        style: const TextStyle(
+          color: Colors.white,
+          fontSize: 11,
+          fontWeight: FontWeight.w800,
+          height: 1,
+        ),
+      ),
+    );
+  }
+}
+
+class _PpHomePage extends StatelessWidget {
+  const _PpHomePage({required this.conversation, required this.onOpenPatrick});
+
+  final ValueListenable<_PpConversationSnapshot> conversation;
+  final VoidCallback onOpenPatrick;
+
+  @override
+  Widget build(BuildContext context) {
+    return ColoredBox(
+      key: const Key('pp-home-page'),
+      color: const Color(0xFFF4F5F7),
+      child: SafeArea(
+        bottom: false,
+        child: Column(
+          children: [
+            Container(
+              height: 58,
+              padding: const EdgeInsets.symmetric(horizontal: 18),
+              alignment: Alignment.centerLeft,
+              decoration: const BoxDecoration(
+                color: Colors.white,
+                border: Border(bottom: BorderSide(color: Color(0xFFE8E9EB))),
+              ),
+              child: const Text(
+                '消息',
+                style: TextStyle(
+                  color: Color(0xFF17191C),
+                  fontSize: 22,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            ),
+            ValueListenableBuilder<_PpConversationSnapshot>(
+              valueListenable: conversation,
+              builder: (context, snapshot, _) {
+                final preview = snapshot.messages.isEmpty
+                    ? '暂无消息'
+                    : snapshot.messages.last.text;
+                return Material(
+                  color: Colors.white,
+                  child: InkWell(
+                    key: const Key('pp-friend-patrick'),
+                    onTap: onOpenPatrick,
+                    child: SizedBox(
+                      height: 82,
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 16),
+                        child: Row(
+                          children: [
+                            const _PpPatrickAvatar(radius: 27),
+                            const SizedBox(width: 13),
+                            Expanded(
+                              child: Column(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  const Text(
+                                    '派大星博士教授先生',
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: TextStyle(
+                                      color: Color(0xFF17191C),
+                                      fontSize: 16,
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 6),
+                                  Text(
+                                    preview,
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: const TextStyle(
+                                      color: Color(0xFF9A9DA3),
+                                      fontSize: 14,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            const SizedBox(width: 10),
+                            Column(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              crossAxisAlignment: CrossAxisAlignment.end,
+                              children: [
+                                const Text(
+                                  '刚刚',
+                                  style: TextStyle(
+                                    color: Color(0xFFB1B3B7),
+                                    fontSize: 12,
+                                  ),
+                                ),
+                                const SizedBox(height: 7),
+                                if (snapshot.unreadCount > 0)
+                                  _UnreadBadge(
+                                    key: const Key('pp-friend-unread'),
+                                    count: snapshot.unreadCount,
+                                  )
+                                else
+                                  const SizedBox(height: 22),
+                              ],
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+                );
+              },
+            ),
+            const Divider(height: 1, indent: 82, color: Color(0xFFE8E9EB)),
+            const Spacer(),
+            const SizedBox(height: 76),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _PpPatrickAvatar extends StatelessWidget {
+  const _PpPatrickAvatar({required this.radius});
+
+  final double radius;
+
+  @override
+  Widget build(BuildContext context) {
+    return CircleAvatar(
+      radius: radius,
+      backgroundColor: const Color(0xFFF1F2F4),
+      backgroundImage: const AssetImage(phonePpPatrickAvatarAsset),
+    );
+  }
+}
+
+class _PpChatPage extends StatefulWidget {
+  const _PpChatPage({required this.initialMessages, required this.onReply});
+
+  final List<_PpChatMessage> initialMessages;
+  final ValueChanged<List<_PpChatMessage>> onReply;
+
+  @override
+  State<_PpChatPage> createState() => _PpChatPageState();
+}
+
+class _PpChatPageState extends State<_PpChatPage> {
+  final _scrollController = ScrollController();
+  late final List<_PpChatMessage> _messages;
+
+  bool get _hasReplied => _messages.any((message) => message.isNanhe);
+
+  @override
+  void initState() {
+    super.initState();
+    _messages = List.of(widget.initialMessages);
+    _scrollToBottom();
+  }
+
+  @override
+  void dispose() {
+    _scrollController.dispose();
+    super.dispose();
+  }
+
+  void _scrollToBottom() {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted || !_scrollController.hasClients) return;
+      _scrollController.jumpTo(_scrollController.position.maxScrollExtent);
+    });
+  }
+
+  void _reply(String text) {
+    if (_hasReplied) return;
+    setState(() {
+      _messages.add(_PpChatMessage(sender: _PpMessageSender.nanhe, text: text));
+    });
+    widget.onReply(List.unmodifiable(_messages));
+    _scrollToBottom();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return ColoredBox(
+      key: const Key('pp-chat-page'),
+      color: const Color(0xFFF3F4F6),
+      child: SafeArea(
+        bottom: false,
+        child: Padding(
+          padding: const EdgeInsets.only(bottom: 76),
+          child: Column(
+            children: [
+              Container(
+                height: 58,
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                alignment: Alignment.centerLeft,
+                decoration: const BoxDecoration(
+                  color: Colors.white,
+                  border: Border(bottom: BorderSide(color: Color(0xFFE4E6E9))),
+                ),
+                child: const Row(
+                  children: [
+                    Flexible(
+                      child: Text(
+                        '派大星博士教授先生',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          color: Color(0xFF17191C),
+                          fontSize: 17,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                    ),
+                    SizedBox(width: 8),
+                    DecoratedBox(
+                      decoration: BoxDecoration(
+                        color: Color(0xFF20C77A),
+                        shape: BoxShape.circle,
+                      ),
+                      child: SizedBox(width: 9, height: 9),
+                    ),
+                  ],
+                ),
+              ),
+              Expanded(
+                child: ListView.builder(
+                  key: const Key('pp-chat-list'),
+                  controller: _scrollController,
+                  padding: const EdgeInsets.fromLTRB(14, 18, 14, 14),
+                  itemCount: _messages.length,
+                  itemBuilder: (context, index) =>
+                      _PpMessageBubble(message: _messages[index]),
+                ),
+              ),
+              if (!_hasReplied)
+                Container(
+                  padding: const EdgeInsets.fromLTRB(14, 10, 14, 10),
+                  decoration: const BoxDecoration(
+                    color: Color(0xFFF8F9FA),
+                    border: Border(top: BorderSide(color: Color(0xFFE3E5E8))),
+                  ),
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: OutlinedButton(
+                          key: const Key('pp-reply-received'),
+                          onPressed: () => _reply('收到'),
+                          style: OutlinedButton.styleFrom(
+                            foregroundColor: const Color(0xFF1289F6),
+                            side: const BorderSide(color: Color(0xFF65B6FF)),
+                            shape: const StadiumBorder(),
+                          ),
+                          child: const Text('收到'),
+                        ),
+                      ),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: OutlinedButton(
+                          key: const Key('pp-reply-understood'),
+                          onPressed: () => _reply('明白'),
+                          style: OutlinedButton.styleFrom(
+                            foregroundColor: const Color(0xFF1289F6),
+                            side: const BorderSide(color: Color(0xFF65B6FF)),
+                            shape: const StadiumBorder(),
+                          ),
+                          child: const Text('明白'),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              Container(
+                height: 52,
+                padding: const EdgeInsets.fromLTRB(12, 7, 10, 7),
+                decoration: const BoxDecoration(
+                  color: Colors.white,
+                  border: Border(top: BorderSide(color: Color(0xFFE2E4E7))),
+                ),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: TextField(
+                        key: const Key('pp-input'),
+                        enabled: false,
+                        maxLines: 1,
+                        decoration: InputDecoration(
+                          isDense: true,
+                          hintText: '暂不支持输入文字',
+                          hintStyle: const TextStyle(
+                            color: Color(0xFFAAADB2),
+                            fontSize: 14,
+                          ),
+                          filled: true,
+                          fillColor: const Color(0xFFF2F3F5),
+                          contentPadding: const EdgeInsets.symmetric(
+                            horizontal: 13,
+                            vertical: 10,
+                          ),
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(18),
+                            borderSide: BorderSide.none,
+                          ),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    const Icon(
+                      Icons.sentiment_satisfied_alt_rounded,
+                      color: Color(0xFF777B82),
+                      size: 25,
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _PpMessageBubble extends StatelessWidget {
+  const _PpMessageBubble({required this.message});
+
+  final _PpChatMessage message;
+
+  @override
+  Widget build(BuildContext context) {
+    final isNanhe = message.isNanhe;
+    final bubble = Container(
+      constraints: BoxConstraints(
+        maxWidth: MediaQuery.sizeOf(context).width * 0.67,
+      ),
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+      decoration: BoxDecoration(
+        color: isNanhe ? const Color(0xFFBDE5FF) : Colors.white,
+        borderRadius: BorderRadius.circular(13),
+      ),
+      child: Text(
+        message.text,
+        style: const TextStyle(
+          color: Color(0xFF202226),
+          fontSize: 15,
+          height: 1.42,
+        ),
+      ),
+    );
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 13),
+      child: Row(
+        mainAxisAlignment: isNanhe
+            ? MainAxisAlignment.end
+            : MainAxisAlignment.start,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          if (!isNanhe) ...[
+            const _PpPatrickAvatar(radius: 19),
+            const SizedBox(width: 9),
+          ],
+          bubble,
+          if (isNanhe) ...[
+            const SizedBox(width: 9),
+            const CircleAvatar(
+              radius: 19,
+              backgroundColor: Colors.white,
+              backgroundImage: AssetImage(miniNanheOriginalAsset),
+            ),
+          ],
+        ],
       ),
     );
   }
