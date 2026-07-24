@@ -8,6 +8,7 @@ const phoneDemaciaGuardianWallpaperAsset =
 const phonePpIconAsset = 'assets/images/phone/pp_icon.png';
 const phonePpPatrickAvatarAsset =
     'assets/images/phone/pp/patrick_doctor_avatar.png';
+const phonePpKongAvatarAsset = 'assets/images/phone/pp/kong_avatar.png';
 const phoneZhangmengIconAsset = 'assets/images/phone/zhangmeng_icon.png';
 const phoneZhangmengV2AssetDirectory = 'assets/images/phone/zhangmeng_v2';
 const phoneZhangmengBackgroundAsset =
@@ -199,6 +200,7 @@ const deferredPreloadAssets = <String>[
   miniNanheOriginalAsset,
   miniNanheTransparentAsset,
   phonePpPatrickAvatarAsset,
+  phonePpKongAvatarAsset,
   miniNanheAffectionateAsset,
   miniNanheCuriousAsset,
   miniNanheSleepyAsset,

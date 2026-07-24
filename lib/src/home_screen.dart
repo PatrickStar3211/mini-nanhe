@@ -170,6 +170,23 @@ class MiniNanheDebugState {
   final int? lolConsecutiveLosses;
 }
 
+enum _DebugAttribute {
+  affectionLevel,
+  trustLevel,
+  energy,
+  money,
+  pressure,
+  cleanliness,
+  health,
+  injury,
+  strength,
+  intelligence,
+  charm,
+  art,
+  skill,
+  endurance,
+}
+
 class _SaveSlotSummary {
   const _SaveSlotSummary({
     required this.slotIndex,
@@ -228,7 +245,20 @@ class _LolMatchRecord {
   Map<String, Object?> toJson() => {'won': won, 'lpDelta': lpDelta};
 }
 
-enum _PpMessageSender { patrick, nanhe }
+enum _PpMessageSender { patrick, kong, nanhe, system }
+
+enum _KongConversationStage {
+  invitation,
+  orderPending,
+  orderProcessing,
+  praiseChoice,
+  nicknameQuestion,
+  nameProposal,
+  busyFarewell,
+  finished,
+}
+
+enum _PpOrderStatus { pending, processing, completed, failed, refused }
 
 class _PpChatMessage {
   const _PpChatMessage({required this.sender, required this.text});
@@ -271,6 +301,10 @@ const _initialPpMessages = <_PpChatMessage>[
   ),
 ];
 
+const _initialKongPpMessages = <_PpChatMessage>[
+  _PpChatMessage(sender: _PpMessageSender.kong, text: '朋友介绍的，我们灵活车缺个中单，来不来'),
+];
+
 class _PpContact {
   const _PpContact({
     required this.name,
@@ -287,6 +321,12 @@ const _patrickPpContact = _PpContact(
   name: '派大星博士教授先生',
   signature: '请你叫我派大星博士教授加先生',
   avatarAsset: phonePpPatrickAvatarAsset,
+);
+
+const _kongPpContact = _PpContact(
+  name: '孔哥',
+  signature: '山东变奏王',
+  avatarAsset: phonePpKongAvatarAsset,
 );
 
 class _LolMatchResult {
@@ -401,6 +441,10 @@ class _HomeScreenState extends State<HomeScreen> {
   final List<_LolMatchRecord> _lolMatchHistory = [];
   final List<_PpChatMessage> _ppMessages = List.of(_initialPpMessages);
   int _ppUnreadCount = _initialPpMessages.length;
+  final List<_PpChatMessage> _kongPpMessages = List.of(_initialKongPpMessages);
+  int _kongPpUnreadCount = _initialKongPpMessages.length;
+  _KongConversationStage _kongConversationStage =
+      _KongConversationStage.invitation;
   int? _pendingLolRankedEnergyCost;
   bool _phoneNavigationLocked = false;
   double _musicVolume = 0.7;
@@ -693,6 +737,11 @@ class _HomeScreenState extends State<HomeScreen> {
           .toList(),
       'ppMessages': _ppMessages.map((message) => message.toJson()).toList(),
       'ppUnreadCount': _ppUnreadCount,
+      'kongPpMessages': _kongPpMessages
+          .map((message) => message.toJson())
+          .toList(),
+      'kongPpUnreadCount': _kongPpUnreadCount,
+      'kongConversationStage': _kongConversationStage.name,
       'musicVolume': _musicVolume,
       'soundEffectVolume': _soundEffectVolume,
       'voiceVolume': _voiceVolume,
@@ -826,6 +875,31 @@ class _HomeScreenState extends State<HomeScreen> {
       0,
       _jsonInt(state, 'ppUnreadCount', _initialPpMessages.length),
     );
+    _kongPpMessages
+      ..clear()
+      ..addAll(_jsonPpMessages(state, 'kongPpMessages'));
+    if (!state.containsKey('kongPpMessages')) {
+      _kongPpMessages
+        ..clear()
+        ..addAll(_initialKongPpMessages);
+    }
+    _kongPpUnreadCount = max(
+      0,
+      _jsonInt(state, 'kongPpUnreadCount', _initialKongPpMessages.length),
+    );
+    _kongConversationStage = _KongConversationStage.values.firstWhere(
+      (stage) =>
+          stage.name ==
+          _jsonString(
+            state,
+            'kongConversationStage',
+            _KongConversationStage.invitation.name,
+          ),
+      orElse: () => _KongConversationStage.invitation,
+    );
+    if (_kongConversationStage == _KongConversationStage.orderProcessing) {
+      _kongConversationStage = _KongConversationStage.orderPending;
+    }
     _musicVolume = _jsonDouble(state, 'musicVolume', 0.7).clamp(0, 1);
     _soundEffectVolume = _jsonDouble(
       state,
@@ -2858,19 +2932,68 @@ class _HomeScreenState extends State<HomeScreen> {
     });
   }
 
-  void _setDebugAffectionLevel(int value) {
+  void _setDebugAttribute(_DebugAttribute attribute, int value) {
     setState(() {
-      _affectionLevel = _clampStat(value);
-      _affectionProgress = _affectionProgress.clamp(0, 99);
+      switch (attribute) {
+        case _DebugAttribute.affectionLevel:
+          _affectionLevel = _clampStat(value);
+          _affectionProgress = _affectionProgress.clamp(0, 99);
+          break;
+        case _DebugAttribute.trustLevel:
+          _trustLevel = _clampStat(value);
+          _trustProgress = _trustProgress.clamp(0, 99);
+          break;
+        case _DebugAttribute.energy:
+          _energy = value.clamp(0, _maxEnergy);
+          break;
+        case _DebugAttribute.money:
+          _money = max(0, value);
+          break;
+        case _DebugAttribute.pressure:
+          _pressure = _clampPercent(value);
+          break;
+        case _DebugAttribute.cleanliness:
+          _cleanliness = _clampPercent(value);
+          break;
+        case _DebugAttribute.health:
+          _healthValue = _clampPercent(value);
+          if (_healthValue > 0) {
+            _deathPending = false;
+            _deathEndingReached = false;
+          }
+          _applyHealthDeathIfNeeded();
+          break;
+        case _DebugAttribute.injury:
+          _injury = _clampPercent(value);
+          break;
+        case _DebugAttribute.strength:
+          _strength = _clampStat(value);
+          break;
+        case _DebugAttribute.intelligence:
+          _intelligence = _clampStat(value);
+          break;
+        case _DebugAttribute.charm:
+          _charm = _clampStat(value);
+          break;
+        case _DebugAttribute.art:
+          _art = _clampStat(value);
+          break;
+        case _DebugAttribute.skill:
+          _skill = _clampStat(value);
+          break;
+        case _DebugAttribute.endurance:
+          _endurance = _clampStat(value);
+          _clampEnergyToMax();
+          break;
+      }
       _queueProgressionUnlocks();
     });
   }
 
-  void _setDebugTrustLevel(int value) {
+  void _adjustDebugLp(int delta) {
     setState(() {
-      _trustLevel = _clampStat(value);
-      _trustProgress = _trustProgress.clamp(0, 99);
-      _queueProgressionUnlocks();
+      _lolTotalLp = max(0, _lolTotalLp + delta);
+      _lolHistoricalPeakTotalLp = max(_lolHistoricalPeakTotalLp, _lolTotalLp);
     });
   }
 
@@ -3071,6 +3194,11 @@ class _HomeScreenState extends State<HomeScreen> {
         ..clear()
         ..addAll(_initialPpMessages);
       _ppUnreadCount = _initialPpMessages.length;
+      _kongPpMessages
+        ..clear()
+        ..addAll(_initialKongPpMessages);
+      _kongPpUnreadCount = _initialKongPpMessages.length;
+      _kongConversationStage = _KongConversationStage.invitation;
       _phoneNavigationLocked = false;
       _showDebugTools = false;
       _cancelStatPopupTimers();
@@ -3169,6 +3297,41 @@ class _HomeScreenState extends State<HomeScreen> {
     });
   }
 
+  void _updateKongPpConversation(
+    List<_PpChatMessage> messages,
+    int unreadCount,
+    _KongConversationStage stage,
+  ) {
+    setState(() {
+      _kongPpMessages
+        ..clear()
+        ..addAll(messages);
+      _kongPpUnreadCount = max(0, unreadCount);
+      _kongConversationStage = stage;
+    });
+  }
+
+  void _completePpOrder({required int durationMinutes, required int reward}) {
+    setState(() {
+      final previousMoney = _money;
+      _money = max(0, _money + reward);
+      _advanceMinutes(durationMinutes);
+      _applyTimedEvents();
+      _queueProgressionUnlocks();
+      _queueStatPopups(
+        _buildStatPopups(
+          moneyDelta: _money - previousMoney,
+          strengthDelta: 0,
+          intelligenceDelta: 0,
+          charmDelta: 0,
+          artDelta: 0,
+          skillDelta: 0,
+          enduranceDelta: 0,
+        ),
+      );
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
     final page = switch (_selectedDestination) {
@@ -3206,6 +3369,12 @@ class _HomeScreenState extends State<HomeScreen> {
         ppMessages: List.unmodifiable(_ppMessages),
         ppUnreadCount: _ppUnreadCount,
         onPpConversationChanged: _updatePpConversation,
+        kongPpMessages: List.unmodifiable(_kongPpMessages),
+        kongPpUnreadCount: _kongPpUnreadCount,
+        kongConversationStage: _kongConversationStage,
+        minuteOfDay: _minuteOfDay,
+        onKongPpConversationChanged: _updateKongPpConversation,
+        onPpOrderCompleted: _completePpOrder,
         onPrepareRankedMatch: _prepareLolRankedMatch,
         onCancelPreparedRankedMatch: _cancelPreparedLolRankedMatch,
         onResolveMatch: _resolveLolRankedMatch,
@@ -3242,8 +3411,23 @@ class _HomeScreenState extends State<HomeScreen> {
         saveSlots: _saveSlots,
         totalDaysTogether: _totalDaysTogether,
         minuteOfDay: _minuteOfDay,
-        affectionLevel: _affectionLevel,
-        trustLevel: _trustLevel,
+        debugAttributes: {
+          _DebugAttribute.affectionLevel: _affectionLevel,
+          _DebugAttribute.trustLevel: _trustLevel,
+          _DebugAttribute.energy: _energy,
+          _DebugAttribute.money: _money,
+          _DebugAttribute.pressure: _pressure,
+          _DebugAttribute.cleanliness: _cleanliness,
+          _DebugAttribute.health: _healthValue,
+          _DebugAttribute.injury: _injury,
+          _DebugAttribute.strength: _strength,
+          _DebugAttribute.intelligence: _intelligence,
+          _DebugAttribute.charm: _charm,
+          _DebugAttribute.art: _art,
+          _DebugAttribute.skill: _skill,
+          _DebugAttribute.endurance: _endurance,
+        },
+        lolTotalLp: _lolTotalLp,
         onMusicChanged: _setMusicVolume,
         onSoundEffectChanged: _setSoundEffectVolume,
         onVoiceChanged: _setVoiceVolume,
@@ -3258,8 +3442,8 @@ class _HomeScreenState extends State<HomeScreen> {
         onRestartGame: _confirmStartNewGame,
         onVersionLongPress: () => setState(() => _showDebugTools = true),
         onDebugTimelineChanged: _setDebugTimeline,
-        onDebugAffectionLevelChanged: _setDebugAffectionLevel,
-        onDebugTrustLevelChanged: _setDebugTrustLevel,
+        onDebugAttributeChanged: _setDebugAttribute,
+        onDebugLpChanged: _adjustDebugLp,
         onDebugEvolutionReady: _setDebugEvolutionReady,
       ),
       _ => _CompanionPage(
@@ -3449,6 +3633,12 @@ class _PhoneShell extends StatefulWidget {
     required this.ppMessages,
     required this.ppUnreadCount,
     required this.onPpConversationChanged,
+    required this.kongPpMessages,
+    required this.kongPpUnreadCount,
+    required this.kongConversationStage,
+    required this.minuteOfDay,
+    required this.onKongPpConversationChanged,
+    required this.onPpOrderCompleted,
     required this.onPrepareRankedMatch,
     required this.onCancelPreparedRankedMatch,
     required this.onResolveMatch,
@@ -3468,6 +3658,14 @@ class _PhoneShell extends StatefulWidget {
   final List<_PpChatMessage> ppMessages;
   final int ppUnreadCount;
   final void Function(List<_PpChatMessage>, int) onPpConversationChanged;
+  final List<_PpChatMessage> kongPpMessages;
+  final int kongPpUnreadCount;
+  final _KongConversationStage kongConversationStage;
+  final int minuteOfDay;
+  final void Function(List<_PpChatMessage>, int, _KongConversationStage)
+  onKongPpConversationChanged;
+  final void Function({required int durationMinutes, required int reward})
+  onPpOrderCompleted;
   final String? Function() onPrepareRankedMatch;
   final VoidCallback onCancelPreparedRankedMatch;
   final _LolMatchResult Function(double chance) onResolveMatch;
@@ -3487,6 +3685,8 @@ class _PhoneShellState extends State<_PhoneShell> {
   late int _consecutiveLosses;
   late List<_LolMatchRecord> _matchHistory;
   late final ValueNotifier<_PpConversationSnapshot> _ppConversation;
+  late final ValueNotifier<_PpConversationSnapshot> _kongPpConversation;
+  late _KongConversationStage _kongConversationStage;
 
   @override
   void initState() {
@@ -3498,6 +3698,13 @@ class _PhoneShellState extends State<_PhoneShell> {
         unreadCount: widget.ppUnreadCount,
       ),
     );
+    _kongPpConversation = ValueNotifier(
+      _PpConversationSnapshot(
+        messages: List.unmodifiable(widget.kongPpMessages),
+        unreadCount: widget.kongPpUnreadCount,
+      ),
+    );
+    _kongConversationStage = widget.kongConversationStage;
   }
 
   @override
@@ -3508,11 +3715,17 @@ class _PhoneShellState extends State<_PhoneShell> {
       messages: List.unmodifiable(widget.ppMessages),
       unreadCount: widget.ppUnreadCount,
     );
+    _kongPpConversation.value = _PpConversationSnapshot(
+      messages: List.unmodifiable(widget.kongPpMessages),
+      unreadCount: widget.kongPpUnreadCount,
+    );
+    _kongConversationStage = widget.kongConversationStage;
   }
 
   @override
   void dispose() {
     _ppConversation.dispose();
+    _kongPpConversation.dispose();
     super.dispose();
   }
 
@@ -3555,12 +3768,32 @@ class _PhoneShellState extends State<_PhoneShell> {
     widget.onPpConversationChanged(snapshot.messages, snapshot.unreadCount);
   }
 
+  void _setKongPpConversation(
+    List<_PpChatMessage> messages,
+    int unreadCount,
+    _KongConversationStage stage,
+  ) {
+    final snapshot = _PpConversationSnapshot(
+      messages: List.unmodifiable(messages),
+      unreadCount: max(0, unreadCount),
+    );
+    _kongPpConversation.value = snapshot;
+    _kongConversationStage = stage;
+    widget.onKongPpConversationChanged(
+      snapshot.messages,
+      snapshot.unreadCount,
+      stage,
+    );
+  }
+
   void _openPp() {
     _navigatorKey.currentState?.push(
       MaterialPageRoute<void>(
         builder: (_) => _PpHomePage(
           conversation: _ppConversation,
+          kongConversation: _kongPpConversation,
           onOpenPatrick: _openPatrickChat,
+          onOpenKong: _openKongChat,
         ),
       ),
     );
@@ -3574,10 +3807,32 @@ class _PhoneShellState extends State<_PhoneShell> {
     _navigatorKey.currentState?.push(
       MaterialPageRoute<void>(
         builder: (_) => _PpChatPage(
+          contact: _patrickPpContact,
           initialMessages: _ppConversation.value.messages,
           onReply: (message) {
             _setPpConversation(message, 0);
           },
+        ),
+      ),
+    );
+  }
+
+  void _openKongChat() {
+    final current = _kongPpConversation.value;
+    if (current.unreadCount > 0) {
+      _setKongPpConversation(current.messages, 0, _kongConversationStage);
+    }
+    _navigatorKey.currentState?.push(
+      MaterialPageRoute<void>(
+        builder: (_) => _KongPpChatPage(
+          initialMessages: _kongPpConversation.value.messages,
+          initialStage: _kongConversationStage,
+          minuteOfDay: widget.minuteOfDay,
+          onChanged: (messages, stage) {
+            _setKongPpConversation(messages, 0, stage);
+          },
+          onOrderCompleted: widget.onPpOrderCompleted,
+          onNavigationLockChanged: _setNavigationLocked,
         ),
       ),
     );
@@ -3699,6 +3954,7 @@ class _PhoneShellState extends State<_PhoneShell> {
           onGenerateRoute: (_) => MaterialPageRoute<void>(
             builder: (_) => _PhoneHomePage(
               ppConversation: _ppConversation,
+              kongPpConversation: _kongPpConversation,
               onOpenPp: _openPp,
               onOpenZhangmeng: _openZhangmeng,
             ),
@@ -3721,11 +3977,13 @@ class _PhoneShellState extends State<_PhoneShell> {
 class _PhoneHomePage extends StatelessWidget {
   const _PhoneHomePage({
     required this.ppConversation,
+    required this.kongPpConversation,
     required this.onOpenPp,
     required this.onOpenZhangmeng,
   });
 
   final ValueListenable<_PpConversationSnapshot> ppConversation;
+  final ValueListenable<_PpConversationSnapshot> kongPpConversation;
   final VoidCallback onOpenPp;
   final VoidCallback onOpenZhangmeng;
 
@@ -3751,13 +4009,19 @@ class _PhoneHomePage extends StatelessWidget {
             children: [
               ValueListenableBuilder<_PpConversationSnapshot>(
                 valueListenable: ppConversation,
-                builder: (context, conversation, _) => _PhoneAppIcon(
-                  key: const Key('phone-pp-app'),
-                  assetName: phonePpIconAsset,
-                  label: 'PP',
-                  unreadCount: conversation.unreadCount,
-                  onTap: onOpenPp,
-                ),
+                builder: (context, conversation, _) =>
+                    ValueListenableBuilder<_PpConversationSnapshot>(
+                      valueListenable: kongPpConversation,
+                      builder: (context, kongConversation, _) => _PhoneAppIcon(
+                        key: const Key('phone-pp-app'),
+                        assetName: phonePpIconAsset,
+                        label: 'PP',
+                        unreadCount:
+                            conversation.unreadCount +
+                            kongConversation.unreadCount,
+                        onTap: onOpenPp,
+                      ),
+                    ),
               ),
               const SizedBox(width: 22),
               _PhoneAppIcon(
@@ -3873,10 +4137,17 @@ class _UnreadBadge extends StatelessWidget {
 }
 
 class _PpHomePage extends StatelessWidget {
-  const _PpHomePage({required this.conversation, required this.onOpenPatrick});
+  const _PpHomePage({
+    required this.conversation,
+    required this.kongConversation,
+    required this.onOpenPatrick,
+    required this.onOpenKong,
+  });
 
   final ValueListenable<_PpConversationSnapshot> conversation;
+  final ValueListenable<_PpConversationSnapshot> kongConversation;
   final VoidCallback onOpenPatrick;
+  final VoidCallback onOpenKong;
 
   @override
   Widget build(BuildContext context) {
@@ -3906,80 +4177,24 @@ class _PpHomePage extends StatelessWidget {
             ),
             ValueListenableBuilder<_PpConversationSnapshot>(
               valueListenable: conversation,
-              builder: (context, snapshot, _) {
-                final preview = snapshot.messages.isEmpty
-                    ? '暂无消息'
-                    : snapshot.messages.last.text;
-                return Material(
-                  color: Colors.white,
-                  child: InkWell(
-                    key: const Key('pp-friend-patrick'),
-                    onTap: onOpenPatrick,
-                    child: SizedBox(
-                      height: 82,
-                      child: Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 16),
-                        child: Row(
-                          children: [
-                            const _PpPatrickAvatar(radius: 27),
-                            const SizedBox(width: 13),
-                            Expanded(
-                              child: Column(
-                                mainAxisAlignment: MainAxisAlignment.center,
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text(
-                                    _patrickPpContact.name,
-                                    maxLines: 1,
-                                    overflow: TextOverflow.ellipsis,
-                                    style: TextStyle(
-                                      color: Color(0xFF17191C),
-                                      fontSize: 16,
-                                      fontWeight: FontWeight.w600,
-                                    ),
-                                  ),
-                                  const SizedBox(height: 6),
-                                  Text(
-                                    preview,
-                                    maxLines: 1,
-                                    overflow: TextOverflow.ellipsis,
-                                    style: const TextStyle(
-                                      color: Color(0xFF9A9DA3),
-                                      fontSize: 14,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                            const SizedBox(width: 10),
-                            Column(
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              crossAxisAlignment: CrossAxisAlignment.end,
-                              children: [
-                                const Text(
-                                  '刚刚',
-                                  style: TextStyle(
-                                    color: Color(0xFFB1B3B7),
-                                    fontSize: 12,
-                                  ),
-                                ),
-                                const SizedBox(height: 7),
-                                if (snapshot.unreadCount > 0)
-                                  _UnreadBadge(
-                                    key: const Key('pp-friend-unread'),
-                                    count: snapshot.unreadCount,
-                                  )
-                                else
-                                  const SizedBox(height: 22),
-                              ],
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-                  ),
-                );
-              },
+              builder: (context, snapshot, _) => _PpContactTile(
+                tileKey: const Key('pp-friend-patrick'),
+                unreadKey: const Key('pp-friend-unread'),
+                contact: _patrickPpContact,
+                snapshot: snapshot,
+                onTap: onOpenPatrick,
+              ),
+            ),
+            const Divider(height: 1, indent: 82, color: Color(0xFFE8E9EB)),
+            ValueListenableBuilder<_PpConversationSnapshot>(
+              valueListenable: kongConversation,
+              builder: (context, snapshot, _) => _PpContactTile(
+                tileKey: const Key('pp-friend-kong'),
+                unreadKey: const Key('pp-friend-kong-unread'),
+                contact: _kongPpContact,
+                snapshot: snapshot,
+                onTap: onOpenKong,
+              ),
             ),
             const Divider(height: 1, indent: 82, color: Color(0xFFE8E9EB)),
             const Spacer(),
@@ -3991,9 +4206,96 @@ class _PpHomePage extends StatelessWidget {
   }
 }
 
-class _PpPatrickAvatar extends StatelessWidget {
-  const _PpPatrickAvatar({required this.radius});
+class _PpContactTile extends StatelessWidget {
+  const _PpContactTile({
+    required this.tileKey,
+    required this.unreadKey,
+    required this.contact,
+    required this.snapshot,
+    required this.onTap,
+  });
 
+  final Key tileKey;
+  final Key unreadKey;
+  final _PpContact contact;
+  final _PpConversationSnapshot snapshot;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final preview = snapshot.messages.isEmpty
+        ? '暂无消息'
+        : snapshot.messages.last.text;
+    return Material(
+      color: Colors.white,
+      child: InkWell(
+        key: tileKey,
+        onTap: onTap,
+        child: SizedBox(
+          height: 82,
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            child: Row(
+              children: [
+                _PpContactAvatar(contact: contact, radius: 27),
+                const SizedBox(width: 13),
+                Expanded(
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        contact.name,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          color: Color(0xFF17191C),
+                          fontSize: 16,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                      const SizedBox(height: 6),
+                      Text(
+                        preview,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          color: Color(0xFF9A9DA3),
+                          fontSize: 14,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(width: 10),
+                Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  crossAxisAlignment: CrossAxisAlignment.end,
+                  children: [
+                    const Text(
+                      '刚刚',
+                      style: TextStyle(color: Color(0xFFB1B3B7), fontSize: 12),
+                    ),
+                    const SizedBox(height: 7),
+                    if (snapshot.unreadCount > 0)
+                      _UnreadBadge(key: unreadKey, count: snapshot.unreadCount)
+                    else
+                      const SizedBox(height: 22),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _PpContactAvatar extends StatelessWidget {
+  const _PpContactAvatar({required this.contact, required this.radius});
+
+  final _PpContact contact;
   final double radius;
 
   @override
@@ -4001,7 +4303,7 @@ class _PpPatrickAvatar extends StatelessWidget {
     return CircleAvatar(
       radius: radius,
       backgroundColor: const Color(0xFFF1F2F4),
-      backgroundImage: AssetImage(_patrickPpContact.avatarAsset),
+      backgroundImage: AssetImage(contact.avatarAsset),
     );
   }
 }
@@ -4084,8 +4386,13 @@ class _PpChatHeader extends StatelessWidget {
 }
 
 class _PpChatPage extends StatefulWidget {
-  const _PpChatPage({required this.initialMessages, required this.onReply});
+  const _PpChatPage({
+    required this.contact,
+    required this.initialMessages,
+    required this.onReply,
+  });
 
+  final _PpContact contact;
   final List<_PpChatMessage> initialMessages;
   final ValueChanged<List<_PpChatMessage>> onReply;
 
@@ -4139,15 +4446,17 @@ class _PpChatPageState extends State<_PpChatPage> {
           padding: const EdgeInsets.only(bottom: 76),
           child: Column(
             children: [
-              const _PpChatHeader(contact: _patrickPpContact),
+              _PpChatHeader(contact: widget.contact),
               Expanded(
                 child: ListView.builder(
                   key: const Key('pp-chat-list'),
                   controller: _scrollController,
                   padding: const EdgeInsets.fromLTRB(14, 18, 14, 14),
                   itemCount: _messages.length,
-                  itemBuilder: (context, index) =>
-                      _PpMessageBubble(message: _messages[index]),
+                  itemBuilder: (context, index) => _PpMessageBubble(
+                    message: _messages[index],
+                    contact: widget.contact,
+                  ),
                 ),
               ),
               if (!_hasReplied)
@@ -4238,10 +4547,459 @@ class _PpChatPageState extends State<_PpChatPage> {
   }
 }
 
+class _KongPpChatPage extends StatefulWidget {
+  const _KongPpChatPage({
+    required this.initialMessages,
+    required this.initialStage,
+    required this.minuteOfDay,
+    required this.onChanged,
+    required this.onOrderCompleted,
+    required this.onNavigationLockChanged,
+  });
+
+  final List<_PpChatMessage> initialMessages;
+  final _KongConversationStage initialStage;
+  final int minuteOfDay;
+  final void Function(List<_PpChatMessage>, _KongConversationStage) onChanged;
+  final void Function({required int durationMinutes, required int reward})
+  onOrderCompleted;
+  final ValueChanged<bool> onNavigationLockChanged;
+
+  @override
+  State<_KongPpChatPage> createState() => _KongPpChatPageState();
+}
+
+class _KongPpChatPageState extends State<_KongPpChatPage> {
+  static const _orderDurationMinutes = 120;
+  static const _orderReward = 240;
+
+  final _scrollController = ScrollController();
+  late final List<_PpChatMessage> _messages;
+  late _KongConversationStage _stage;
+  Timer? _settlementTimer;
+  bool _showRefusalHint = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _messages = List.of(widget.initialMessages);
+    _stage = widget.initialStage;
+    _scrollToBottom();
+  }
+
+  @override
+  void dispose() {
+    _settlementTimer?.cancel();
+    if (_stage == _KongConversationStage.orderProcessing) {
+      widget.onNavigationLockChanged(false);
+    }
+    _scrollController.dispose();
+    super.dispose();
+  }
+
+  void _scrollToBottom() {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted || !_scrollController.hasClients) return;
+      _scrollController.animateTo(
+        _scrollController.position.maxScrollExtent,
+        duration: const Duration(milliseconds: 180),
+        curve: Curves.easeOut,
+      );
+    });
+  }
+
+  void _commit(_KongConversationStage stage) {
+    _stage = stage;
+    widget.onChanged(List.unmodifiable(_messages), stage);
+    _scrollToBottom();
+  }
+
+  void _sendReply(String text) {
+    setState(() {
+      _showRefusalHint = false;
+      _messages.add(_PpChatMessage(sender: _PpMessageSender.nanhe, text: text));
+      switch (_stage) {
+        case _KongConversationStage.invitation:
+          _commit(_KongConversationStage.orderPending);
+          break;
+        case _KongConversationStage.praiseChoice:
+          _messages.add(
+            const _PpChatMessage(
+              sender: _PpMessageSender.kong,
+              text: '你有网名吗？怎么称呼？',
+            ),
+          );
+          _commit(_KongConversationStage.nicknameQuestion);
+          break;
+        case _KongConversationStage.nicknameQuestion:
+          _messages.add(
+            const _PpChatMessage(
+              sender: _PpMessageSender.kong,
+              text: '那我帮你想个……小南河ovo怎么样？',
+            ),
+          );
+          _commit(_KongConversationStage.nameProposal);
+          break;
+        case _KongConversationStage.nameProposal:
+          _messages.add(
+            const _PpChatMessage(
+              sender: _PpMessageSender.kong,
+              text: '帅，南哥，最近比较忙，等我忙完了一定再找你',
+            ),
+          );
+          _commit(_KongConversationStage.busyFarewell);
+          break;
+        case _KongConversationStage.busyFarewell:
+          _messages.add(
+            const _PpChatMessage(
+              sender: _PpMessageSender.system,
+              text: '段位抵达翡翠4后解锁后续',
+            ),
+          );
+          _commit(_KongConversationStage.finished);
+          break;
+        case _KongConversationStage.orderPending:
+        case _KongConversationStage.orderProcessing:
+        case _KongConversationStage.finished:
+          break;
+      }
+    });
+  }
+
+  void _acceptOrder() {
+    if (_stage != _KongConversationStage.orderPending) return;
+    if (widget.minuteOfDay + _orderDurationMinutes > _midnightMinute) {
+      ScaffoldMessenger.of(context)
+        ..hideCurrentSnackBar()
+        ..showSnackBar(const SnackBar(content: Text('太晚了，明天再接吧')));
+      return;
+    }
+
+    setState(() {
+      _showRefusalHint = false;
+      _commit(_KongConversationStage.orderProcessing);
+    });
+    widget.onNavigationLockChanged(true);
+    _settlementTimer = Timer(const Duration(seconds: 3), () {
+      if (!mounted) return;
+      widget.onOrderCompleted(
+        durationMinutes: _orderDurationMinutes,
+        reward: _orderReward,
+      );
+      setState(() {
+        _messages.add(
+          const _PpChatMessage(
+            sender: _PpMessageSender.kong,
+            text: '帅啊，加里奥玩的真好啊，以后灵活都找你了',
+          ),
+        );
+        _commit(_KongConversationStage.praiseChoice);
+      });
+      widget.onNavigationLockChanged(false);
+    });
+  }
+
+  void _declineOrder() {
+    if (_stage != _KongConversationStage.orderPending) return;
+    setState(() => _showRefusalHint = true);
+  }
+
+  List<String> get _replyOptions => switch (_stage) {
+    _KongConversationStage.invitation => const ['马上来'],
+    _KongConversationStage.praiseChoice => const ['孔哥玩的也好', '包的'],
+    _KongConversationStage.nicknameQuestion => const ['没有网名，不知道取什么好'],
+    _KongConversationStage.nameProposal => const ['可以啊孔哥！'],
+    _KongConversationStage.busyFarewell => const ['感谢孔神'],
+    _ => const [],
+  };
+
+  _PpOrderStatus get _orderStatus => switch (_stage) {
+    _KongConversationStage.orderProcessing => _PpOrderStatus.processing,
+    _KongConversationStage.praiseChoice ||
+    _KongConversationStage.nicknameQuestion ||
+    _KongConversationStage.nameProposal ||
+    _KongConversationStage.busyFarewell ||
+    _KongConversationStage.finished => _PpOrderStatus.completed,
+    _ => _PpOrderStatus.pending,
+  };
+
+  @override
+  Widget build(BuildContext context) {
+    final options = _replyOptions;
+    return ColoredBox(
+      key: const Key('pp-kong-chat-page'),
+      color: const Color(0xFFF3F4F6),
+      child: SafeArea(
+        bottom: false,
+        child: Padding(
+          padding: const EdgeInsets.only(bottom: 76),
+          child: Column(
+            children: [
+              const _PpChatHeader(contact: _kongPpContact),
+              Expanded(
+                child: ListView(
+                  key: const Key('pp-kong-chat-list'),
+                  controller: _scrollController,
+                  padding: const EdgeInsets.fromLTRB(14, 18, 14, 14),
+                  children: [
+                    for (var index = 0; index < _messages.length; index++) ...[
+                      if (_messages[index].sender == _PpMessageSender.system)
+                        _PpSystemMessage(text: _messages[index].text)
+                      else
+                        _PpMessageBubble(
+                          message: _messages[index],
+                          contact: _kongPpContact,
+                        ),
+                      if (_stage != _KongConversationStage.invitation &&
+                          index == 1)
+                        _PpOrderCard(
+                          status: _orderStatus,
+                          onAccept: _acceptOrder,
+                          onDecline: _declineOrder,
+                        ),
+                    ],
+                  ],
+                ),
+              ),
+              if (_showRefusalHint)
+                const Padding(
+                  padding: EdgeInsets.only(bottom: 8),
+                  child: Text(
+                    '我不想拒绝',
+                    key: Key('pp-kong-refusal-hint'),
+                    style: TextStyle(color: Color(0xFF747981), fontSize: 13),
+                  ),
+                ),
+              if (options.isNotEmpty)
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.fromLTRB(14, 10, 14, 10),
+                  decoration: const BoxDecoration(
+                    color: Color(0xFFF8F9FA),
+                    border: Border(top: BorderSide(color: Color(0xFFE3E5E8))),
+                  ),
+                  child: Wrap(
+                    spacing: 10,
+                    runSpacing: 8,
+                    alignment: WrapAlignment.center,
+                    children: [
+                      for (var index = 0; index < options.length; index++)
+                        OutlinedButton(
+                          key: Key('pp-kong-reply-$index'),
+                          onPressed: () => _sendReply(options[index]),
+                          style: OutlinedButton.styleFrom(
+                            foregroundColor: const Color(0xFF1289F6),
+                            side: const BorderSide(color: Color(0xFF65B6FF)),
+                            shape: const StadiumBorder(),
+                          ),
+                          child: Text(options[index]),
+                        ),
+                    ],
+                  ),
+                ),
+              const _PpDisabledInput(),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _PpOrderCard extends StatelessWidget {
+  const _PpOrderCard({
+    required this.status,
+    required this.onAccept,
+    required this.onDecline,
+  });
+
+  final _PpOrderStatus status;
+  final VoidCallback onAccept;
+  final VoidCallback onDecline;
+
+  @override
+  Widget build(BuildContext context) {
+    final statusLabel = switch (status) {
+      _PpOrderStatus.completed => '已完成',
+      _PpOrderStatus.failed => '已炸单',
+      _PpOrderStatus.refused => '已拒绝',
+      _ => null,
+    };
+    return Container(
+      key: const Key('pp-kong-order-card'),
+      margin: const EdgeInsets.fromLTRB(47, 2, 0, 14),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: const Color(0xFFDDE1E6)),
+        boxShadow: const [
+          BoxShadow(
+            color: Color(0x12000000),
+            blurRadius: 8,
+            offset: Offset(0, 3),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          const Padding(
+            padding: EdgeInsets.fromLTRB(16, 14, 16, 12),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  '灵活陪玩单',
+                  style: TextStyle(
+                    color: Color(0xFF202226),
+                    fontSize: 17,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+                SizedBox(height: 10),
+                Text('单子类别　灵活陪玩'),
+                SizedBox(height: 5),
+                Text('时间　　　2 小时'),
+                SizedBox(height: 5),
+                Text('每小时价格　120'),
+                SizedBox(height: 5),
+                Text('预计收入　240'),
+              ],
+            ),
+          ),
+          const Divider(height: 1, color: Color(0xFFE5E8EC)),
+          if (status == _PpOrderStatus.pending)
+            Row(
+              children: [
+                Expanded(
+                  child: TextButton(
+                    key: const Key('pp-kong-order-decline'),
+                    onPressed: onDecline,
+                    child: const Text('拒绝'),
+                  ),
+                ),
+                const SizedBox(height: 42, child: VerticalDivider(width: 1)),
+                Expanded(
+                  child: TextButton(
+                    key: const Key('pp-kong-order-accept'),
+                    onPressed: onAccept,
+                    child: const Text('接受'),
+                  ),
+                ),
+              ],
+            )
+          else
+            SizedBox(
+              height: 48,
+              child: Center(
+                child: status == _PpOrderStatus.processing
+                    ? const SizedBox(
+                        key: Key('pp-kong-order-loading'),
+                        width: 22,
+                        height: 22,
+                        child: CircularProgressIndicator(strokeWidth: 2.4),
+                      )
+                    : Text(
+                        statusLabel!,
+                        key: const Key('pp-kong-order-status'),
+                        style: TextStyle(
+                          color: status == _PpOrderStatus.completed
+                              ? const Color(0xFF16A063)
+                              : const Color(0xFF8B8F96),
+                          fontSize: 15,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+}
+
+class _PpSystemMessage extends StatelessWidget {
+  const _PpSystemMessage({required this.text});
+
+  final String text;
+
+  @override
+  Widget build(BuildContext context) {
+    return Center(
+      child: Container(
+        key: const Key('pp-kong-system-message'),
+        margin: const EdgeInsets.only(bottom: 14),
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
+        decoration: BoxDecoration(
+          color: const Color(0x14000000),
+          borderRadius: BorderRadius.circular(16),
+        ),
+        child: Text(
+          text,
+          textAlign: TextAlign.center,
+          style: const TextStyle(color: Color(0xFF8C9096), fontSize: 12),
+        ),
+      ),
+    );
+  }
+}
+
+class _PpDisabledInput extends StatelessWidget {
+  const _PpDisabledInput();
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      height: 52,
+      padding: const EdgeInsets.fromLTRB(12, 7, 10, 7),
+      decoration: const BoxDecoration(
+        color: Colors.white,
+        border: Border(top: BorderSide(color: Color(0xFFE2E4E7))),
+      ),
+      child: Row(
+        children: [
+          Expanded(
+            child: TextField(
+              key: const Key('pp-kong-input'),
+              enabled: false,
+              maxLines: 1,
+              decoration: InputDecoration(
+                isDense: true,
+                hintText: '暂不支持输入文字',
+                hintStyle: const TextStyle(
+                  color: Color(0xFFAAADB2),
+                  fontSize: 14,
+                ),
+                filled: true,
+                fillColor: const Color(0xFFF2F3F5),
+                contentPadding: const EdgeInsets.symmetric(
+                  horizontal: 13,
+                  vertical: 10,
+                ),
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(18),
+                  borderSide: BorderSide.none,
+                ),
+              ),
+            ),
+          ),
+          const SizedBox(width: 8),
+          const Icon(
+            Icons.sentiment_satisfied_alt_rounded,
+            color: Color(0xFF777B82),
+            size: 25,
+          ),
+        ],
+      ),
+    );
+  }
+}
+
 class _PpMessageBubble extends StatelessWidget {
-  const _PpMessageBubble({required this.message});
+  const _PpMessageBubble({required this.message, required this.contact});
 
   final _PpChatMessage message;
+  final _PpContact contact;
 
   @override
   Widget build(BuildContext context) {
@@ -4273,7 +5031,7 @@ class _PpMessageBubble extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           if (!isNanhe) ...[
-            const _PpPatrickAvatar(radius: 19),
+            _PpContactAvatar(contact: contact, radius: 19),
             const SizedBox(width: 9),
           ],
           bubble,
@@ -7433,8 +8191,8 @@ class _SettingsPage extends StatelessWidget {
     required this.saveSlots,
     required this.totalDaysTogether,
     required this.minuteOfDay,
-    required this.affectionLevel,
-    required this.trustLevel,
+    required this.debugAttributes,
+    required this.lolTotalLp,
     required this.onMusicChanged,
     required this.onSoundEffectChanged,
     required this.onVoiceChanged,
@@ -7449,8 +8207,8 @@ class _SettingsPage extends StatelessWidget {
     required this.onRestartGame,
     required this.onVersionLongPress,
     required this.onDebugTimelineChanged,
-    required this.onDebugAffectionLevelChanged,
-    required this.onDebugTrustLevelChanged,
+    required this.onDebugAttributeChanged,
+    required this.onDebugLpChanged,
     required this.onDebugEvolutionReady,
   });
 
@@ -7462,8 +8220,8 @@ class _SettingsPage extends StatelessWidget {
   final List<_SaveSlotSummary> saveSlots;
   final int totalDaysTogether;
   final int minuteOfDay;
-  final int affectionLevel;
-  final int trustLevel;
+  final Map<_DebugAttribute, int> debugAttributes;
+  final int lolTotalLp;
   final ValueChanged<double> onMusicChanged;
   final ValueChanged<double> onSoundEffectChanged;
   final ValueChanged<double> onVoiceChanged;
@@ -7479,8 +8237,8 @@ class _SettingsPage extends StatelessWidget {
   final VoidCallback onVersionLongPress;
   final void Function({required int totalDaysTogether, required int minute})
   onDebugTimelineChanged;
-  final ValueChanged<int> onDebugAffectionLevelChanged;
-  final ValueChanged<int> onDebugTrustLevelChanged;
+  final void Function(_DebugAttribute, int) onDebugAttributeChanged;
+  final ValueChanged<int> onDebugLpChanged;
   final VoidCallback onDebugEvolutionReady;
 
   @override
@@ -7589,11 +8347,11 @@ class _SettingsPage extends StatelessWidget {
             _DebugToolsPanel(
               totalDaysTogether: totalDaysTogether,
               minuteOfDay: minuteOfDay,
-              affectionLevel: affectionLevel,
-              trustLevel: trustLevel,
+              attributes: debugAttributes,
+              lolTotalLp: lolTotalLp,
               onTimelineChanged: onDebugTimelineChanged,
-              onAffectionLevelChanged: onDebugAffectionLevelChanged,
-              onTrustLevelChanged: onDebugTrustLevelChanged,
+              onAttributeChanged: onDebugAttributeChanged,
+              onLpChanged: onDebugLpChanged,
               onEvolutionReady: onDebugEvolutionReady,
             ),
           ],
@@ -7860,23 +8618,40 @@ class _DebugToolsPanel extends StatelessWidget {
   const _DebugToolsPanel({
     required this.totalDaysTogether,
     required this.minuteOfDay,
-    required this.affectionLevel,
-    required this.trustLevel,
+    required this.attributes,
+    required this.lolTotalLp,
     required this.onTimelineChanged,
-    required this.onAffectionLevelChanged,
-    required this.onTrustLevelChanged,
+    required this.onAttributeChanged,
+    required this.onLpChanged,
     required this.onEvolutionReady,
   });
 
   final int totalDaysTogether;
   final int minuteOfDay;
-  final int affectionLevel;
-  final int trustLevel;
+  final Map<_DebugAttribute, int> attributes;
+  final int lolTotalLp;
   final void Function({required int totalDaysTogether, required int minute})
   onTimelineChanged;
-  final ValueChanged<int> onAffectionLevelChanged;
-  final ValueChanged<int> onTrustLevelChanged;
+  final void Function(_DebugAttribute, int) onAttributeChanged;
+  final ValueChanged<int> onLpChanged;
   final VoidCallback onEvolutionReady;
+
+  String _attributeLabel(_DebugAttribute attribute) => switch (attribute) {
+    _DebugAttribute.affectionLevel => '好感等级',
+    _DebugAttribute.trustLevel => '信任等级',
+    _DebugAttribute.energy => '体力',
+    _DebugAttribute.money => '金钱',
+    _DebugAttribute.pressure => '压力',
+    _DebugAttribute.cleanliness => '清洁度',
+    _DebugAttribute.health => '健康',
+    _DebugAttribute.injury => '受伤',
+    _DebugAttribute.strength => '力量',
+    _DebugAttribute.intelligence => '智力',
+    _DebugAttribute.charm => '魅力',
+    _DebugAttribute.art => '艺术',
+    _DebugAttribute.skill => '技巧',
+    _DebugAttribute.endurance => '耐力',
+  };
 
   String get _timeLabel {
     final normalizedMinute = minuteOfDay % _midnightMinute;
@@ -7919,14 +8694,13 @@ class _DebugToolsPanel extends StatelessWidget {
             label: const Text('第 61 天 · 可进化'),
           ),
           const SizedBox(height: 8),
-          _DebugIntSlider(
-            key: const Key('debug-day-slider'),
+          _DebugNumberInput(
+            key: const Key('debug-day-input'),
             label: '在一起天数',
-            valueLabel: '第 $totalDaysTogether 天',
             value: totalDaysTogether,
             min: 1,
-            max: 90,
-            onChanged: (value) => onTimelineChanged(
+            max: _maxStatValue,
+            onApply: (value) => onTimelineChanged(
               totalDaysTogether: value,
               minute: minuteOfDay,
             ),
@@ -7944,23 +8718,62 @@ class _DebugToolsPanel extends StatelessWidget {
               minute: value,
             ),
           ),
-          _DebugIntSlider(
-            key: const Key('debug-affection-level-slider'),
-            label: '好感等级',
-            valueLabel: 'Lv.$affectionLevel',
-            value: affectionLevel,
-            min: 1,
-            max: 10,
-            onChanged: onAffectionLevelChanged,
+          const SizedBox(height: 12),
+          Text('属性数值', style: Theme.of(context).textTheme.titleSmall),
+          const SizedBox(height: 4),
+          for (final attribute in _DebugAttribute.values)
+            _DebugNumberInput(
+              key: Key('debug-${attribute.name}-input'),
+              label: _attributeLabel(attribute),
+              value: attributes[attribute] ?? 0,
+              min:
+                  attribute == _DebugAttribute.affectionLevel ||
+                      attribute == _DebugAttribute.trustLevel ||
+                      attribute == _DebugAttribute.strength ||
+                      attribute == _DebugAttribute.intelligence ||
+                      attribute == _DebugAttribute.charm ||
+                      attribute == _DebugAttribute.art ||
+                      attribute == _DebugAttribute.skill ||
+                      attribute == _DebugAttribute.endurance
+                  ? 1
+                  : 0,
+              max:
+                  attribute == _DebugAttribute.pressure ||
+                      attribute == _DebugAttribute.cleanliness ||
+                      attribute == _DebugAttribute.health ||
+                      attribute == _DebugAttribute.injury
+                  ? 100
+                  : _maxStatValue,
+              onApply: (value) => onAttributeChanged(attribute, value),
+            ),
+          const SizedBox(height: 12),
+          Text('排位 LP', style: Theme.of(context).textTheme.titleSmall),
+          const SizedBox(height: 6),
+          Text(
+            '$lolTotalLp LP',
+            key: const Key('debug-lp-value'),
+            textAlign: TextAlign.center,
+            style: const TextStyle(
+              color: ink,
+              fontSize: 18,
+              fontWeight: FontWeight.w800,
+            ),
           ),
-          _DebugIntSlider(
-            key: const Key('debug-trust-level-slider'),
-            label: '信任等级',
-            valueLabel: 'Lv.$trustLevel',
-            value: trustLevel,
-            min: 1,
-            max: 10,
-            onChanged: onTrustLevelChanged,
+          const SizedBox(height: 6),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            alignment: WrapAlignment.center,
+            children: [
+              for (final delta in const [-100, -20, 20, 100])
+                OutlinedButton(
+                  key: Key(
+                    'debug-lp-${delta > 0 ? 'plus' : 'minus'}-${delta.abs()}',
+                  ),
+                  onPressed: () => onLpChanged(delta),
+                  child: Text('${delta > 0 ? '+' : ''}$delta LP'),
+                ),
+            ],
           ),
         ],
       ),
@@ -8023,6 +8836,87 @@ class _DebugIntSlider extends StatelessWidget {
             onChanged: (next) => onChanged(next.round()),
           ),
         ],
+      ),
+    );
+  }
+}
+
+class _DebugNumberInput extends StatefulWidget {
+  const _DebugNumberInput({
+    super.key,
+    required this.label,
+    required this.value,
+    required this.min,
+    required this.max,
+    required this.onApply,
+  });
+
+  final String label;
+  final int value;
+  final int min;
+  final int max;
+  final ValueChanged<int> onApply;
+
+  @override
+  State<_DebugNumberInput> createState() => _DebugNumberInputState();
+}
+
+class _DebugNumberInputState extends State<_DebugNumberInput> {
+  late final TextEditingController _controller;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = TextEditingController(text: '${widget.value}');
+  }
+
+  @override
+  void didUpdateWidget(covariant _DebugNumberInput oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.value != widget.value) {
+      _controller.text = '${widget.value}';
+    }
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  void _apply() {
+    final parsed = int.tryParse(_controller.text);
+    if (parsed == null) {
+      _controller.text = '${widget.value}';
+      return;
+    }
+    final next = parsed.clamp(widget.min, widget.max);
+    _controller.text = '$next';
+    widget.onApply(next);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(top: 8),
+      child: TextField(
+        controller: _controller,
+        keyboardType: TextInputType.number,
+        textInputAction: TextInputAction.done,
+        inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+        onSubmitted: (_) => _apply(),
+        decoration: InputDecoration(
+          labelText: widget.label,
+          isDense: true,
+          filled: true,
+          fillColor: Colors.white.withValues(alpha: 0.72),
+          border: OutlineInputBorder(borderRadius: BorderRadius.circular(14)),
+          suffixIcon: IconButton(
+            tooltip: '套用',
+            onPressed: _apply,
+            icon: const Icon(Icons.check_rounded),
+          ),
+        ),
       ),
     );
   }

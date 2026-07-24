@@ -947,7 +947,7 @@ void main() {
     expect(
       find.descendant(
         of: find.byKey(const Key('phone-pp-unread')),
-        matching: find.text('4'),
+        matching: find.text('5'),
       ),
       findsOneWidget,
     );
@@ -998,7 +998,13 @@ void main() {
     await tester.tap(find.byKey(const Key('phone-back-button')));
     await tester.pumpAndSettle();
     expect(find.byKey(const Key('phone-page')), findsOneWidget);
-    expect(find.byKey(const Key('phone-pp-unread')), findsNothing);
+    expect(
+      find.descendant(
+        of: find.byKey(const Key('phone-pp-unread')),
+        matching: find.text('1'),
+      ),
+      findsOneWidget,
+    );
 
     await tester.tap(find.text('设置'));
     await tester.pumpAndSettle();
@@ -1013,6 +1019,109 @@ void main() {
     expect(messages.length, 5);
     expect((messages.last as Map<String, dynamic>)['text'], '收到');
     expect(state['ppUnreadCount'], 0);
+  });
+
+  testWidgets('Kong PP order settles and continues the full conversation', (
+    tester,
+  ) async {
+    await _pumpLoadedApp(tester);
+
+    await tester.tap(find.text('手机'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('phone-pp-app')));
+    await tester.pumpAndSettle();
+
+    expect(find.text('孔哥'), findsOneWidget);
+    expect(find.text('朋友介绍的，我们灵活车缺个中单，来不来'), findsOneWidget);
+    final kongAvatar = tester.widget<CircleAvatar>(
+      find.descendant(
+        of: find.byKey(const Key('pp-friend-kong')),
+        matching: find.byType(CircleAvatar),
+      ),
+    );
+    expect(
+      (kongAvatar.backgroundImage! as AssetImage).assetName,
+      phonePpKongAvatarAsset,
+    );
+
+    await tester.tap(find.byKey(const Key('pp-friend-kong')));
+    await tester.pumpAndSettle();
+    expect(find.text('山东变奏王'), findsOneWidget);
+    expect(find.text('马上来'), findsOneWidget);
+
+    await tester.tap(find.byKey(const Key('pp-kong-reply-0')));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const Key('pp-kong-order-card')), findsOneWidget);
+    expect(find.text('灵活陪玩单'), findsOneWidget);
+    expect(find.text('时间　　　2 小时'), findsOneWidget);
+    expect(find.text('每小时价格　120'), findsOneWidget);
+    expect(find.text('预计收入　240'), findsOneWidget);
+
+    await tester.tap(find.byKey(const Key('pp-kong-order-decline')));
+    await tester.pump();
+    expect(find.text('我不想拒绝'), findsOneWidget);
+    expect(find.byKey(const Key('pp-kong-order-accept')), findsOneWidget);
+
+    await tester.tap(find.byKey(const Key('pp-kong-order-accept')));
+    await tester.pump();
+    expect(find.byKey(const Key('pp-kong-order-loading')), findsOneWidget);
+    expect(find.byKey(const Key('pp-kong-order-accept')), findsNothing);
+    expect(find.byKey(const Key('phone-back-button')), findsOneWidget);
+
+    await tester.pump(const Duration(seconds: 3));
+    await tester.pump();
+    expect(find.text('已完成'), findsOneWidget);
+    expect(find.text('帅啊，加里奥玩的真好啊，以后灵活都找你了'), findsOneWidget);
+
+    await tester.tap(find.byKey(const Key('pp-kong-reply-1')));
+    await tester.pumpAndSettle();
+    expect(find.text('你有网名吗？怎么称呼？'), findsOneWidget);
+    await tester.tap(find.byKey(const Key('pp-kong-reply-0')));
+    await tester.pumpAndSettle();
+    expect(find.text('那我帮你想个……小南河ovo怎么样？'), findsOneWidget);
+    await tester.tap(find.byKey(const Key('pp-kong-reply-0')));
+    await tester.pumpAndSettle();
+    expect(find.text('帅，南哥，最近比较忙，等我忙完了一定再找你'), findsOneWidget);
+    await tester.tap(find.byKey(const Key('pp-kong-reply-0')));
+    await tester.pumpAndSettle();
+    expect(find.text('段位抵达翡翠4后解锁后续'), findsOneWidget);
+    expect(find.byKey(const Key('pp-kong-system-message')), findsOneWidget);
+
+    await tester.tap(find.text('设置'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('save-slot-0-save')));
+    await tester.pumpAndSettle();
+
+    final preferences = await SharedPreferences.getInstance();
+    final rawSave = preferences.getString('mini_nanhe_save_slot_0');
+    final save = jsonDecode(rawSave!) as Map<String, dynamic>;
+    final state = save['state'] as Map<String, dynamic>;
+    expect(state['money'], 240);
+    expect(state['minuteOfDay'], 8 * 60);
+    expect(state['energy'], 25);
+    expect(state['kongConversationStage'], 'finished');
+  });
+
+  testWidgets('Kong PP order cannot cross midnight', (tester) async {
+    await _pumpLoadedApp(
+      tester,
+      debugInitialState: const MiniNanheDebugState(minuteOfDay: 23 * 60),
+    );
+
+    await tester.tap(find.text('手机'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('phone-pp-app')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('pp-friend-kong')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('pp-kong-reply-0')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('pp-kong-order-accept')));
+    await tester.pump();
+
+    expect(find.text('太晚了，明天再接吧'), findsOneWidget);
+    expect(find.byKey(const Key('pp-kong-order-accept')), findsOneWidget);
+    expect(find.byKey(const Key('pp-kong-order-loading')), findsNothing);
   });
 
   testWidgets(
@@ -1735,13 +1844,14 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.byKey(const Key('debug-tools-panel')), findsOneWidget);
-    expect(find.byKey(const Key('debug-day-slider')), findsOneWidget);
+    expect(find.byKey(const Key('debug-day-input')), findsOneWidget);
     expect(find.byKey(const Key('debug-time-slider')), findsOneWidget);
-    expect(
-      find.byKey(const Key('debug-affection-level-slider')),
-      findsOneWidget,
-    );
-    expect(find.byKey(const Key('debug-trust-level-slider')), findsOneWidget);
+    expect(find.byKey(const Key('debug-affectionLevel-input')), findsOneWidget);
+    expect(find.byKey(const Key('debug-trustLevel-input')), findsOneWidget);
+    expect(find.byKey(const Key('debug-strength-input')), findsOneWidget);
+    expect(find.byKey(const Key('debug-skill-input')), findsOneWidget);
+    expect(find.byKey(const Key('debug-lp-plus-20')), findsOneWidget);
+    expect(find.byKey(const Key('debug-lp-minus-100')), findsOneWidget);
     expect(
       find.byKey(const Key('debug-affection-progress-slider')),
       findsNothing,
@@ -1759,13 +1869,81 @@ void main() {
       160,
       scrollable: find.byType(Scrollable).first,
     );
-    await tester.drag(find.byType(Scrollable).first, const Offset(0, -180));
     await tester.pumpAndSettle();
     await tester.tap(find.byKey(const Key('debug-evolution-ready-button')));
     await tester.pumpAndSettle();
 
     expect(find.text('迷你期 · 第 61 天'), findsOneWidget);
     expect(find.byKey(const Key('evolution-button')), findsOneWidget);
+  });
+
+  testWidgets('debug tools accept numeric values and adjust LP', (
+    tester,
+  ) async {
+    await _pumpLoadedApp(
+      tester,
+      debugInitialState: const MiniNanheDebugState(lolTotalLp: 200),
+    );
+
+    await tester.tap(find.text('设置'));
+    await tester.pumpAndSettle();
+    await tester.scrollUntilVisible(
+      find.byKey(const Key('app-version')),
+      200,
+      scrollable: find.byType(Scrollable).first,
+    );
+    await tester.longPress(find.byKey(const Key('app-version')));
+    await tester.pumpAndSettle();
+
+    final scrollable = find.byType(Scrollable).first;
+    final dayControl = find.byKey(const Key('debug-day-input'));
+    await tester.scrollUntilVisible(dayControl, 180, scrollable: scrollable);
+    await tester.enterText(
+      find.descendant(of: dayControl, matching: find.byType(TextField)),
+      '75',
+    );
+    await tester.testTextInput.receiveAction(TextInputAction.done);
+    await tester.pumpAndSettle();
+
+    final strengthControl = find.byKey(const Key('debug-strength-input'));
+    await tester.scrollUntilVisible(
+      strengthControl,
+      180,
+      scrollable: scrollable,
+    );
+    await tester.enterText(
+      find.descendant(of: strengthControl, matching: find.byType(TextField)),
+      '321',
+    );
+    await tester.testTextInput.receiveAction(TextInputAction.done);
+    await tester.pumpAndSettle();
+
+    await tester.scrollUntilVisible(
+      find.byKey(const Key('debug-lp-plus-100')),
+      180,
+      scrollable: scrollable,
+    );
+    await tester.tap(find.byKey(const Key('debug-lp-plus-100')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('debug-lp-minus-20')));
+    await tester.pumpAndSettle();
+    expect(find.text('280 LP'), findsOneWidget);
+
+    await tester.tap(find.text('陪伴'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('设置'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('save-slot-0-save')));
+    await tester.pumpAndSettle();
+
+    final preferences = await SharedPreferences.getInstance();
+    final rawSave = preferences.getString('mini_nanhe_save_slot_0');
+    final save = jsonDecode(rawSave!) as Map<String, dynamic>;
+    final state = save['state'] as Map<String, dynamic>;
+    expect(state['totalDaysTogether'], 75);
+    expect(state['strength'], 321);
+    expect(state['lolTotalLp'], 280);
+    expect(state['lolHistoricalPeakTotalLp'], 300);
   });
 
   testWidgets('short screens preserve the character stage and can scroll', (
