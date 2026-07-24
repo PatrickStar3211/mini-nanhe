@@ -31,6 +31,19 @@ const miniNanheFrustratedAsset =
     'assets/images/nanhe_emotions/mini_nanhe_frustrated.png';
 const miniNanheDeadAsset = 'assets/images/nanhe_emotions/mini_nanhe_dead.png';
 const childNanheAsset = 'assets/images/nanhe_emotions/child_nanhe.webp';
+const childNanheHappyAsset =
+    'assets/images/nanhe_emotions/child_nanhe_happy.webp';
+const childNanheAffectionateAsset =
+    'assets/images/nanhe_emotions/child_nanhe_affectionate.webp';
+const childNanheCuriousAsset =
+    'assets/images/nanhe_emotions/child_nanhe_curious.webp';
+const childNanheSleepyAsset =
+    'assets/images/nanhe_emotions/child_nanhe_sleepy.webp';
+const childNanheSadAsset = 'assets/images/nanhe_emotions/child_nanhe_sad.webp';
+const childNanheAngryAsset =
+    'assets/images/nanhe_emotions/child_nanhe_angry.webp';
+const childNanheFrustratedAsset =
+    'assets/images/nanhe_emotions/child_nanhe_frustrated.webp';
 const collectionAlbumAsset = 'assets/images/collection/collection_album.webp';
 const openingStoryPage1Asset =
     'assets/images/story/opening/opening_page_1.webp';
@@ -194,6 +207,13 @@ const deferredPreloadAssets = <String>[
   miniNanheFrustratedAsset,
   miniNanheDeadAsset,
   childNanheAsset,
+  childNanheHappyAsset,
+  childNanheAffectionateAsset,
+  childNanheCuriousAsset,
+  childNanheSleepyAsset,
+  childNanheSadAsset,
+  childNanheAngryAsset,
+  childNanheFrustratedAsset,
   ...openingStoryPageAssets,
   ...feedingStoryAssets,
   ...sicknessStoryAssets,

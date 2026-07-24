@@ -133,6 +133,23 @@ void main() {
     }
   });
 
+  test('all childhood emotion assets are bundled', () async {
+    const assets = [
+      childNanheAsset,
+      childNanheHappyAsset,
+      childNanheAffectionateAsset,
+      childNanheCuriousAsset,
+      childNanheSleepyAsset,
+      childNanheSadAsset,
+      childNanheAngryAsset,
+      childNanheFrustratedAsset,
+    ];
+    for (final asset in assets) {
+      final data = await rootBundle.load(asset);
+      expect(data.lengthInBytes, greaterThan(0), reason: asset);
+    }
+  });
+
   testWidgets('app starts with a loading screen before entering the game', (
     tester,
   ) async {
@@ -954,6 +971,7 @@ void main() {
     expect(find.byKey(const Key('pp-chat-list')), findsOneWidget);
     expect(find.textContaining('欢迎使用PP'), findsOneWidget);
     expect(find.textContaining('掌盟可以查看段位'), findsOneWidget);
+    expect(find.text('请你叫我派大星博士教授加先生'), findsOneWidget);
     expect(find.byKey(const Key('pp-input')), findsOneWidget);
     expect(find.byKey(const Key('pp-reply-received')), findsOneWidget);
     expect(find.byKey(const Key('pp-reply-understood')), findsOneWidget);
@@ -961,6 +979,13 @@ void main() {
     await tester.tap(find.byKey(const Key('pp-reply-received')));
     await tester.pumpAndSettle();
     expect(find.text('收到'), findsOneWidget);
+    final nanheAvatar = tester.widget<CircleAvatar>(
+      find.byKey(const Key('pp-nanhe-logo-avatar')),
+    );
+    expect(
+      (nanheAvatar.backgroundImage! as AssetImage).assetName,
+      miniNanheOriginalAsset,
+    );
     expect(find.byKey(const Key('pp-reply-received')), findsNothing);
     expect(find.byKey(const Key('pp-reply-understood')), findsNothing);
 
@@ -2453,6 +2478,21 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('小南河'), findsOneWidget);
     expect(find.text('幼年期'), findsOneWidget);
+  });
+
+  testWidgets('childhood appearance follows the current emotion', (
+    tester,
+  ) async {
+    await _pumpLoadedApp(
+      tester,
+      debugInitialState: const MiniNanheDebugState(
+        growthStage: GrowthStage.childhood,
+        homeInteriorUnlocked: true,
+        energy: 0,
+      ),
+    );
+
+    expect(_currentCharacterAsset(tester), childNanheSleepyAsset);
   });
 
   testWidgets('daily rest replaces sleep before night', (tester) async {

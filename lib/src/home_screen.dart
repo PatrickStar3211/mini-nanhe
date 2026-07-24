@@ -271,6 +271,24 @@ const _initialPpMessages = <_PpChatMessage>[
   ),
 ];
 
+class _PpContact {
+  const _PpContact({
+    required this.name,
+    required this.signature,
+    required this.avatarAsset,
+  });
+
+  final String name;
+  final String signature;
+  final String avatarAsset;
+}
+
+const _patrickPpContact = _PpContact(
+  name: '派大星博士教授先生',
+  signature: '请你叫我派大星博士教授加先生',
+  avatarAsset: phonePpPatrickAvatarAsset,
+);
+
 class _LolMatchResult {
   const _LolMatchResult({
     required this.won,
@@ -1244,7 +1262,16 @@ class _HomeScreenState extends State<HomeScreen> {
     if (_isEndingReached) return miniNanheDeadAsset;
     if (_selectedAppearance == NanheAppearance.childhood &&
         _growthStage == GrowthStage.childhood) {
-      return childNanheAsset;
+      return switch (_currentEmotion) {
+        NanheEmotion.happy => childNanheHappyAsset,
+        NanheEmotion.affectionate => childNanheAffectionateAsset,
+        NanheEmotion.curious => childNanheCuriousAsset,
+        NanheEmotion.sleepy => childNanheSleepyAsset,
+        NanheEmotion.sad => childNanheSadAsset,
+        NanheEmotion.angry => childNanheAngryAsset,
+        NanheEmotion.frustrated => childNanheFrustratedAsset,
+        NanheEmotion.calm => childNanheAsset,
+      };
     }
     return switch (_currentEmotion) {
       NanheEmotion.happy => miniNanheHappyAsset,
@@ -3900,8 +3927,8 @@ class _PpHomePage extends StatelessWidget {
                                 mainAxisAlignment: MainAxisAlignment.center,
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
-                                  const Text(
-                                    '派大星博士教授先生',
+                                  Text(
+                                    _patrickPpContact.name,
                                     maxLines: 1,
                                     overflow: TextOverflow.ellipsis,
                                     style: TextStyle(
@@ -3973,7 +4000,84 @@ class _PpPatrickAvatar extends StatelessWidget {
     return CircleAvatar(
       radius: radius,
       backgroundColor: const Color(0xFFF1F2F4),
-      backgroundImage: const AssetImage(phonePpPatrickAvatarAsset),
+      backgroundImage: AssetImage(_patrickPpContact.avatarAsset),
+    );
+  }
+}
+
+class _PpNanheAvatar extends StatelessWidget {
+  const _PpNanheAvatar({required this.radius});
+
+  final double radius;
+
+  @override
+  Widget build(BuildContext context) {
+    return CircleAvatar(
+      key: const Key('pp-nanhe-logo-avatar'),
+      radius: radius,
+      backgroundColor: Colors.white,
+      backgroundImage: const AssetImage(miniNanheOriginalAsset),
+    );
+  }
+}
+
+class _PpChatHeader extends StatelessWidget {
+  const _PpChatHeader({required this.contact});
+
+  final _PpContact contact;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      height: 68,
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 9),
+      alignment: Alignment.centerLeft,
+      decoration: const BoxDecoration(
+        color: Colors.white,
+        border: Border(bottom: BorderSide(color: Color(0xFFE4E6E9))),
+      ),
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Flexible(
+                child: Text(
+                  contact.name,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    color: Color(0xFF17191C),
+                    fontSize: 17,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ),
+              const SizedBox(width: 8),
+              const DecoratedBox(
+                decoration: BoxDecoration(
+                  color: Color(0xFF20C77A),
+                  shape: BoxShape.circle,
+                ),
+                child: SizedBox(width: 9, height: 9),
+              ),
+            ],
+          ),
+          const SizedBox(height: 3),
+          Text(
+            contact.signature,
+            key: const Key('pp-contact-signature'),
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: const TextStyle(
+              color: Color(0xFF8B8F96),
+              fontSize: 12,
+              height: 1.15,
+            ),
+          ),
+        ],
+      ),
     );
   }
 }
@@ -4034,39 +4138,7 @@ class _PpChatPageState extends State<_PpChatPage> {
           padding: const EdgeInsets.only(bottom: 76),
           child: Column(
             children: [
-              Container(
-                height: 58,
-                padding: const EdgeInsets.symmetric(horizontal: 16),
-                alignment: Alignment.centerLeft,
-                decoration: const BoxDecoration(
-                  color: Colors.white,
-                  border: Border(bottom: BorderSide(color: Color(0xFFE4E6E9))),
-                ),
-                child: const Row(
-                  children: [
-                    Flexible(
-                      child: Text(
-                        '派大星博士教授先生',
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: TextStyle(
-                          color: Color(0xFF17191C),
-                          fontSize: 17,
-                          fontWeight: FontWeight.w700,
-                        ),
-                      ),
-                    ),
-                    SizedBox(width: 8),
-                    DecoratedBox(
-                      decoration: BoxDecoration(
-                        color: Color(0xFF20C77A),
-                        shape: BoxShape.circle,
-                      ),
-                      child: SizedBox(width: 9, height: 9),
-                    ),
-                  ],
-                ),
-              ),
+              const _PpChatHeader(contact: _patrickPpContact),
               Expanded(
                 child: ListView.builder(
                   key: const Key('pp-chat-list'),
@@ -4206,11 +4278,7 @@ class _PpMessageBubble extends StatelessWidget {
           bubble,
           if (isNanhe) ...[
             const SizedBox(width: 9),
-            const CircleAvatar(
-              radius: 19,
-              backgroundColor: Colors.white,
-              backgroundImage: AssetImage(miniNanheOriginalAsset),
-            ),
+            const _PpNanheAvatar(radius: 19),
           ],
         ],
       ),
