@@ -442,7 +442,8 @@ class _HomeScreenState extends State<HomeScreen> {
   final List<_PpChatMessage> _ppMessages = List.of(_initialPpMessages);
   int _ppUnreadCount = _initialPpMessages.length;
   final List<_PpChatMessage> _kongPpMessages = List.of(_initialKongPpMessages);
-  int _kongPpUnreadCount = _initialKongPpMessages.length;
+  int _kongPpUnreadCount = 0;
+  bool _kongPpUnlocked = false;
   _KongConversationStage _kongConversationStage =
       _KongConversationStage.invitation;
   int? _pendingLolRankedEnergyCost;
@@ -741,6 +742,7 @@ class _HomeScreenState extends State<HomeScreen> {
           .map((message) => message.toJson())
           .toList(),
       'kongPpUnreadCount': _kongPpUnreadCount,
+      'kongPpUnlocked': _kongPpUnlocked,
       'kongConversationStage': _kongConversationStage.name,
       'musicVolume': _musicVolume,
       'soundEffectVolume': _soundEffectVolume,
@@ -883,10 +885,6 @@ class _HomeScreenState extends State<HomeScreen> {
         ..clear()
         ..addAll(_initialKongPpMessages);
     }
-    _kongPpUnreadCount = max(
-      0,
-      _jsonInt(state, 'kongPpUnreadCount', _initialKongPpMessages.length),
-    );
     _kongConversationStage = _KongConversationStage.values.firstWhere(
       (stage) =>
           stage.name ==
@@ -900,6 +898,17 @@ class _HomeScreenState extends State<HomeScreen> {
     if (_kongConversationStage == _KongConversationStage.orderProcessing) {
       _kongConversationStage = _KongConversationStage.orderPending;
     }
+    _kongPpUnlocked = state.containsKey('kongPpUnlocked')
+        ? _jsonBool(state, 'kongPpUnlocked', false)
+        : state.containsKey('kongPpMessages') || _lolMatchHistory.isNotEmpty;
+    _kongPpUnreadCount = max(
+      0,
+      _jsonInt(
+        state,
+        'kongPpUnreadCount',
+        _kongPpUnlocked ? _initialKongPpMessages.length : 0,
+      ),
+    );
     _musicVolume = _jsonDouble(state, 'musicVolume', 0.7).clamp(0, 1);
     _soundEffectVolume = _jsonDouble(
       state,
@@ -2649,6 +2658,10 @@ class _HomeScreenState extends State<HomeScreen> {
       if (_lolMatchHistory.length > 10) {
         _lolMatchHistory.removeRange(10, _lolMatchHistory.length);
       }
+      if (!_kongPpUnlocked) {
+        _kongPpUnlocked = true;
+        _kongPpUnreadCount = _initialKongPpMessages.length;
+      }
       _applyTimedEvents();
       _settleExhaustedTimedStory();
       _applyHealthDeathIfNeeded();
@@ -3197,7 +3210,8 @@ class _HomeScreenState extends State<HomeScreen> {
       _kongPpMessages
         ..clear()
         ..addAll(_initialKongPpMessages);
-      _kongPpUnreadCount = _initialKongPpMessages.length;
+      _kongPpUnreadCount = 0;
+      _kongPpUnlocked = false;
       _kongConversationStage = _KongConversationStage.invitation;
       _phoneNavigationLocked = false;
       _showDebugTools = false;
@@ -3371,6 +3385,7 @@ class _HomeScreenState extends State<HomeScreen> {
         onPpConversationChanged: _updatePpConversation,
         kongPpMessages: List.unmodifiable(_kongPpMessages),
         kongPpUnreadCount: _kongPpUnreadCount,
+        kongPpUnlocked: _kongPpUnlocked,
         kongConversationStage: _kongConversationStage,
         minuteOfDay: _minuteOfDay,
         onKongPpConversationChanged: _updateKongPpConversation,
@@ -3635,6 +3650,7 @@ class _PhoneShell extends StatefulWidget {
     required this.onPpConversationChanged,
     required this.kongPpMessages,
     required this.kongPpUnreadCount,
+    required this.kongPpUnlocked,
     required this.kongConversationStage,
     required this.minuteOfDay,
     required this.onKongPpConversationChanged,
@@ -3660,6 +3676,7 @@ class _PhoneShell extends StatefulWidget {
   final void Function(List<_PpChatMessage>, int) onPpConversationChanged;
   final List<_PpChatMessage> kongPpMessages;
   final int kongPpUnreadCount;
+  final bool kongPpUnlocked;
   final _KongConversationStage kongConversationStage;
   final int minuteOfDay;
   final void Function(List<_PpChatMessage>, int, _KongConversationStage)
@@ -3792,6 +3809,7 @@ class _PhoneShellState extends State<_PhoneShell> {
         builder: (_) => _PpHomePage(
           conversation: _ppConversation,
           kongConversation: _kongPpConversation,
+          kongUnlocked: widget.kongPpUnlocked,
           onOpenPatrick: _openPatrickChat,
           onOpenKong: _openKongChat,
         ),
@@ -4140,12 +4158,14 @@ class _PpHomePage extends StatelessWidget {
   const _PpHomePage({
     required this.conversation,
     required this.kongConversation,
+    required this.kongUnlocked,
     required this.onOpenPatrick,
     required this.onOpenKong,
   });
 
   final ValueListenable<_PpConversationSnapshot> conversation;
   final ValueListenable<_PpConversationSnapshot> kongConversation;
+  final bool kongUnlocked;
   final VoidCallback onOpenPatrick;
   final VoidCallback onOpenKong;
 
@@ -4186,17 +4206,19 @@ class _PpHomePage extends StatelessWidget {
               ),
             ),
             const Divider(height: 1, indent: 82, color: Color(0xFFE8E9EB)),
-            ValueListenableBuilder<_PpConversationSnapshot>(
-              valueListenable: kongConversation,
-              builder: (context, snapshot, _) => _PpContactTile(
-                tileKey: const Key('pp-friend-kong'),
-                unreadKey: const Key('pp-friend-kong-unread'),
-                contact: _kongPpContact,
-                snapshot: snapshot,
-                onTap: onOpenKong,
+            if (kongUnlocked) ...[
+              ValueListenableBuilder<_PpConversationSnapshot>(
+                valueListenable: kongConversation,
+                builder: (context, snapshot, _) => _PpContactTile(
+                  tileKey: const Key('pp-friend-kong'),
+                  unreadKey: const Key('pp-friend-kong-unread'),
+                  contact: _kongPpContact,
+                  snapshot: snapshot,
+                  onTap: onOpenKong,
+                ),
               ),
-            ),
-            const Divider(height: 1, indent: 82, color: Color(0xFFE8E9EB)),
+              const Divider(height: 1, indent: 82, color: Color(0xFFE8E9EB)),
+            ],
             const Spacer(),
             const SizedBox(height: 76),
           ],

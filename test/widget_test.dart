@@ -66,6 +66,18 @@ Future<void> _pumpLoadedApp(
   await tester.pump();
 }
 
+Future<void> _completeOneRankedMatch(WidgetTester tester) async {
+  await tester.tap(find.byKey(const Key('phone-zhangmeng-app')));
+  await tester.pumpAndSettle();
+  await tester.tap(find.byKey(const Key('zhangmeng-start-ranked')));
+  await tester.pumpAndSettle();
+  await tester.tap(find.byKey(const Key('zhangmeng-accept-match')));
+  await tester.pumpAndSettle();
+  expect(find.byKey(const Key('zhangmeng-result-page')), findsOneWidget);
+  await tester.tap(find.byKey(const Key('phone-home-button')));
+  await tester.pumpAndSettle();
+}
+
 class _ControllableRankedAudioController extends GameAudioController {
   _ControllableRankedAudioController() : super.disabled();
 
@@ -947,7 +959,7 @@ void main() {
     expect(
       find.descendant(
         of: find.byKey(const Key('phone-pp-unread')),
-        matching: find.text('5'),
+        matching: find.text('4'),
       ),
       findsOneWidget,
     );
@@ -998,13 +1010,7 @@ void main() {
     await tester.tap(find.byKey(const Key('phone-back-button')));
     await tester.pumpAndSettle();
     expect(find.byKey(const Key('phone-page')), findsOneWidget);
-    expect(
-      find.descendant(
-        of: find.byKey(const Key('phone-pp-unread')),
-        matching: find.text('1'),
-      ),
-      findsOneWidget,
-    );
+    expect(find.byKey(const Key('phone-pp-unread')), findsNothing);
 
     await tester.tap(find.text('设置'));
     await tester.pumpAndSettle();
@@ -1028,6 +1034,20 @@ void main() {
 
     await tester.tap(find.text('手机'));
     await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('phone-pp-app')));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const Key('pp-friend-kong')), findsNothing);
+
+    await tester.tap(find.byKey(const Key('phone-home-button')));
+    await tester.pumpAndSettle();
+    await _completeOneRankedMatch(tester);
+    expect(
+      find.descendant(
+        of: find.byKey(const Key('phone-pp-unread')),
+        matching: find.text('5'),
+      ),
+      findsOneWidget,
+    );
     await tester.tap(find.byKey(const Key('phone-pp-app')));
     await tester.pumpAndSettle();
 
@@ -1097,19 +1117,21 @@ void main() {
     final save = jsonDecode(rawSave!) as Map<String, dynamic>;
     final state = save['state'] as Map<String, dynamic>;
     expect(state['money'], 240);
-    expect(state['minuteOfDay'], 8 * 60);
-    expect(state['energy'], 25);
+    expect(state['minuteOfDay'], 9 * 60);
+    expect(state['energy'], 17);
+    expect(state['kongPpUnlocked'], isTrue);
     expect(state['kongConversationStage'], 'finished');
   });
 
   testWidgets('Kong PP order cannot cross midnight', (tester) async {
     await _pumpLoadedApp(
       tester,
-      debugInitialState: const MiniNanheDebugState(minuteOfDay: 23 * 60),
+      debugInitialState: const MiniNanheDebugState(minuteOfDay: 22 * 60 + 30),
     );
 
     await tester.tap(find.text('手机'));
     await tester.pumpAndSettle();
+    await _completeOneRankedMatch(tester);
     await tester.tap(find.byKey(const Key('phone-pp-app')));
     await tester.pumpAndSettle();
     await tester.tap(find.byKey(const Key('pp-friend-kong')));
