@@ -2559,6 +2559,7 @@ class _HomeScreenState extends State<HomeScreen> {
       _pendingLolRankedEnergyCost = null;
       _energy = (_energy - energyCost).clamp(0, _maxEnergy);
       _advanceMinutes(durationMinutes);
+      _skill = _clampStat(_skill + 1);
       _lolTotalLp = afterTotalLp;
       _lolHistoricalPeakTotalLp = max(_lolHistoricalPeakTotalLp, _lolTotalLp);
       if (won) {

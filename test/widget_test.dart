@@ -1185,6 +1185,7 @@ void main() {
       debugInitialState: const MiniNanheDebugState(
         minuteOfDay: 6 * 60,
         energy: 25,
+        skill: 120,
       ),
     );
 
@@ -1200,6 +1201,7 @@ void main() {
     await tester.tap(find.text('状态'));
     await tester.pumpAndSettle();
     expect(find.text('17/25'), findsOneWidget);
+    expect(find.text('121'), findsOneWidget);
 
     await tester.tap(find.text('陪伴'));
     await tester.pumpAndSettle();
@@ -1234,6 +1236,7 @@ void main() {
       debugInitialState: const MiniNanheDebugState(
         minuteOfDay: 6 * 60,
         energy: 25,
+        skill: 120,
       ),
     );
 
@@ -1249,6 +1252,7 @@ void main() {
     await tester.tap(find.text('状态'));
     await tester.pumpAndSettle();
     expect(find.text('25/25'), findsOneWidget);
+    expect(find.text('120'), findsOneWidget);
 
     await tester.tap(find.text('陪伴'));
     await tester.pumpAndSettle();
